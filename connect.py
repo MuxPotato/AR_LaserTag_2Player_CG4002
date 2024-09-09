@@ -1,4 +1,4 @@
-from bluepy.btle import Scanner, DefaultDelegate
+from bluepy.btle import Scanner, DefaultDelegate, Peripheral
 
 # Parameters
 BLUNO_NAME = 'Bluno'
@@ -49,13 +49,26 @@ def hasBluno(devices):
 def getBlunoFrom(devices):
     blunos = []
     for dev in devices:
-        if dev in BLUNO_MAC_ADDR_LIST:
+        if dev.addr in BLUNO_MAC_ADDR_LIST:
             blunos.append(dev)
     return blunos
 
 def connectTo(mac_addr):
+    beetle = None
+    try:
+        beetle = Peripheral(deviceAddr = mac_addr)
+    except:
+        print("Unable to connect to Bluno Beetle")
+    return beetle
 
 devices = fetchCurrentDevices(5.0)
 blunos = getBlunoFrom(devices)
-if (len(blonos) > 0):
-    for bluno in blunos
+beetles = []
+if (len(blunos) > 0):
+    for bluno in blunos:
+        print("Connecting to {}".format(bluno.addr))
+        beetles.append(connectTo(bluno.addr))
+print(beetles)
+for beetle in beetles:
+    print("Disconnecting {}".format(beetle.addr))
+    beetle.disconnect()

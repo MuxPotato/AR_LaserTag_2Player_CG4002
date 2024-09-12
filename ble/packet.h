@@ -1,4 +1,4 @@
-int PACKET_SIZE = 20;
+#define PACKET_SIZE 20
 
 struct BlePacket {
 	/* Start packet header */

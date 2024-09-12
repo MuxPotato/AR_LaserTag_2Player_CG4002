@@ -4,6 +4,7 @@ bool doHandshake();
 
 bool hasHandshake = false;
 uint16_t seqNum = 0;
+String receiveBuffer = "";
 
 void sendDummyPacket() {
   BlePacket dummyPacket;
@@ -25,6 +26,8 @@ void sendAckPacket() {
   ackPacket.data[0] = (byte)'A';
   ackPacket.data[1] = (byte)'C';
   ackPacket.data[2] = (byte)'K';
+  ackPacket.data[3] = 0;
+  ackPacket.data[4] = 0;
   ackPacket.checksum = 1;
   Serial.write((byte *) &ackPacket, sizeof(ackPacket));
 }
@@ -42,23 +45,25 @@ void setup() {
  */
 void loop() {
   // Create a receive buffer
-  const String HELLO = "HELLOxxxxxxxxxxxxxxx";
-  String receiveBuffer = "";
+  String HELLO = "HELLOxxxxxxxxxxxxxxx";
   if (Serial.available()) {
     char newByte = Serial.read();
     // Append new byte to receive buffer
     receiveBuffer += newByte;
     // ACK complete packet
     /* This IF block is not working. The buffer isn't doing anything */
-    if (receiveBuffer.length() >= 20) {
-      String curr = receiveBuffer.substring(0, 20);
-      receiveBuffer.remove(0, 20);
+    // if (receiveBuffer.length() >= 20) {
+    if (receiveBuffer.length() >= PACKET_SIZE) {
+      String curr = receiveBuffer.substring(0, PACKET_SIZE);
+      receiveBuffer.remove(0, PACKET_SIZE);
       /* if (curr == HELLO) {
         sendAckPacket();
         delay(50);
       } */
-      sendAckPacket();
-      delay(50);
+      if (curr.charAt(0) != packetIds::ACK) {
+        sendAckPacket();
+        delay(50);
+      }
     }
    
     /*int result = 0;

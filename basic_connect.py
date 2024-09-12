@@ -1,3 +1,4 @@
+import struct
 from bluepy.btle import Scanner, DefaultDelegate, Peripheral
 
 # Parameters
@@ -47,6 +48,12 @@ def getSerialChar(beetle):
     serial_char = serial_service.getCharacteristics(GATT_SERIAL_CHARACTERISTIC_UUID)[0]
     return serial_char
 
+def createPacket(packet_id, seq_num, data):
+    # TODO: Implement actual checksum
+    checksum = 1
+    packet = struct.pack("BH16sB", packet_id, seq_num, data, checksum)
+    return packet
+
 def connectTo(mac_addr):
     beetle = None
     try:
@@ -54,7 +61,7 @@ def connectTo(mac_addr):
         beetle = Peripheral(deviceAddr = mac_addr)
         serial_service = beetle.getServiceByUUID(GATT_SERIAL_SERVICE_UUID)
         serial_char = serial_service.getCharacteristics(GATT_SERIAL_CHARACTERISTIC_UUID)[0]
-        beetle.setDelegate(BlePacketDelegate())
+        beetle.setDelegate(BlePacketDelegate(serial_char))
     except Exception as err:
         print("Unable to connect to Bluno Beetle")
         print(err)

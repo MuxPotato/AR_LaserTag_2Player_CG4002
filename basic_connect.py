@@ -80,7 +80,11 @@ for beetle_addr in BLUNO_MAC_ADDR_LIST:
     if beetle:
         try:
             serial_char = getSerialChar(beetle)
-            serial_char.write(bytes("HELLOxxxxxxxxxxxxxxx", encoding = 'ascii'))
+            # TODO: Delete line below
+            # serial_char.write(bytes("HELLOxxxxxxxxxxxxxxx", encoding = 'ascii'))
+            HELLO = "HELLO"
+            hello_packet = createPacket(0, 0, bytes(HELLO, encoding = 'ascii'))
+            serial_char.write(hello_packet)
             while True:
                 if beetle.waitForNotifications(1.0):
                     print("Received notification")

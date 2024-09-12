@@ -1,4 +1,6 @@
-typedef struct {
+int PACKET_SIZE = 20;
+
+struct BlePacket {
 	/* Start packet header */
 	// Highest 4 bits: packet type ID, lowest 4 bits: number of padding bytes
 	byte metadata;
@@ -11,7 +13,7 @@ typedef struct {
 	/* Start footer */
 	byte checksum;
 	/* End footer */
-} blePacket_t;
+};
 
 enum packetIds {
 	HELLO = 0,

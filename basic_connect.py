@@ -35,12 +35,18 @@ class BlePacketDelegate(DefaultDelegate):
                 print("New packet: {}".format(dataPacket))
                 packetId = dataPacket[0]
                 print("Packet ID: {}".format(packetId))
+                if packetId != 1:
+                    self.sendAckPacket()
         except Exception as err:
             print(err)
 
     # To be implemented
-    def sendAckPacket():
-        self.serial_char.write()
+    def sendAckPacket(self):
+        ACK = "ACK............."
+        ack_packet = createPacket(1, 5, bytes(ACK, encoding = 'ascii'))
+        # TODO: Delete line below
+        #print("ACK packet: {}".format(ack_packet))
+        self.serial_char.write(ack_packet)
 
 # Connect
 def getSerialChar(beetle):
@@ -72,12 +78,11 @@ def connectTo(mac_addr):
 for beetle_addr in BLUNO_MAC_ADDR_LIST:
     beetle = connectTo(beetle_addr)
     if beetle:
-        serial_char = getSerialChar(beetle)
         try:
-            # serial_char.write(bytes("HELLOxxxxxxxxxxxxxxx", encoding = 'ascii'))
+            serial_char = getSerialChar(beetle)
+            serial_char.write(bytes("HELLOxxxxxxxxxxxxxxx", encoding = 'ascii'))
             while True:
                 if beetle.waitForNotifications(1.0):
-                    serial_char.write(bytes("ACK", encoding = 'ascii'))
                     print("Received notification")
         except KeyboardInterrupt as key:
             print("Keyboard interrupt")

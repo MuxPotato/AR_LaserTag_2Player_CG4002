@@ -111,7 +111,6 @@ class EvalClient(Thread):
             self.send_text(json.dumps(message))
             success,response = self.recv_text()
             if success:
-                print()
                 print(f"EvalClient: Received response{response} from EvalServer")
                 print("_"*30)
                 

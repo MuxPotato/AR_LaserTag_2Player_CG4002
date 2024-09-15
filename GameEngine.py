@@ -31,6 +31,7 @@ class GameEngine(Thread):
             print()
             action = self.action_queue.get()
             print(f"GameEngine: Received '{action}' from AI")
+            print("_"*30)
             # i need 2 formats one is for putting in the viz_queue and one is for putting in the eval_queue 
             # first is viz_queue format 
             game_state = self.random_game_state() # make dummy game state data but use action from what AI sent 

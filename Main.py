@@ -41,7 +41,7 @@ try:
     print("start eval client thread")
     visualizer.start()
     print("start visualizer thread")
-    print()
+    print("_"*30)
     print()
     
     relay_server.join()

@@ -34,6 +34,7 @@ class MQTT(Thread):
     def on_message(self, client, userdata, msg):
         command = msg.payload.decode()
         print(f"Received command from phone: {command}")
+        print("_"*30)
         self.process_command(command)
 
     # Function to process commands from Unity

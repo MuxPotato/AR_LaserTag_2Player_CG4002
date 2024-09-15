@@ -58,7 +58,8 @@ class MQTT(Thread):
     # Function to send the current game state to Unity
     def send_game_state(self,message):
         self.client.publish(self.gamestate_topic, message)
-        print(f"Sent game state to phone: {message}")
+        print(f"Sent game state to phone")
+        print("_"*30)
         message_dict = self.parse_message(message)
         if message_dict['action'] == 'bomb':
             print(f"Querying phone if opponent in field of view")

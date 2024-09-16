@@ -14,9 +14,8 @@ class AI(Thread):
     def run(self):
       while True:
         message = self.IMU_queue.get()
-        print("-"*30)
+        print("_"*30)
         print_message('AI Thread',f"Received '{message}' from RelayServer")
-        print("-"*30)
         action = self.random_action()
         self.action_queue.put(action)
         

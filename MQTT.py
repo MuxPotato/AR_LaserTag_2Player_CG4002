@@ -4,7 +4,7 @@ import random
 import paho.mqtt.client as mqtt
 import json
 from Color import print_message
-
+import time 
 class MQTT(Thread):
 
     def __init__(self,viz_queue):
@@ -72,11 +72,11 @@ class MQTT(Thread):
     def run(self):
       while True:
         # Receive message from GameEngine
+        time.sleep(2)
         message = self.viz_queue.get()
         #print(f"Visualizer thread: Received '{message}' from GameEngine")
         print("-"* 30)
         print_message('MQTT',"Received message from GameEngine")
-        print()
         self.send_game_state(message)
     
     def shutdown(self):

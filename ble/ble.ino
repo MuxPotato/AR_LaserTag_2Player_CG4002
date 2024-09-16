@@ -1,4 +1,4 @@
-#include "packet.h"
+#include "packet.hpp"
 #include "CRC8.h"
 
 bool doHandshake();
@@ -7,60 +7,75 @@ bool hasHandshake = false;
 uint16_t seqNum = 0;
 String receiveBuffer = "";
 
-void createPacket(BlePacket &packet, byte packetType, short seqNum, byte data[16]) {
+uint8_t getCrcOf(const BlePacket &packet) {
+  CRC8 crcGen;
+  crcGen.add((uint8_t) packet.metadata);
+  crcGen.add((uint8_t) packet.seqNum);
+  crcGen.add((uint8_t) packet.seqNum >> BITS_PER_BYTE);
+  for (auto c : packet.data) {
+    crcGen.add((uint8_t) c);
+  }
+  uint8_t crcValue = crcGen.calc();
+  return crcValue;
+}
+
+void createPacket(BlePacket &packet, byte packetType, short givenSeqNum, byte data[16]) {
   packet.metadata = packetType;
-  packet.packetId = seqNum;
+  packet.seqNum = givenSeqNum;
   for (byte i = 0; i < 16; i += 1) {
     packet.data[i] = data[i];
   }
   // TODO: Implement proper checksum
-  packet.checksum = 1;
+  packet.checksum = getCrcOf(packet);
 }
 
 void sendDummyPacket() {
   BlePacket dummyPacket;
   dummyPacket.metadata = 0;
-  dummyPacket.packetId = 2;
+  dummyPacket.seqNum = seqNum;
   dummyPacket.data[0] = (byte)'D';
   dummyPacket.data[1] = (byte)'U';
   dummyPacket.data[2] = (byte)'M';
   dummyPacket.data[3] = (byte)'M';
   dummyPacket.data[4] = (byte)'Y';
   //dummyPacket.checksum = 1;
-  CRC8 crcGen;
+  /* CRC8 crcGen;
   crcGen.add((uint8_t) dummyPacket.metadata);
-  crcGen.add((uint8_t) dummyPacket.packetId);
+  crcGen.add((uint8_t) dummyPacket.seqNum);
   for (auto c : dummyPacket.data) {
     crcGen.add((uint8_t) c);
   }
-  dummyPacket.checksum = crcGen.calc();
+  dummyPacket.checksum = crcGen.calc(); */
+  dummyPacket.checksum = getCrcOf(dummyPacket);
   Serial.write((byte *) &dummyPacket, sizeof(dummyPacket));
+  seqNum += 1;
 }
 
 void sendAckPacket() {
   BlePacket ackPacket;
   ackPacket.metadata = 1;
-  ackPacket.packetId = 0;
+  ackPacket.seqNum = seqNum;
   ackPacket.data[0] = (byte)'A';
   ackPacket.data[1] = (byte)'C';
   ackPacket.data[2] = (byte)'K';
   ackPacket.data[3] = 0;
   ackPacket.data[4] = 0;
-  ackPacket.checksum = 1;
+  ackPacket.checksum = getCrcOf(ackPacket);
   Serial.write((byte *) &ackPacket, sizeof(ackPacket));
 }
 
 void sendSynPacket(byte seqNum) {
-  BlePacket ackPacket;
-  ackPacket.metadata = 1;
-  ackPacket.packetId = 0;
-  ackPacket.data[0] = (byte)'A';
-  ackPacket.data[1] = (byte)'C';
-  ackPacket.data[2] = (byte)'K';
-  ackPacket.data[3] = 0;
-  ackPacket.data[4] = 0;
-  ackPacket.checksum = 1;
-  Serial.write((byte *) &ackPacket, sizeof(ackPacket));
+  BlePacket synPacket;
+  synPacket.metadata = 1;
+  synPacket.seqNum = seqNum;
+  synPacket.data[0] = (byte)'A';
+  synPacket.data[1] = (byte)'C';
+  synPacket.data[2] = (byte)'K';
+  synPacket.data[3] = 0;
+  synPacket.data[4] = 0;
+  synPacket.checksum = getCrcOf(synPacket);
+  Serial.write((byte *) &synPacket, sizeof(synPacket));
+  seqNum += 1;
 }
 
 void setup() {
@@ -87,7 +102,10 @@ void loop() {
         sendAckPacket();
         delay(50);
       } */
-      if (curr.charAt(0) != packetIds::ACK) {
+      BlePacket currPacket;
+      convertBytesToPacket(curr, currPacket);
+      //if (curr.charAt(0) != packetIds::ACK) {
+      if ((currPacket.metadata & LOWER_4BIT_MASK) != packetIds::ACK) {
         sendAckPacket();
         delay(50);
       }

@@ -3,7 +3,7 @@ from queue import Queue
 import random
 import paho.mqtt.client as mqtt
 import json
-
+from Color import print_message
 
 class MQTT(Thread):
 
@@ -27,13 +27,13 @@ class MQTT(Thread):
 
     # Callback when the client connects to the broker
     def on_connect(self, client, userdata, flags, rc):
-        print(f"Connected with result code {rc}")
+        print_message('MQTT',"Connected")
         self.client.subscribe(self.viz_response)  # Subscribe to commands from Unity
 
     # Callback when a message is received
     def on_message(self, client, userdata, msg):
         command = msg.payload.decode()
-        print(f"Received command from phone: {command}")
+        print_message('MQTT',f"Received command from phone: {command}")
         print("_"*30)
         self.process_command(command)
 
@@ -41,7 +41,7 @@ class MQTT(Thread):
     def process_command(self,command):
         if command.startswith("fov:"):
             in_view = bool(command.split(":")[1])
-            print(f"The opponent is in view is {in_view}")
+            print_message('MQTT',f"The opponent is in view is {in_view}")
         
     def parse_message(self,message):
         # Split the message by commas first
@@ -53,17 +53,17 @@ class MQTT(Thread):
             if value.isdigit():
                 value = int(value)
             message_dict[key] = value
-        print(message_dict)
+        
         return message_dict
     
     # Function to send the current game state to Unity
     def send_game_state(self,message):
         self.client.publish(self.gamestate_topic, message)
-        print(f"Sent game state to phone")
+        print_message('MQTT',"Sent game state to phone")
         print("_"*30)
         message_dict = self.parse_message(message)
         if message_dict['action'] == 'bomb':
-            print(f"Querying phone if opponent in field of view")
+            print_message('MQTT',"Querying phone if opponent in field of view")
             query = f"fov"
             self.client.publish(self.fov_topic,query)
 
@@ -75,7 +75,7 @@ class MQTT(Thread):
         message = self.viz_queue.get()
         #print(f"Visualizer thread: Received '{message}' from GameEngine")
         print("-"* 30)
-        print(f"Visualizer thread: Received message from GameEngine")
+        print_message('MQTT',"Received message from GameEngine")
         print()
         self.send_game_state(message)
     

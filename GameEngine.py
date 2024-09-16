@@ -1,7 +1,7 @@
 from threading import Thread
 from queue import Queue
 import random
-
+from Color import print_message
 
 class GameEngine(Thread):
      def __init__(self,game_engine_queue,action_queue, eval_queue, viz_queue):
@@ -27,10 +27,10 @@ class GameEngine(Thread):
             IMU_info = self.game_engine_queue.get()
             #print(f"GameEngine: Received '{IMU_info}' from RelayServer")
             print("_"*30)
-            print(f"GameEngine: Received message from RelayServer")
+            print_message('Game Engine',"Received message from RelayServer")
             print()
             action = self.action_queue.get()
-            print(f"GameEngine: Received '{action}' from AI")
+            print_message('Game Engine',f"Received '{action}' from AI")
             print("_"*30)
             # i need 2 formats one is for putting in the viz_queue and one is for putting in the eval_queue 
             # first is viz_queue format 

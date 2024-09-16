@@ -25,7 +25,7 @@ class RelayServer(Thread):
                 while not data.endswith(b'_'):
                     _d = client.recv(1)
                     if not _d:  # Client disconnected
-                        print(f"Client {address} disconnected")
+                        print_message('Relay Server',f"Client {address} disconnected")
                         client.close()
                         return
                     data += _d
@@ -40,7 +40,7 @@ class RelayServer(Thread):
                 while len(data) < length:
                     _d = client.recv(length - len(data))
                     if not _d:  # Client disconnected
-                        print(f"Client {address} disconnected")
+                        print_message('Relay Server',f"Client {address} disconnected")
                         client.close()
                         return
                     data += _d
@@ -50,9 +50,9 @@ class RelayServer(Thread):
 
                 msg = data.decode("utf-8")
                 if length != len(data):
-                    print("Packet length does not match, packet dropped")
+                    print_message('Relay Server',"Packet length does not match, packet dropped")
                 else:
-                    print(f"Received '{msg}' from client {address}")
+                    print_message('Relay Server',f"Received '{msg}' from Relay Client")
                     self.processMessage(msg)
         finally:
             client.close()  # Ensure the connection is closed after handling
@@ -63,13 +63,14 @@ class RelayServer(Thread):
         self.IMU_queue.put(msg)
         print_message('Relay Server',"Sending message to game engine")
         #print("RelayServer: Sending message to game engine")
-        print("-" * 30)
+        print("_" * 30)
         self.game_engine_queue.put(msg)
         
 
     def run(self): 
         self.server.listen(1)
         # time.sleep(2)
+        print('_'*30)
         print_message('Relay Server',f'listening on {self.host}:{self.port}')
         #print(f"Relay Server is listening on {self.host}:{self.port}")
         try:

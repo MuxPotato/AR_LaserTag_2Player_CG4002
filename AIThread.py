@@ -1,6 +1,8 @@
 from threading import Thread
 from queue import Queue
 import random
+from Color import print_message
+
 ACTIONS = ["gun", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"]
 
 class AI(Thread):
@@ -13,7 +15,8 @@ class AI(Thread):
       while True:
         message = self.IMU_queue.get()
         print("-"*30)
-        print(f"AI: Received '{message}' from RelayServer")
+        print_message('AI Thread',f"Received '{message}' from RelayServer")
+        print("-"*30)
         action = self.random_action()
         self.action_queue.put(action)
         

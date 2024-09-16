@@ -10,6 +10,7 @@ from Crypto.Cipher import AES
 import sys
 import time
 from Crypto.Util.Padding import pad
+from Color import print_message
 
 class EvalClient(Thread):
     def __init__(self,eval_queue,server_ip, server_port):
@@ -104,14 +105,14 @@ class EvalClient(Thread):
             message = self.eval_queue.get()
             #print(f"EvalClient: Received '{message}' from game engine")
             print("_"*30)
-            print(f"EvalClient: Received message from game engine")
+            print_message('Eval Client',f"Received message from game engine")
             print()
 
             # send message to eval server 
             self.send_text(json.dumps(message))
             success,response = self.recv_text()
             if success:
-                print(f"EvalClient: Received response{response} from EvalServer")
+                print_message('Eval Client',f"Received {response} from EvalServer")
                 print("_"*30)
                 
             else: 

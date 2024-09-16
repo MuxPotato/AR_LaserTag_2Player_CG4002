@@ -215,7 +215,7 @@ bool doHandshake() {
   while (Serial.available()) {
     char nextByte = Serial.read();
     helloBuffer += nextByte;
-    if (helloBuffer.length() == 20) {
+    if (helloBuffer.length() == PACKET_SIZE) {
       // We have received one complete packet, stop reading BLE data
       break;
     }

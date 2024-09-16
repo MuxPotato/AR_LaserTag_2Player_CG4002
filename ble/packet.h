@@ -1,10 +1,11 @@
 #define PACKET_SIZE 20
+#define BITS_PER_BYTE 8
 
 struct BlePacket {
 	/* Start packet header */
 	// Highest 4 bits: packet type ID, lowest 4 bits: number of padding bytes
 	byte metadata;
-	uint16_t packetId;
+	uint16_t seqNum;
 	/* End packet header */
 	/* Start packet body */
 	// 16-bytes of data, e.g. accelerometer data
@@ -26,3 +27,13 @@ enum packetIds {
 	P2_IR_TRANS = 7,
 	GAME_STAT = 8
 };
+
+bool isPacketValid(BlePacket &packet) {
+  // TODO: Implement actual checks
+  return true;
+}
+
+/* void convertBytesToPacket(String dataBuffer, BlePacket &packet) {
+  byte packetType = dataBuffer.charAt(0);
+  short packetId = 
+} */

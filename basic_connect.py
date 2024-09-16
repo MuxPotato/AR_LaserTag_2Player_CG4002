@@ -1,4 +1,5 @@
 from collections import deque
+from enum import Enum
 import struct
 from bluepy.btle import DefaultDelegate, Peripheral
 import anycrc
@@ -6,6 +7,8 @@ import anycrc
 # Parameters
 PACKET_SIZE = 20
 BLE_TIMEOUT = 1.0
+INITIAL_SEQ_NUM = 0
+ERROR_VALUE = -1
 BLUNO_MANUFACTURER_ID = "4c000215e2c56db5dffb48d2b060d0f5a71096e000000000c5"
 BLUNO_MAC_ADDR_LIST = [
     "f4:b8:5e:42:67:2b",
@@ -15,6 +18,18 @@ GATT_SERIAL_SERVICE_UUID = "0000dfb0-0000-1000-8000-00805f9b34fb"
 GATT_SERIAL_CHARACTERISTIC_UUID = "0000dfb1-0000-1000-8000-00805f9b34fb"
 
 # Variables
+
+# Packet Type ID
+class PacketType(Enum):
+    HELLO = 0
+    ACK = 1
+    P1_IMU = 2
+    P1_IR_RECV = 3
+    P1_IR_TRANS = 4
+    P2_IMU = 5
+    P2_IR_RECV = 6
+    P2_IR_TRANS = 7
+    GAME_STAT = 8
 
 # Delegate
 class BlePacketDelegate(DefaultDelegate):
@@ -27,7 +42,7 @@ class BlePacketDelegate(DefaultDelegate):
     # Bluno Beetle uses cHandle 37
     def handleNotification(self, cHandle, data):
         try:
-            print("Incoming data: {}".format(data.hex()))
+            #print("Incoming data: {}".format(data.hex()))
             # Add incoming bytes to receive buffer
             #self.dataBuffer += data
             for dataByte in data:
@@ -128,16 +143,17 @@ def checkReceiveBuffer(receiveBuffer):
 def parsePacket(serial_char, packetBytes):
     # Check for NULL packet
     if not packetBytes:
-        return
+        return ERROR_VALUE, ERROR_VALUE, None
     print("New packet: {}".format(packetBytes))
     # packet_id = packetBytes[0]
     packet_id, seq_num, data, dataCrc = getPacketFrom(packetBytes)
     computedCrc = getCrcOf(packet_id, seq_num, data)
     if dataCrc != computedCrc:
         print("CRC8 not match: {} vs {}".format(dataCrc, computedCrc))
-    print("Packet ID: {}".format(packet_id))
+    #print("Packet ID: {}".format(packet_id))
     if packetBytes != 1:
         sendAckPacket(serial_char)
+    return packet_id, seq_num, data
 
 # To be implemented
 def sendAckPacket(serial_char):
@@ -159,22 +175,25 @@ for beetle_addr in BLUNO_MAC_ADDR_LIST:
             # TODO: Delete line below
             # serial_char.write(bytes("HELLOxxxxxxxxxxxxxxx", encoding = 'ascii'))
             HELLO = "HELLO"
-            hello_packet = createPacket(0, 0, bytes(HELLO, encoding = 'ascii'))
+            hello_packet = createPacket(0, INITIAL_SEQ_NUM, bytes(HELLO, encoding = 'ascii'))
             serial_char.write(hello_packet)
             while True:
                 """ if (not hasHandshake) and (not hasSentHello):
                     HELLO = "HELLO"
-                    hello_packet = createPacket(0, 0, bytes(HELLO, encoding = 'ascii'))
+                    hello_packet = createPacket(0, INITIAL_SEQ_NUM, bytes(HELLO, encoding = 'ascii'))
                     serial_char.write(hello_packet)
                     hasSentHello = True
                 if beetle.waitForNotifications(BLE_TIMEOUT):
                     # print("Received notification")
-                    dataBuffer = checkReceiveBuffer(dataBuffer)
+                    packetBytes = checkReceiveBuffer(dataBuffer)
                     if hasHandshake:
-                        continue
+                        parsePacket(serial_char, packetBytes)
                     else:
                         # Check whether received packet is ACK
-                        continue """
+                        packet_id, seq_num, data = parsePacket(serial_char, packetBytes)
+                        if packet_id == PacketType.ACK and seq_num == INITIAL_SEQ_NUM:
+                            hasHandshake = True """
+
                 if beetle.waitForNotifications(BLE_TIMEOUT):
                     print("Received notification")
                     dataPacket = checkReceiveBuffer(dataBuffer)

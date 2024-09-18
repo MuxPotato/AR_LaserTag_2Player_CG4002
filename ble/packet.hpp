@@ -1,12 +1,12 @@
 #define PACKET_SIZE 20
 #define BITS_PER_BYTE 8
-#define MAX_BUFFER_SIZE 30
+#define MAX_BUFFER_SIZE 40
 #define LOWER_4BIT_MASK 0x0F
 #define BLE_TIMEOUT 200
 
 struct BlePacket {
 	/* Start packet header */
-	// Highest 4 bits: packet type ID, lowest 4 bits: number of padding bytes
+	// Lowest 4 bits: packet type ID, highest 4 bits: number of padding bytes
 	byte metadata;
 	uint16_t seqNum;
 	/* End packet header */
@@ -64,6 +64,13 @@ public:
     this->head = 0;
     this->tail = 0;
     this->setLength(0);
+  }
+
+  T get(int index) {
+    if (index < this->size()) {
+      return this->elements[this->head + index];
+    }
+    return T();
   }
 
   bool push_back(T element) {
@@ -130,6 +137,17 @@ void convertBytesToPacket(String &dataBuffer, BlePacket &packet) {
     index += 1;
   }
   packet.checksum = dataBuffer.charAt(PACKET_SIZE - 1);
+}
+
+void convertBytesToPacket(CircularBuffer<char> &dataBuffer, BlePacket &packet) {
+  packet.metadata = dataBuffer.pop_front();
+  packet.seqNum = dataBuffer.pop_front() + (dataBuffer.pop_front() << BITS_PER_BYTE);
+  byte index = 3;
+  for (auto &dataByte : packet.data) {
+    dataByte = dataBuffer.pop_front();
+    index += 1;
+  }
+  packet.checksum = dataBuffer.pop_front();
 }
 
 void readPacket(BlePacket &packet) {

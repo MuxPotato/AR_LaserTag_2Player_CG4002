@@ -75,8 +75,9 @@ class MQTT(Thread):
         time.sleep(2)
         message = self.viz_queue.get()
         #print(f"Visualizer thread: Received '{message}' from GameEngine")
-        print("-"* 30)
+        #print("_"* 30)
         print_message('MQTT',"Received message from GameEngine")
+        print()
         self.send_game_state(message)
     
     def shutdown(self):

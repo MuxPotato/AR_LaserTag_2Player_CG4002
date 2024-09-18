@@ -42,7 +42,7 @@ try:
     visualizer.start()
     print("starting visualizer thread")
     print("_"*30)
-    print()
+    
     
     relay_server.join()
     ai.join()

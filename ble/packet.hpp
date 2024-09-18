@@ -2,6 +2,9 @@
 #define BITS_PER_BYTE 8
 #define MAX_BUFFER_SIZE 30
 #define LOWER_4BIT_MASK 0x0F
+#define BLE_TIMEOUT 200
+
+bool doHandshake();
 
 struct BlePacket {
 	/* Start packet header */
@@ -18,7 +21,7 @@ struct BlePacket {
 	/* End footer */
 };
 
-enum packetIds {
+enum PacketType {
 	HELLO = 0,
 	ACK = 1,
 	P1_IMU = 2,
@@ -28,6 +31,13 @@ enum packetIds {
 	P2_IR_RECV = 6,
 	P2_IR_TRANS = 7,
 	GAME_STAT = 8
+};
+
+enum HandshakeStatus {
+  STAT_NONE = 0,
+  STAT_HELLO = 1,
+  STAT_ACK = 2,
+  STAT_SYN = 3
 };
 
 template <typename T> class CircularBuffer {
@@ -86,6 +96,11 @@ public:
   }
 };
 
+bool isHeadByte(byte currByte) {
+  byte packetId = currByte & LOWER_4BIT_MASK;
+  return packetId >= PacketType::HELLO && packetId <= PacketType::GAME_STAT;
+}
+
 bool isPacketValid(BlePacket &packet) {
   // TODO: Implement actual checks
   return true;
@@ -100,4 +115,24 @@ void convertBytesToPacket(String &dataBuffer, BlePacket &packet) {
     index += 1;
   }
   packet.checksum = dataBuffer.charAt(PACKET_SIZE - 1);
+}
+
+void readPacket(BlePacket &packet) {
+  packet.metadata = -1;
+  String receiveBuffer = "";
+  byte count = 0;
+  while (Serial.available() && count < PACKET_SIZE) {
+    char nextByte = Serial.read();
+    // TODO: Implement robust packet parsing from buffer
+    /* if (!isHeadByte(nextByte)) {
+      continue;
+    } */
+    receiveBuffer += nextByte;
+    if (receiveBuffer.length() == PACKET_SIZE) {
+      // We have received one complete packet, stop reading BLE data
+      String packetBytes = receiveBuffer.substring(0, PACKET_SIZE);
+      convertBytesToPacket(packetBytes, packet);
+    }
+    count += 1;
+  }
 }

@@ -1,8 +1,6 @@
 #include "packet.hpp"
 #include "CRC8.h"
 
-bool doHandshake();
-
 bool hasHandshake = false;
 uint16_t seqNum = 0;
 String receiveBuffer = "";
@@ -31,7 +29,7 @@ void createPacket(BlePacket &packet, byte packetType, short givenSeqNum, byte da
 
 void sendDummyPacket() {
   BlePacket dummyPacket;
-  dummyPacket.metadata = 0;
+  dummyPacket.metadata = PacketType::P1_IMU;
   dummyPacket.seqNum = seqNum;
   dummyPacket.data[0] = (byte)'D';
   dummyPacket.data[1] = (byte)'U';
@@ -51,10 +49,10 @@ void sendDummyPacket() {
   seqNum += 1;
 }
 
-void sendAckPacket() {
+void sendAckPacket(uint16_t givenSeqNum) {
   BlePacket ackPacket;
-  ackPacket.metadata = 1;
-  ackPacket.seqNum = seqNum;
+  ackPacket.metadata = PacketType::ACK;
+  ackPacket.seqNum = givenSeqNum;
   ackPacket.data[0] = (byte)'A';
   ackPacket.data[1] = (byte)'C';
   ackPacket.data[2] = (byte)'K';
@@ -64,18 +62,19 @@ void sendAckPacket() {
   Serial.write((byte *) &ackPacket, sizeof(ackPacket));
 }
 
-void sendSynPacket(byte seqNum) {
+void sendSynPacket(byte givenSeqNum) {
   BlePacket synPacket;
-  synPacket.metadata = 1;
-  synPacket.seqNum = seqNum;
+  synPacket.metadata = PacketType::ACK;
+  synPacket.seqNum = givenSeqNum;
   synPacket.data[0] = (byte)'A';
   synPacket.data[1] = (byte)'C';
   synPacket.data[2] = (byte)'K';
-  synPacket.data[3] = 0;
-  synPacket.data[4] = 0;
+  synPacket.data[3] = (byte)'S';
+  synPacket.data[4] = (byte)'Y';
+  synPacket.data[5] = (byte)'N';
   synPacket.checksum = getCrcOf(synPacket);
   Serial.write((byte *) &synPacket, sizeof(synPacket));
-  seqNum += 1;
+  //seqNum += 1;
 }
 
 void setup() {
@@ -90,6 +89,11 @@ void setup() {
 * Beetle for some reason
  */
 void loop() {
+  if (!hasHandshake) {
+    hasHandshake = doHandshake();
+    return;
+  }
+  // Assert: hasHandshake == true
   if (Serial.available()) {
     char newByte = Serial.read();
     // Append new byte to receive buffer
@@ -99,24 +103,26 @@ void loop() {
       String curr = receiveBuffer.substring(0, PACKET_SIZE);
       receiveBuffer.remove(0, PACKET_SIZE);
       /* if (curr == HELLO) {
-        sendAckPacket();
+        sendAckPacket(seqNum);
         delay(50);
       } */
       BlePacket currPacket;
       convertBytesToPacket(curr, currPacket);
-      //if (curr.charAt(0) != packetIds::ACK) {
-      if ((currPacket.metadata & LOWER_4BIT_MASK) != packetIds::ACK) {
-        sendAckPacket();
+      //if (curr.charAt(0) != PacketType::ACK) {
+      if ((currPacket.metadata & LOWER_4BIT_MASK) != PacketType::ACK) {
+        sendAckPacket(seqNum);
         delay(50);
-      }
+      }/*  else {
+        sendSynPacket(seqNum);
+      } */
     }
    
-    /*int result = 0;
+    /* int result = 0;
     // Clear the receiver buffer
     while (Serial.available()) {
       result += Serial.read();
     }
-    sendAckPacket(); */
+    sendAckPacket(seqNum); */
     //Serial.write(Serial.read());
   } else {
     sendDummyPacket();
@@ -136,7 +142,7 @@ void loop() {
       data += newByte;
     }
       //Serial.write(data.c_str(), data.length());
-      sendAckPacket();
+      sendAckPacket(seqNum);
       delay(10);
   } else {
     sendDummyPacket();
@@ -161,7 +167,7 @@ void loop() {
       int receivedByte = Serial.read();
       // Acknowledge received data
       if (byteCount >= 20) {
-        sendAckPacket();
+        sendAckPacket(seqNum);
         byteCount -= 20;
         delay(10);
       }
@@ -190,8 +196,8 @@ bool doHandshake() {
       return false;
     }
   }
-  if (inputs[0] == packetIds::HELLO) {
-    sendAckPacket();
+  if (inputs[0] == PacketType::HELLO) {
+    sendAckPacket(seqNum);
     delay(25);
   }
   // Wait for SYN+ACK packet
@@ -204,24 +210,75 @@ bool doHandshake() {
   //     return false;
   //   }
   // }
-  // return inputs[0] == packetIds::ACK;
+  // return inputs[0] == PacketType::ACK;
   return true;
 }
 */
-bool doHandshake() {
+// doHandshake() V2, doesn't work
+/* bool doHandshake() {
   while (!Serial.available());
-  String helloBuffer = "";
+  //String helloBuffer = "";
   // Check for HELLO packet
-  while (Serial.available()) {
-    char nextByte = Serial.read();
-    helloBuffer += nextByte;
-    if (helloBuffer.length() == PACKET_SIZE) {
-      // We have received one complete packet, stop reading BLE data
-      break;
-    }
+  BlePacket currPacket;
+  readPacket(currPacket);
+  Serial.write((byte *) &currPacket, sizeof(currPacket));
+  // TODO: Validate the packet
+  if ((currPacket.metadata & LOWER_4BIT_MASK) != PacketType::HELLO) {
+    return false;
   }
   
   // Send SYN packet
+  sendSynPacket(currPacket.seqNum);
 
   // Check for SYN+ACK packet
+  readPacket(currPacket);
+  // TODO: Validate the packet
+  if ((currPacket.metadata & LOWER_4BIT_MASK) != PacketType::ACK) {
+    return false;
+  }
+  seqNum = currPacket.seqNum;
+  return true;
+} */
+
+bool doHandshake() {
+  HandshakeStatus status = STAT_NONE;
+  uint16_t seqNumToUse = 0;
+  unsigned long prevTime = millis();
+  while (true) {
+    if (!Serial.available()) {
+      continue;
+    }
+    // Timeout waiting for HELLO packet
+    if ((millis() - prevTime) > BLE_TIMEOUT) {
+      break;
+    }
+    char newByte = Serial.read();
+    // Append new byte to receive buffer
+    receiveBuffer += newByte;
+    // ACK complete packet
+    if (receiveBuffer.length() >= PACKET_SIZE) {
+      String curr = receiveBuffer.substring(0, PACKET_SIZE);
+      receiveBuffer.remove(0, PACKET_SIZE);
+      BlePacket currPacket;
+      convertBytesToPacket(curr, currPacket);
+      if ((currPacket.metadata & LOWER_4BIT_MASK) == PacketType::HELLO) {
+        status = STAT_HELLO;
+        seqNumToUse = seqNum;
+        sendAckPacket(seqNumToUse);
+        prevTime = millis();
+        status = STAT_ACK;
+      } else if ((currPacket.metadata & LOWER_4BIT_MASK) == PacketType::ACK) {
+        // Timeout waiting for SYN+ACK to the ACK packet
+        if ((millis() - prevTime) > BLE_TIMEOUT) {
+          break;
+        }
+        // Make sure that the SYN+ACK packet seq num matches our ACK packet one
+        if (status == STAT_ACK && currPacket.seqNum == seqNumToUse) {
+          status = STAT_SYN;
+          return true;
+        }
+      }
+    }
+  } // while (true)
+  return false;
 }

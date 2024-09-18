@@ -1,9 +1,13 @@
 #include "packet.hpp"
 #include "CRC8.h"
 
+HandshakeStatus handshakeStatus = STAT_NONE;
 bool hasHandshake = false;
 uint16_t seqNum = 0;
+int sentSeqNum = -1;
+unsigned long sentPacketTime = 0;
 String receiveBuffer = "";
+CircularBuffer<BlePacket> sendBuffer{};
 
 uint8_t getCrcOf(const BlePacket &packet) {
   CRC8 crcGen;
@@ -45,8 +49,9 @@ void sendDummyPacket() {
   }
   dummyPacket.checksum = crcGen.calc(); */
   dummyPacket.checksum = getCrcOf(dummyPacket);
-  Serial.write((byte *) &dummyPacket, sizeof(dummyPacket));
-  seqNum += 1;
+  //Serial.write((byte *) &dummyPacket, sizeof(dummyPacket));
+  sendBuffer.push_back(dummyPacket);
+  //seqNum += 1;
 }
 
 void sendAckPacket(uint16_t givenSeqNum) {
@@ -59,7 +64,8 @@ void sendAckPacket(uint16_t givenSeqNum) {
   ackPacket.data[3] = 0;
   ackPacket.data[4] = 0;
   ackPacket.checksum = getCrcOf(ackPacket);
-  Serial.write((byte *) &ackPacket, sizeof(ackPacket));
+  //Serial.write((byte *) &ackPacket, sizeof(ackPacket));
+  sendBuffer.push_back(ackPacket);
 }
 
 void sendSynPacket(byte givenSeqNum) {
@@ -73,7 +79,8 @@ void sendSynPacket(byte givenSeqNum) {
   synPacket.data[4] = (byte)'Y';
   synPacket.data[5] = (byte)'N';
   synPacket.checksum = getCrcOf(synPacket);
-  Serial.write((byte *) &synPacket, sizeof(synPacket));
+  //Serial.write((byte *) &synPacket, sizeof(synPacket));
+  sendBuffer.push_back(synPacket);
   //seqNum += 1;
 }
 
@@ -83,16 +90,13 @@ void setup() {
 }
 
 /* Works after resetting the AT settings and putting Beetle in GAP Peripheral mode again */
-/* HELLO packet from laptop somehow not detected by Beetle still
- * But packet transmission from Beetle to laptop now works
- * Packet transmission from laptop to Beetle likely is working too, I just can't parse the incoming packets from laptop on the
-* Beetle for some reason
+/* Basic unreliable communication without ACK, except for handshake
  */
 void loop() {
-  if (!hasHandshake) {
+  /* if (!hasHandshake) {
     hasHandshake = doHandshake();
     return;
-  }
+  } */
   // Assert: hasHandshake == true
   if (Serial.available()) {
     char newByte = Serial.read();
@@ -102,35 +106,38 @@ void loop() {
     if (receiveBuffer.length() >= PACKET_SIZE) {
       String curr = receiveBuffer.substring(0, PACKET_SIZE);
       receiveBuffer.remove(0, PACKET_SIZE);
-      /* if (curr == HELLO) {
-        sendAckPacket(seqNum);
-        delay(50);
-      } */
       BlePacket currPacket;
       convertBytesToPacket(curr, currPacket);
-      //if (curr.charAt(0) != PacketType::ACK) {
-      if ((currPacket.metadata & LOWER_4BIT_MASK) != PacketType::ACK) {
-        sendAckPacket(seqNum);
-        delay(50);
-      }/*  else {
-        sendSynPacket(seqNum);
-      } */
+      if ((currPacket.metadata & LOWER_4BIT_MASK) == PacketType::HELLO) {
+        hasHandshake = false;
+        handshakeStatus = STAT_HELLO;
+        delay(25);
+        // Bug: Somehow Beetle sends ACK but laptop doesn't receive it sometimes when reconnecting a disconnected Beetle. Doesn't happen in the first 3-way handshake after Beetle is powered on
+        ackHelloPacket(seqNum);
+      } else if ((currPacket.metadata & LOWER_4BIT_MASK) != PacketType::ACK) {
+      //if ((currPacket.metadata & LOWER_4BIT_MASK) != PacketType::ACK) {
+        sendAckPacket(currPacket.seqNum);
+        //delay(50);
+      } else if ((currPacket.metadata & LOWER_4BIT_MASK) == PacketType::ACK) {
+        // Bug: Not currently entering this if block when laptop reconnects Beetle, but the first 3-way handshake after Beetle is powered on works
+        // Bug 2: Sometimes laptop receives the ACK from Beetle and sends SYN+ACK, but Beetle doesn't enter this loop/set hasHandshake = true. Other times, Beetle completes 3-way handshake after reconnection successfully
+        uint16_t seqNumToUse = sentSeqNum == -1 ? 0 : sentSeqNum;
+        parseSynAck(currPacket, sentSeqNum);
+      }
     }
    
-    /* int result = 0;
-    // Clear the receiver buffer
-    while (Serial.available()) {
-      result += Serial.read();
-    }
-    sendAckPacket(seqNum); */
-    //Serial.write(Serial.read());
-  } else {
+  } else if (hasHandshake) {
     sendDummyPacket();
-    delay(250);
-    // 70: 01110000
-    // 74: 01110100
+    //delay(250);
+  } /* else if (!hasHandshake && (handshakeStatus == STAT_HELLO || handshakeStatus == STAT_ACK)
+    && (millis() - sentPacketTime) > BLE_TIMEOUT) {
+    // Fix for laptop not receiving ACK for HELLO packet when reconnecting, but doesn't fix the bug
+    //ackHelloPacket(sentSeqNum);
+  } */
+  if (hasHandshake && !sendBuffer.isEmpty()) {
+    sendPacketFrom(sendBuffer);
+    delay(50);
   }
-  //delay(250);
 }
 
 // Broken test code
@@ -240,6 +247,7 @@ bool doHandshake() {
   return true;
 } */
 
+// V3: Working, but not adaptive. Cannot handle sudden disconnects
 bool doHandshake() {
   HandshakeStatus status = STAT_NONE;
   uint16_t seqNumToUse = 0;
@@ -264,7 +272,10 @@ bool doHandshake() {
       if ((currPacket.metadata & LOWER_4BIT_MASK) == PacketType::HELLO) {
         status = STAT_HELLO;
         seqNumToUse = seqNum;
-        sendAckPacket(seqNumToUse);
+        /* sendAckPacket(seqNumToUse);
+        sendPacketFrom(sendBuffer); */
+        BlePacket ackPacket = createAckPacket(seqNumToUse);
+        Serial.write((byte *) &ackPacket, sizeof(ackPacket));
         prevTime = millis();
         status = STAT_ACK;
       } else if ((currPacket.metadata & LOWER_4BIT_MASK) == PacketType::ACK) {
@@ -282,3 +293,70 @@ bool doHandshake() {
   } // while (true)
   return false;
 }
+
+BlePacket createAckPacket(uint16_t givenSeqNum) {
+  BlePacket ackPacket;
+  ackPacket.metadata = PacketType::ACK;
+  ackPacket.seqNum = givenSeqNum;
+  ackPacket.data[0] = (byte)'A';
+  ackPacket.data[1] = (byte)'C';
+  ackPacket.data[2] = (byte)'K';
+  ackPacket.data[3] = 0;
+  ackPacket.data[4] = 0;
+  ackPacket.checksum = getCrcOf(ackPacket);
+  return ackPacket;
+}
+
+bool sendPacketFrom(CircularBuffer<BlePacket> &sendBuffer) {
+  // Nothing can be done if the buffer is empty!
+  if (sendBuffer.isEmpty()) {
+    return false;
+  }
+  // There's 1 or more packets to send
+  BlePacket packet = sendBuffer.pop_front();
+  Serial.write((byte *) &packet, sizeof(packet));
+  if (shouldIncSeqNumFor(packet)) {
+    // TODO: Fix any potential bugs and uncomment line below
+    //sentSeqNum = seqNum;
+    seqNum += 1;
+  }
+  return true;
+}
+
+void ackHelloPacket(uint16_t givenSeqNum) {
+  BlePacket ackPacket = createAckPacket(givenSeqNum);
+  Serial.write((byte *) &ackPacket, sizeof(ackPacket));
+  sentPacketTime = millis();
+  handshakeStatus = STAT_ACK;
+  sentSeqNum = givenSeqNum;
+}
+
+bool parseSynAck(BlePacket &packet, uint16_t expectedSeqNum) {
+  if ((packet.metadata & LOWER_4BIT_MASK) == PacketType::ACK) {
+    // Make sure that the SYN+ACK packet seq num matches our ACK packet one
+    if (handshakeStatus == STAT_ACK && packet.seqNum == expectedSeqNum) {
+      // Timeout waiting for SYN+ACK to the ACK packet
+      if ((millis() - sentPacketTime) > BLE_TIMEOUT) {
+        // TODO: Switch to NACK instead
+        ackHelloPacket(expectedSeqNum);
+        return false;
+      }
+      handshakeStatus = STAT_SYN;
+      // TODO: Consider if this should be set here or in the loop() function?
+      hasHandshake = true;
+      return true;
+    }
+  } else {
+    return false;
+  }
+}
+
+/*
+ * Bug trackers
+ * -No way to detect disconnect at the moment
+ * -send buffer isn't cleared when Beetle is disconnected, once reconnected it continues sending data from the buffer before handshake
+ * -Beetle continues queueing dummy packets even when it's disconnected so after reconnect, the seq num is much higher than at the point of disconnection
+ * -Cannot perform reconnect at any time with the current doHandshake() implementation
+ * -Related to above, Beetle continues sending dummy packets when reconnected before a new 3-way handshake is even done. hasHandshake() is not reset on disconnect
+ * -doHandshake() shares the sendbuffer with the rest of the code which causes the ACK packet to be delayed
+ */

@@ -87,7 +87,7 @@ def getCrcOf(packet_id, seq_num, data):
 
 def createPacket(packet_id, seq_num, data):
     dataCrc = getCrcOf(packet_id, seq_num, data)
-    packet = struct.pack("BH16sB", packet_id, seq_num, data, dataCrc)
+    packet = struct.pack("=BH16sB", packet_id, seq_num, data, dataCrc)
     return packet
 
 def getPacketFrom(packetBytes):
@@ -151,7 +151,7 @@ def parsePacket(serial_char, packetBytes):
     if dataCrc != computedCrc:
         print("CRC8 not match: {} vs {}".format(dataCrc, computedCrc))
     #print("Packet ID: {}".format(packet_id))
-    if packetBytes != 1:
+    if packet_id != PacketType.ACK.value:
         sendAckPacket(serial_char)
     return packet_id, seq_num, data
 
@@ -174,13 +174,14 @@ for beetle_addr in BLUNO_MAC_ADDR_LIST:
             serial_char = getSerialChar(beetle)
             # TODO: Delete line below
             # serial_char.write(bytes("HELLOxxxxxxxxxxxxxxx", encoding = 'ascii'))
-            HELLO = "HELLO"
+            """ HELLO = "HELLO"
             hello_packet = createPacket(0, INITIAL_SEQ_NUM, bytes(HELLO, encoding = 'ascii'))
-            serial_char.write(hello_packet)
+            serial_char.write(hello_packet) """
             while True:
-                """ if (not hasHandshake) and (not hasSentHello):
+                if (not hasHandshake) and (not hasSentHello):
                     HELLO = "HELLO"
                     hello_packet = createPacket(0, INITIAL_SEQ_NUM, bytes(HELLO, encoding = 'ascii'))
+                    print("Sending HELLO: {}".format(hello_packet))
                     serial_char.write(hello_packet)
                     hasSentHello = True
                 if beetle.waitForNotifications(BLE_TIMEOUT):
@@ -191,13 +192,22 @@ for beetle_addr in BLUNO_MAC_ADDR_LIST:
                     else:
                         # Check whether received packet is ACK
                         packet_id, seq_num, data = parsePacket(serial_char, packetBytes)
-                        if packet_id == PacketType.ACK and seq_num == INITIAL_SEQ_NUM:
-                            hasHandshake = True """
+                        #if packet_id == PacketType.ACK.value and seq_num == INITIAL_SEQ_NUM:
+                        if packet_id == PacketType.ACK.value:
+                            SYNACK = "SYNACK"
+                            syn_ack_packet = createPacket(1, seq_num, bytes(SYNACK, encoding = "ascii"))
+                            serial_char.write(syn_ack_packet)
+                            hasHandshake = True
 
-                if beetle.waitForNotifications(BLE_TIMEOUT):
+                """ if beetle.waitForNotifications(BLE_TIMEOUT):
                     print("Received notification")
-                    dataPacket = checkReceiveBuffer(dataBuffer)
-                    parsePacket(serial_char, dataPacket)
+                    packetBytes = checkReceiveBuffer(dataBuffer)
+                    #parsePacket(serial_char, packetBytes)
+                    packet_id, seq_num, data = parsePacket(serial_char, packetBytes)
+                    if packet_id == PacketType.ACK.value and seq_num == INITIAL_SEQ_NUM:
+                        SYNACK = "SYNACK"
+                        syn_ack_packet = createPacket(1, INITIAL_SEQ_NUM, bytes(SYNACK, encoding = "ascii"))
+                        serial_char.write(syn_ack_packet) """
         except KeyboardInterrupt as key:
             print("Keyboard interrupt")
         except Exception as err:

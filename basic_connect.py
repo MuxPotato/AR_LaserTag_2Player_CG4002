@@ -1,12 +1,14 @@
 from collections import deque
 from enum import Enum
 import struct
+import time
 from bluepy.btle import DefaultDelegate, Peripheral
 import anycrc
 
 # Parameters
 PACKET_SIZE = 20
 BLE_TIMEOUT = 1.0
+PACKET_TIMEOUT = 0.2
 INITIAL_SEQ_NUM = 0
 ERROR_VALUE = -1
 BLUNO_MANUFACTURER_ID = "4c000215e2c56db5dffb48d2b060d0f5a71096e000000000c5"
@@ -177,6 +179,7 @@ for beetle_addr in BLUNO_MAC_ADDR_LIST:
             """ HELLO = "HELLO"
             hello_packet = createPacket(0, INITIAL_SEQ_NUM, bytes(HELLO, encoding = 'ascii'))
             serial_char.write(hello_packet) """
+            sentTime = 0
             while True:
                 if (not hasHandshake) and (not hasSentHello):
                     HELLO = "HELLO"
@@ -184,8 +187,12 @@ for beetle_addr in BLUNO_MAC_ADDR_LIST:
                     print("Sending HELLO: {}".format(hello_packet))
                     serial_char.write(hello_packet)
                     hasSentHello = True
+                    sentTime = time.time()
+                elif (not hasHandshake) and hasSentHello and (time.time() - sentTime) > 0.2:
+                    hasSentHello = False
+                    continue
                 if beetle.waitForNotifications(BLE_TIMEOUT):
-                    # print("Received notification")
+                    #print("Received notification")
                     packetBytes = checkReceiveBuffer(dataBuffer)
                     if hasHandshake:
                         parsePacket(serial_char, packetBytes)
@@ -197,6 +204,7 @@ for beetle_addr in BLUNO_MAC_ADDR_LIST:
                             SYNACK = "SYNACK"
                             syn_ack_packet = createPacket(1, seq_num, bytes(SYNACK, encoding = "ascii"))
                             serial_char.write(syn_ack_packet)
+                            #print("Sent SYN+ACK: {}".format(syn_ack_packet))
                             hasHandshake = True
 
                 """ if beetle.waitForNotifications(BLE_TIMEOUT):

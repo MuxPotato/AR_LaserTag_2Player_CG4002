@@ -4,8 +4,6 @@
 #define LOWER_4BIT_MASK 0x0F
 #define BLE_TIMEOUT 200
 
-bool doHandshake();
-
 struct BlePacket {
 	/* Start packet header */
 	// Highest 4 bits: packet type ID, lowest 4 bits: number of padding bytes
@@ -62,23 +60,29 @@ public:
     this->tail = 0;
   }
 
+  void clear() {
+    this->head = 0;
+    this->tail = 0;
+    this->setLength(0);
+  }
+
   bool push_back(T element) {
     if (isFull()) {
       return false;
     }
-    this->tail = (this->tail + 1) % MAX_BUFFER_SIZE;
     this->elements[this->tail] = element;
+    this->tail = (this->tail + 1) % MAX_BUFFER_SIZE;
     this->setLength(this->getLength() + 1);
     return true;
   }
 
   T pop_front() {
     if (isEmpty()) {
-      return NULL;
+      return T();
     }
     T current = this->elements[this->head];
-    this->head = (this->head - 1) % MAX_BUFFER_SIZE;
-    this->elements[this->head] = NULL;
+    this->head = (this->head + 1) % MAX_BUFFER_SIZE;
+    //this->elements[this->head] = T();
     this->setLength(this->getLength() - 1);
     return current;
   }
@@ -96,6 +100,12 @@ public:
   }
 };
 
+bool doHandshake();
+BlePacket createAckPacket(uint16_t givenSeqNum);
+bool sendPacketFrom(CircularBuffer<BlePacket> &sendBuffer);
+void ackHelloPacket();
+bool parseSynAck(BlePacket &packet, uint16_t expectedSeqNum);
+
 bool isHeadByte(byte currByte) {
   byte packetId = currByte & LOWER_4BIT_MASK;
   return packetId >= PacketType::HELLO && packetId <= PacketType::GAME_STAT;
@@ -104,6 +114,11 @@ bool isHeadByte(byte currByte) {
 bool isPacketValid(BlePacket &packet) {
   // TODO: Implement actual checks
   return true;
+}
+
+bool shouldIncSeqNumFor(const BlePacket &packet) {
+  byte packetTypeId = packet.metadata & LOWER_4BIT_MASK;
+  return packetTypeId != PacketType::ACK;
 }
 
 void convertBytesToPacket(String &dataBuffer, BlePacket &packet) {

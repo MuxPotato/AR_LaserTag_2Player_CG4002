@@ -8,6 +8,7 @@ int sentSeqNum = -1;
 unsigned long sentPacketTime = 0;
 String receiveBuffer = "";
 CircularBuffer<char> newRecvBuff{};
+char recvBuff[PACKET_SIZE];
 CircularBuffer<BlePacket> sendBuffer{};
 
 uint8_t getCrcOf(const BlePacket &packet) {
@@ -32,15 +33,48 @@ void createPacket(BlePacket &packet, byte packetType, short givenSeqNum, byte da
   packet.checksum = getCrcOf(packet);
 }
 
+void floatToData(char data[16], float x1, float y1, float z1, float x2, float y2, float z2) {
+  short x1s = (short) (x1 * 100);
+  data[0] = (char) x1s;
+  data[1] = (char) x1s >> BITS_PER_BYTE;
+  short y1s = (short) (y1 * 100);
+  data[2] = (char) y1s;
+  data[3] = (char) y1s >> BITS_PER_BYTE;
+  short z1s = (short) (z1 * 100);
+  data[4] = (char) z1s;
+  data[5] = (char) z1s >> BITS_PER_BYTE;
+  short x2s = (short) (x2 * 100);
+  data[6] = (char) x2s;
+  data[7] = (char) x2s >> BITS_PER_BYTE;
+  short y2s = (short) (y2 * 100);
+  data[8] = (char) y2s;
+  data[9] = (char) y2s >> BITS_PER_BYTE;
+  short z2s = (short) (z2 * 100);
+  data[10] = (char) z2s;
+  data[11] = (char) z2s >> BITS_PER_BYTE;
+  // Padding bytes
+  data[12] = 0;
+  data[13] = 0;
+  data[14] = 0;
+  data[15] = 0;
+}
+
 void sendDummyPacket() {
   BlePacket dummyPacket;
   dummyPacket.metadata = PacketType::P1_IMU;
   dummyPacket.seqNum = seqNum;
-  dummyPacket.data[0] = (byte)'D';
+  /* dummyPacket.data[0] = (byte)'D';
   dummyPacket.data[1] = (byte)'U';
   dummyPacket.data[2] = (byte)'M';
   dummyPacket.data[3] = (byte)'M';
-  dummyPacket.data[4] = (byte)'Y';
+  dummyPacket.data[4] = (byte)'Y'; */
+  float x1 = random(0, 100);
+  float y1 = random(0, 100);
+  float z1 = random(0, 100);
+  float x2 = random(0, 100);
+  float y2 = random(0, 100);
+  float z2 = random(0, 100);
+  floatToData(dummyPacket.data, x1, y1, z1, x2, y2, z2);
   //dummyPacket.checksum = 1;
   /* CRC8 crcGen;
   crcGen.add((uint8_t) dummyPacket.metadata);
@@ -135,17 +169,55 @@ void loop() {
       } */
     /*}*/
    
-  } else if (hasHandshake) {
+  } /* else if (hasHandshake && !sendBuffer.isFull()) {
     sendDummyPacket();
     //delay(250);
-  } /* else if (!hasHandshake && (handshakeStatus == STAT_HELLO || handshakeStatus == STAT_ACK)
-    && (millis() - sentPacketTime) > BLE_TIMEOUT) {
-    // Fix for laptop not receiving ACK for HELLO packet when reconnecting, but doesn't fix the bug
-    //ackHelloPacket(sentSeqNum);
-  } */
+  }
   if (hasHandshake && !sendBuffer.isEmpty()) {
     sendPacketFrom(sendBuffer);
     delay(50);
+    // Fetch first packet
+    BlePacket firstPacket = sendBuffer.get(0);
+
+    // Send first packet without dequeue-ing
+    Serial.write((byte *) &firstPacket, sizeof(firstPacket));
+    unsigned long sentTime = millis();
+    // Block until ACK comes. If ACK matches, dequeue
+    BlePacket inPacket = readPacket();
+    unsigned long recvTime = millis();
+    if ((inPacket.metadata & LOWER_4BIT_MASK) == PacketType::HELLO) {
+      hasHandshake = false;
+      handshakeStatus = STAT_HELLO;
+      return;
+    }
+    if ((inPacket.metadata & LOWER_4BIT_MASK) == PacketType::ACK) {
+      uint16_t inSeqNum = inPacket.seqNum;
+      if (inSeqNum == firstPacket.seqNum && (recvTime - sentTime) < BLE_TIMEOUT) {
+        sendBuffer.pop_front();
+      }
+    }
+  } */
+  if (hasHandshake) {
+    if (!sendBuffer.isFull()) {
+      sendDummyPacket();
+    }
+    if (!sendBuffer.isEmpty()) {
+      BlePacket firstPacket = sendBuffer.get(0);
+      Serial.write((byte *) &firstPacket, sizeof(firstPacket));
+      unsigned long sentTime = millis();
+      BlePacket resultPacket = readPacket();
+      if ((resultPacket.metadata & LOWER_4BIT_MASK) == PacketType::HELLO) {
+        hasHandshake = false;
+        handshakeStatus = STAT_HELLO;
+        return;
+      }
+      if ((resultPacket.metadata & LOWER_4BIT_MASK) == PacketType::ACK &&
+        (millis() - sentTime) < BLE_TIMEOUT) {
+        sendBuffer.pop_front();
+      } else if ((resultPacket.metadata & LOWER_4BIT_MASK) != PacketType::ACK) {
+        sendAckPacket(resultPacket.seqNum);
+      }
+    }
   }
 }
 
@@ -325,9 +397,13 @@ BlePacket readPacket() {
   currPacket.checksum = curr.charAt(PACKET_SIZE - 1);
   return currPacket; */
   /* V2: Can perform disconnects and reconnects */
+  unsigned long startTime = millis();
   while (newRecvBuff.size() < PACKET_SIZE) {
     if (!Serial.available()) {
       continue;
+    }
+    if (millis() - startTime > BLE_TIMEOUT) {
+
     }
     char newByte = Serial.read();
     if (isHeadByte(newRecvBuff.get(0)) || receiveBuffer.length() > 0) {
@@ -339,6 +415,28 @@ BlePacket readPacket() {
   BlePacket currPacket;
   convertBytesToPacket(newRecvBuff, currPacket);
   return currPacket;
+  // Simplified data reading logic:
+  /* int byteCount = 0;
+  while (byteCount < PACKET_SIZE) {
+    if (!Serial.available()) {
+      continue;
+    }
+    char newByte = Serial.read();
+    if (isHeadByte(recvBuff[0]) || byteCount > 0) {
+      recvBuff[byteCount] = newByte;
+      byteCount += 1;
+    }
+  }
+  BlePacket newPacket;
+  newPacket.metadata = recvBuff[0];
+  newPacket.seqNum = recvBuff[1] + (recvBuff[2] << BITS_PER_BYTE);
+  byte index = 3;
+  for (auto &dataByte : newPacket.data) {
+    dataByte = recvBuff[index];
+    index += 1;
+  }
+  newPacket.checksum = recvBuff[PACKET_SIZE - 1];
+  return newPacket; */
 }
 
 bool newHandshake() {
@@ -392,7 +490,7 @@ bool newHandshake() {
         createPacket(idPacket, PacketType::P2_IMU, prevSeqNum, data);
         Serial.write((byte *) &idPacket, sizeof(idPacket));
         packet.metadata = PacketType::P2_IMU; */
-        Serial.write((byte *) &packet, sizeof(packet));
+        //Serial.write((byte *) &packet, sizeof(packet));
         //if (packet.seqNum == prevSeqNum) {
           handshakeStatus = STAT_SYN;
           return true;

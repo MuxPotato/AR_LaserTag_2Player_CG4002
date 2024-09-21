@@ -1,8 +1,9 @@
 from collections import deque
 from enum import Enum
+import random
 import struct
 import time
-from bluepy.btle import DefaultDelegate, Peripheral
+from bluepy.btle import DefaultDelegate, Peripheral, BTLEDisconnectError
 import anycrc
 
 # Parameters
@@ -14,12 +15,15 @@ ERROR_VALUE = -1
 BLUNO_MANUFACTURER_ID = "4c000215e2c56db5dffb48d2b060d0f5a71096e000000000c5"
 BLUNO_MAC_ADDR_LIST = [
     "f4:b8:5e:42:67:2b",
+    #"F4:B8:5E:42:6D:75",
+    #"F4:B8:5E:42:67:6E"
 ]
 ## BLE GATT
 GATT_SERIAL_SERVICE_UUID = "0000dfb0-0000-1000-8000-00805f9b34fb"
 GATT_SERIAL_CHARACTERISTIC_UUID = "0000dfb1-0000-1000-8000-00805f9b34fb"
 
 # Variables
+numFragmented = 0
 
 # Packet Type ID
 class PacketType(Enum):
@@ -33,6 +37,17 @@ class PacketType(Enum):
     P2_IR_TRANS = 7
     GAME_STAT = 8
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 # Delegate
 class BlePacketDelegate(DefaultDelegate):
     def __init__(self, serial_char, dataBuffer):
@@ -43,10 +58,14 @@ class BlePacketDelegate(DefaultDelegate):
 
     # Bluno Beetle uses cHandle 37
     def handleNotification(self, cHandle, data):
+        global numFragmented
         try:
             #print("Incoming data: {}".format(data.hex()))
             # Add incoming bytes to receive buffer
             #self.dataBuffer += data
+            if len(data) < PACKET_SIZE:
+                print("Fragmented packet received")
+                numFragmented += 1
             for dataByte in data:
                 if isHeaderByte(dataByte) or len(self.dataBuffer) > 0:
                     self.dataBuffer.append(dataByte)
@@ -98,7 +117,7 @@ def getPacketFrom(packetBytes):
 
 def connectTo(mac_addr, dataBuffer):
     beetle = None
-    try:
+    """ try:
         print("Connecting to {}".format(mac_addr))
         beetle = Peripheral(deviceAddr = mac_addr)
         serial_service = beetle.getServiceByUUID(GATT_SERIAL_SERVICE_UUID)
@@ -107,6 +126,12 @@ def connectTo(mac_addr, dataBuffer):
     except Exception as err:
         print("Unable to connect to Bluno Beetle")
         print(err)
+    return beetle """
+    print("Connecting to {}".format(mac_addr))
+    beetle = Peripheral(deviceAddr = mac_addr)
+    serial_service = beetle.getServiceByUUID(GATT_SERIAL_SERVICE_UUID)
+    serial_char = serial_service.getCharacteristics(GATT_SERIAL_CHARACTERISTIC_UUID)[0]
+    beetle.setDelegate(BlePacketDelegate(serial_char, dataBuffer))
     return beetle
 
 def isHeaderByte(dataByte):
@@ -146,22 +171,71 @@ def parsePacket(serial_char, packetBytes):
     # Check for NULL packet
     if not packetBytes:
         return ERROR_VALUE, ERROR_VALUE, None
-    print("New packet: {}".format(packetBytes))
+    print("{}New packet: {}{}".format(bcolors.OKGREEN, packetBytes, bcolors.ENDC))
     # packet_id = packetBytes[0]
     packet_id, seq_num, data, dataCrc = getPacketFrom(packetBytes)
     computedCrc = getCrcOf(packet_id, seq_num, data)
     if dataCrc != computedCrc:
         print("CRC8 not match: {} vs {}".format(dataCrc, computedCrc))
+    """ # 1/10 chance of considering the packet corrupted
+    if random.randrange(1, 11):
+        return packet_id, seq_num, bytearray() """
     #print("Packet ID: {}".format(packet_id))
-    if packet_id != PacketType.ACK.value:
-        sendAckPacket(serial_char)
+    #if packet_id != PacketType.ACK.value:
+        #sendAckPacket(serial_char)
     return packet_id, seq_num, data
 
 # To be implemented
-def sendAckPacket(serial_char):
+def sendAckPacket(serial_char, seq_num):
     ACK = "ACK............."
-    ack_packet = createPacket(1, 5, bytes(ACK, encoding = 'ascii'))
+    #ack_packet = createPacket(1, 5, bytes(ACK, encoding = 'ascii'))
+    ack_packet = createPacket(PacketType.ACK.value, seq_num, bytes(ACK, encoding = 'ascii'))
     serial_char.write(ack_packet)
+    print("Sending ACK: {}".format(ack_packet))
+
+def beetleLoop(beetle, serial_char, dataBuffer):
+    seq_num = 0
+    hasHandshake = False
+    hasSentHello = False
+    sentTime = 0
+    while True:
+        if (not hasHandshake) and (not hasSentHello):
+            HELLO = "HELLO"
+            hello_packet = createPacket(0, INITIAL_SEQ_NUM, bytes(HELLO, encoding = 'ascii'))
+            print("{}Sending HELLO: {}{}".format(bcolors.OKBLUE, hello_packet, bcolors.ENDC))
+            serial_char.write(hello_packet)
+            hasSentHello = True
+            sentTime = time.time()
+        elif (not hasHandshake) and hasSentHello and (time.time() - sentTime) > 0.2:
+            hasSentHello = False
+            continue
+        if beetle.waitForNotifications(BLE_TIMEOUT):
+            recvTime = time.time()
+            #print("Received notification")
+            packetBytes = checkReceiveBuffer(dataBuffer)
+            if hasHandshake:
+                packet_id, seq_num, data = parsePacket(serial_char, packetBytes)
+                if packet_id != PacketType.ACK.value:
+                    sendAckPacket(serial_char, seq_num)
+            else:
+                # Check whether received packet is ACK
+                packet_id, seq_num, data = parsePacket(serial_char, packetBytes)
+                #if packet_id == PacketType.ACK.value and seq_num == INITIAL_SEQ_NUM:
+                if packet_id == PacketType.ACK.value:
+                    SYNACK = "SYNACK"
+                    syn_ack_packet = createPacket(PacketType.ACK.value, seq_num, bytes(SYNACK, encoding = "ascii"))
+                    serial_char.write(syn_ack_packet)
+                    #print("Sent SYN+ACK: {}".format(syn_ack_packet))
+                    throughput = 20 / (recvTime - sentTime) / 1024
+                    print("Throughput: {} kb/s".format(throughput))
+                    hasHandshake = True
+
+def startBeetle(beetle_addr):
+    dataBuffer = deque()
+    beetle = connectTo(beetle_addr, dataBuffer)
+    if beetle:
+        serial_char = getSerialChar(beetle)
+        beetleLoop(beetle, serial_char, dataBuffer)
 
 # Main
 dataBuffer = deque()
@@ -170,57 +244,146 @@ hasHandshake = False
 hasSentHello = False
 ## Receiving packets from the Beetle works ok now. my custom struct on the Beetle in packet.h is sent intact-ly
 for beetle_addr in BLUNO_MAC_ADDR_LIST:
-    beetle = connectTo(beetle_addr, dataBuffer)
-    if beetle:
-        try:
-            serial_char = getSerialChar(beetle)
-            # TODO: Delete line below
-            # serial_char.write(bytes("HELLOxxxxxxxxxxxxxxx", encoding = 'ascii'))
-            """ HELLO = "HELLO"
-            hello_packet = createPacket(0, INITIAL_SEQ_NUM, bytes(HELLO, encoding = 'ascii'))
-            serial_char.write(hello_packet) """
-            sentTime = 0
-            while True:
-                if (not hasHandshake) and (not hasSentHello):
-                    HELLO = "HELLO"
-                    hello_packet = createPacket(0, INITIAL_SEQ_NUM, bytes(HELLO, encoding = 'ascii'))
-                    print("Sending HELLO: {}".format(hello_packet))
-                    serial_char.write(hello_packet)
-                    hasSentHello = True
-                    sentTime = time.time()
-                elif (not hasHandshake) and hasSentHello and (time.time() - sentTime) > 0.2:
-                    hasSentHello = False
-                    continue
-                if beetle.waitForNotifications(BLE_TIMEOUT):
-                    #print("Received notification")
-                    packetBytes = checkReceiveBuffer(dataBuffer)
-                    if hasHandshake:
-                        parsePacket(serial_char, packetBytes)
-                    else:
-                        # Check whether received packet is ACK
-                        packet_id, seq_num, data = parsePacket(serial_char, packetBytes)
-                        #if packet_id == PacketType.ACK.value and seq_num == INITIAL_SEQ_NUM:
-                        if packet_id == PacketType.ACK.value:
-                            SYNACK = "SYNACK"
-                            syn_ack_packet = createPacket(1, seq_num, bytes(SYNACK, encoding = "ascii"))
-                            serial_char.write(syn_ack_packet)
-                            #print("Sent SYN+ACK: {}".format(syn_ack_packet))
-                            hasHandshake = True
+    while True:
+        beetle = connectTo(beetle_addr, dataBuffer)
+        if beetle:
+            try:
+                while True:
+                    serial_char = getSerialChar(beetle)
+                    sentTime = 0
+                
+                    if (not hasHandshake) and (not hasSentHello):
+                        HELLO = "HELLO"
+                        hello_packet = createPacket(0, INITIAL_SEQ_NUM, bytes(HELLO, encoding = 'ascii'))
+                        print("Sending HELLO: {}".format(hello_packet))
+                        serial_char.write(hello_packet)
+                        hasSentHello = True
+                        sentTime = time.time()
+                    elif (not hasHandshake) and hasSentHello and (time.time() - sentTime) > 0.2:
+                        hasSentHello = False
+                        continue
+                    if beetle.waitForNotifications(BLE_TIMEOUT):
+                        recvTime = time.time()
+                        #print("Received notification")
+                        packetBytes = checkReceiveBuffer(dataBuffer)
+                        if hasHandshake:
+                            """ if (random.randrange(1, 11) == 1):
+                                # 1/10 chance to drop the packet
+                                print("    Packet dropped")
+                                continue """
+                            packet_id, seq_num, data = parsePacket(serial_char, packetBytes)
+                            if not data or len(data) == 0:
+                                continue
+                            if packet_id != PacketType.ACK.value:
+                                sendAckPacket(serial_char, seq_num)
+                        else:
+                            # Check whether received packet is ACK
+                            packet_id, seq_num, data = parsePacket(serial_char, packetBytes)
+                            if not data or len(data) == 0:
+                                continue
+                            #if packet_id == PacketType.ACK.value and seq_num == INITIAL_SEQ_NUM:
+                            if packet_id == PacketType.ACK.value:
+                                SYNACK = "SYNACK"
+                                syn_ack_packet = createPacket(PacketType.ACK.value, seq_num, bytes(SYNACK, encoding = "ascii"))
+                                serial_char.write(syn_ack_packet)
+                                #print("Sent SYN+ACK: {}".format(syn_ack_packet))
+                                throughput = 20 / (recvTime - sentTime) / 1024
+                                print("Throughput: {} kb/s".format(throughput))
+                                hasHandshake = True
 
-                """ if beetle.waitForNotifications(BLE_TIMEOUT):
-                    print("Received notification")
-                    packetBytes = checkReceiveBuffer(dataBuffer)
-                    #parsePacket(serial_char, packetBytes)
-                    packet_id, seq_num, data = parsePacket(serial_char, packetBytes)
-                    if packet_id == PacketType.ACK.value and seq_num == INITIAL_SEQ_NUM:
-                        SYNACK = "SYNACK"
-                        syn_ack_packet = createPacket(1, INITIAL_SEQ_NUM, bytes(SYNACK, encoding = "ascii"))
-                        serial_char.write(syn_ack_packet) """
-        except KeyboardInterrupt as key:
-            print("Keyboard interrupt")
-        except Exception as err:
-            print(err)
-        finally:
+            except BTLEDisconnectError as bleErr:
+                print("{}Device disconnected{}".format(bcolors.WARNING, bcolors.ENDC))
+                while True:
+                    if beetle:
+                        print("{}Attempting to connect{}".format(bcolors.WARNING, bcolors.ENDC))
+                        try:
+                            beetle.connect(beetle_addr)
+                        except KeyboardInterrupt as key:
+                            print("Keyboard interrupt")
+                            break
+                    time.sleep(0.25)
+            except KeyboardInterrupt as key:
+                print("Keyboard interrupt")
+                break
+            except Exception as err:
+                print(err)
+                continue
+        time.sleep(0.5)
+
+    if beetle:
+        print("{}Disconnecting {}{}".format(bcolors.WARNING, beetle.addr, bcolors.ENDC))
+        print("{} fragmented packets".format(numFragmented))
+        beetle.disconnect()
+        """ finally:
             if beetle:
                 print("Disconnecting {}".format(beetle.addr))
-            beetle.disconnect()
+                print("{} fragmented packets".format(numFragmented))
+            beetle.disconnect() """
+
+""" for beetle_addr in BLUNO_MAC_ADDR_LIST:
+    while True:
+        try:
+            startBeetle(beetle_addr)
+        except KeyboardInterrupt as key:
+            print("Caught keyboard interrupt")
+
+        except Exception as err:
+            print(err)
+            continue """
+
+""" Planning
+-Connect to Beetle using MAC
+-Loop:
+--> Handshake if not already handshaken
+--> Send ACK if incoming packet received
+-Disconnect Beetle gracefully if keyboard interrupt
+"""
+def sendHello(seq_num, serial_char):
+    HELLO = "HELLO"
+    hello_packet = createPacket(PacketType.HELLO.value, seq_num, bytes(HELLO, encoding = 'ascii'))
+    print("Sending HELLO: {}".format(hello_packet))
+    serial_char.write(hello_packet)
+def sendAck(seq_num, serial_char):
+    SYNACK = "SYNACK"
+    syn_ack_packet = createPacket(PacketType.ACK.value, seq_num, bytes(SYNACK, encoding = "ascii"))
+    serial_char.write(syn_ack_packet)
+mBeetle = Peripheral()
+# Runtime variables
+mDataBuffer = deque()
+hasHandshake = False
+hasSentHello = False
+seq_num = 0
+sendHelloTime = 0
+mRecvTime = 0
+# Connect to Beetle
+try:
+    mBeetle.connect(beetle_mac_addr)
+except BTLEDisconnectError as disconnectErr:
+    print(disconnectErr)
+mSerialChar = getSerialChar(mBeetle)
+while True:
+    # Send HELLO
+    if (not hasHandshake) and (not hasSentHello):
+        sendHelloTime = time.time()
+        sendHello(INITIAL_SEQ_NUM, mSerialChar)
+        hasSentHello = True
+    # Handle HELLO timeout
+    elif (not hasHandshake) and hasSentHello and (time.time() - sendHelloTime) >= BLE_TIMEOUT:
+        hasSentHello = False
+        continue
+    # Check for ACK to HELLO
+    if mBeetle.waitForNotifications(BLE_TIMEOUT):
+        mRecvTime = time.time()
+        # bytearray for 20-byte packet
+        packetBytes = checkReceiveBuffer(mDataBuffer)
+        # Parse packet from 20-byte
+        packet_id, seq_num, data = parsePacket(serial_char, packetBytes)
+        if data and (len(data) > 0):
+            if not hasHandshake:
+                # Send SYN+ACK
+                if packet_id == PacketType.ACK.value:
+                    sendAck(seq_num, serial_char)
+                    hasHandshake = True
+            else:
+                if packet_id != PacketType.ACK.value:
+                    sendAck(seq_num, serial_char)

@@ -142,10 +142,8 @@ void convertBytesToPacket(String &dataBuffer, BlePacket &packet) {
 void convertBytesToPacket(CircularBuffer<char> &dataBuffer, BlePacket &packet) {
   packet.metadata = dataBuffer.pop_front();
   packet.seqNum = dataBuffer.pop_front() + (dataBuffer.pop_front() << BITS_PER_BYTE);
-  byte index = 3;
   for (auto &dataByte : packet.data) {
     dataByte = dataBuffer.pop_front();
-    index += 1;
   }
   packet.checksum = dataBuffer.pop_front();
 }

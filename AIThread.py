@@ -16,6 +16,7 @@ class AI(Thread):
         message = self.IMU_queue.get()
         print_message('AI Thread',f"Received '{message}' from RelayServer")
         print()
+        #action = "bomb"
         action = self.random_action()
         self.action_queue.put(action)
         

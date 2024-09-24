@@ -90,17 +90,18 @@ class Beetle(threading.Thread):
         self.mBeetle.withDelegate(BlePacketDelegate(self.serial_char, self.mDataBuffer))
 
     def connect(self):
-        # Connect to Beetle
-        try:
-            self.mPrint(bcolors.WARNING, "Connecting to {}".format(self.beetle_mac_addr))
-            self.mBeetle.connect(self.beetle_mac_addr)
-            self.mService = self.mBeetle.getServiceByUUID(GATT_SERIAL_SERVICE_UUID)
-            self.serial_char = self.mService.getCharacteristics(GATT_SERIAL_CHARACTERISTIC_UUID)[0]
-        except BTLEDisconnectError as disconnectErr:
-            print(disconnectErr)
-            self.mDataBuffer.clear()
-            # Keep trying to connect again
-            self.connect()
+        if not self.terminateEvent.is_set():
+            # Connect to Beetle
+            try:
+                self.mPrint(bcolors.WARNING, "Connecting to {}".format(self.beetle_mac_addr))
+                self.mBeetle.connect(self.beetle_mac_addr)
+                self.mService = self.mBeetle.getServiceByUUID(GATT_SERIAL_SERVICE_UUID)
+                self.serial_char = self.mService.getCharacteristics(GATT_SERIAL_CHARACTERISTIC_UUID)[0]
+            except BTLEDisconnectError as disconnectErr:
+                print(disconnectErr)
+                self.mDataBuffer.clear()
+                # Keep trying to connect again
+                self.connect()
 
     def disconnect(self):
         self.mPrint(bcolors.WARNING, "Disconnecting {}".format(self.beetle_mac_addr))
@@ -154,6 +155,9 @@ class Beetle(threading.Thread):
                             # Send SYN+ACK
                             if packet_id == PacketType.ACK.value:
                                 self.sendAck(seq_num, self.serial_char)
+                                # BUG: If Beetle never received the SYN+ACK sent above, laptop
+                                #   one-sided-ly thinks it completed handshake but Beetle is still waiting
+                                #   Consider letting the Beetle signal that the handshake failed
                                 self.hasHandshake = True
                         else:
                             if packet_id != PacketType.ACK.value:
@@ -177,30 +181,22 @@ class Beetle(threading.Thread):
 
     def checkReceiveBuffer(self, receiveBuffer):
         if len(receiveBuffer) >= PACKET_SIZE:
-            # Fetch 1 20-byte packet from the buffer
-            dataPacket = bytearray([receiveBuffer.popleft()])
-            # Remove the packet from the buffer
-            count = 0
-            while not self.isHeaderByte(dataPacket[0]) and count < PACKET_SIZE:
+            # bytearray for 20-byte packet
+            dataPacket = bytearray()
+            # Read 20 bytes from input buffer
+            for i in range(0, PACKET_SIZE):
                 dataPacket.append(receiveBuffer.popleft())
-                count += 1
-            if count == PACKET_SIZE:
-                if self.isValidPacket(dataPacket):
-                    return dataPacket
-                return bytearray()
-            for i in range(PACKET_SIZE - 1):
-                dataByte = receiveBuffer.popleft()
-                # Do we need this check below?
-                """ if isHeaderByte(dataByte):
-                    break """
-                dataPacket.append(dataByte)
-            if not self.isValidPacket(dataPacket):
-                return bytearray()
-            return dataPacket
+            if self.isValidPacket(dataPacket):
+                return dataPacket
+            return bytearray()
         else:
             return bytearray()
         
     def createPacket(self, packet_id, seq_num, data):
+        # TODO: Avoid hardcoding this value
+        data_length = 16
+        if (len(data) < data_length):
+            data = self.addPaddingBytes(data, data_length)
         dataCrc = self.getCrcOf(packet_id, seq_num, data)
         packet = struct.pack(PACKET_FORMAT, packet_id, seq_num, data, dataCrc)
         return packet
@@ -229,8 +225,8 @@ class Beetle(threading.Thread):
         return x1, y1, z1, x2, y2, z2
         
     def parsePacket(self, packetBytes):
-        # Check for NULL packet
-        if not packetBytes:
+        # Check for NULL packet or incomplete packet
+        if not packetBytes or len(packetBytes) < PACKET_SIZE:
             return ERROR_VALUE, ERROR_VALUE, None
         #print("{}{} has New packet: {}{}".format(bcolors.OKGREEN, self.beetle_mac_addr, packetBytes, bcolors.ENDC))
         self.mPrint2(inputString = "{} has new packet: {}".format(self.beetle_mac_addr, packetBytes))
@@ -238,7 +234,7 @@ class Beetle(threading.Thread):
         packet_id, seq_num, data, dataCrc = self.getPacketFrom(packetBytes)
         computedCrc = self.getCrcOf(packet_id, seq_num, data)
         if dataCrc != computedCrc:
-            print("CRC8 not match: {} vs {}".format(dataCrc, computedCrc))
+            print("CRC8 not match: received {} but expected {}".format(dataCrc, computedCrc))
         """ if packet_id == PacketType.P1_IMU.value or packet_id == PacketType.P2_IMU.value:
             #self.mPrint(bcolors.OKGREEN, "IMU data: [{}, {}, {}], [{}, {}, {}]".format(data[0:1]))
             print(struct.unpack('H', bytearray(data[0:1])))
@@ -256,6 +252,13 @@ class Beetle(threading.Thread):
         SYNACK = "SYNACK"
         syn_ack_packet = self.createPacket(PacketType.ACK.value, seq_num, bytes(SYNACK, encoding = "ascii"))
         serial_char.write(syn_ack_packet)
+
+    def addPaddingBytes(self, data, target_len):
+        num_padding_bytes = target_len - len(data)
+        result = bytearray(data)
+        for i in range(0, num_padding_bytes):
+            result.append(num_padding_bytes)
+        return result
 
 if __name__=="__main__":
     beetles = []

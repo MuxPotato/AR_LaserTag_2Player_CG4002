@@ -128,7 +128,8 @@ bool shouldIncSeqNumFor(const BlePacket &packet) {
   return packetTypeId != PacketType::ACK;
 }
 
-void convertBytesToPacket(String &dataBuffer, BlePacket &packet) {
+/* Outdated converter function that doesn't use CircularBuffer as receive buffer */
+/* void convertBytesToPacket(String &dataBuffer, BlePacket &packet) {
   packet.metadata = dataBuffer.charAt(0);
   packet.seqNum = dataBuffer.charAt(1) + (dataBuffer.charAt(2) << BITS_PER_BYTE);
   byte index = 3;
@@ -137,7 +138,7 @@ void convertBytesToPacket(String &dataBuffer, BlePacket &packet) {
     index += 1;
   }
   packet.checksum = dataBuffer.charAt(PACKET_SIZE - 1);
-}
+} */
 
 void convertBytesToPacket(CircularBuffer<char> &dataBuffer, BlePacket &packet) {
   packet.metadata = dataBuffer.pop_front();
@@ -148,6 +149,8 @@ void convertBytesToPacket(CircularBuffer<char> &dataBuffer, BlePacket &packet) {
   packet.checksum = dataBuffer.pop_front();
 }
 
+/* Outdated reader function that doesn't use CircularBuffer as read buffer */
+/*
 void readPacket(BlePacket &packet) {
   packet.metadata = -1;
   String receiveBuffer = "";
@@ -155,9 +158,9 @@ void readPacket(BlePacket &packet) {
   while (Serial.available() && count < PACKET_SIZE) {
     char nextByte = Serial.read();
     // TODO: Implement robust packet parsing from buffer
-    /* if (!isHeadByte(nextByte)) {
-      continue;
-    } */
+    //if (!isHeadByte(nextByte)) {
+      //continue;
+    //}
     receiveBuffer += nextByte;
     if (receiveBuffer.length() == PACKET_SIZE) {
       // We have received one complete packet, stop reading BLE data
@@ -166,4 +169,4 @@ void readPacket(BlePacket &packet) {
     }
     count += 1;
   }
-}
+}*/

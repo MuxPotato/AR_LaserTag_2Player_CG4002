@@ -6,9 +6,9 @@ bool hasHandshake = false;
 uint16_t seqNum = 0;
 int sentSeqNum = -1;
 unsigned long sentPacketTime = 0;
-String receiveBuffer = "";
+//String receiveBuffer = "";
 CircularBuffer<char> newRecvBuff{};
-char recvBuff[PACKET_SIZE];
+//char recvBuff[PACKET_SIZE];
 CircularBuffer<BlePacket> sendBuffer{};
 
 uint8_t getCrcOf(const BlePacket &packet) {
@@ -402,11 +402,12 @@ BlePacket readPacket() {
     if (!Serial.available()) {
       continue;
     }
+    // TODO: Consider handling timeout
     if (millis() - startTime > BLE_TIMEOUT) {
 
     }
     char newByte = Serial.read();
-    if (isHeadByte(newRecvBuff.get(0)) || receiveBuffer.length() > 0) {
+    if (isHeadByte(newByte) || newRecvBuff.length() > 0) {
       // Append new byte to receive buffer
       newRecvBuff.push_back(newByte);
     }

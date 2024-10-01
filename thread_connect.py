@@ -204,12 +204,6 @@ class Beetle(threading.Thread):
         self.connect()
         self.main()
 
-    def isHeaderByte(self, dataByte):
-        return dataByte <= PacketType.GAME_STAT.value and dataByte >= PacketType.HELLO.value
-    
-    def isValidPacket(self, dataPacket):
-        return True
-
     def checkReceiveBuffer(self, receiveBuffer):
         if len(receiveBuffer) >= PACKET_SIZE:
             # bytearray for 20-byte packet
@@ -240,14 +234,6 @@ class Beetle(threading.Thread):
         crc8.update(seq_num.to_bytes(length = 2, byteorder = 'little'))
         dataCrc = crc8.update(data)
         return dataCrc
-    
-    def getPacketFrom(self, packetBytes):
-        metadata, seq_num, data, dataCrc = struct.unpack(PACKET_FORMAT, packetBytes)
-        packet_id = metadata & LOWER_4BITS_MASK
-        return packet_id, seq_num, data, dataCrc
-    
-    def parseData(self, byte1, byte2):
-        return int.from_bytes(byte1, byteorder='little') + (int.from_bytes(byte2, byteorder='little') << BITS_PER_BYTE) / 100.0
 
     def getDataFrom(self, dataBytes):
         x1 = self.parseData(dataBytes[0], dataBytes[1])
@@ -257,27 +243,43 @@ class Beetle(threading.Thread):
         y2 = self.parseData(dataBytes[8], dataBytes[9])
         z2 = self.parseData(dataBytes[10], dataBytes[11])
         return x1, y1, z1, x2, y2, z2
+    
+    def getPacketFrom(self, packetBytes):
+        metadata, seq_num, data, dataCrc = struct.unpack(PACKET_FORMAT, packetBytes)
+        return metadata, seq_num, data, dataCrc
+    
+    def isHeaderByte(self, dataByte):
+        return dataByte <= PacketType.GAME_STAT.value and dataByte >= PacketType.HELLO.value
+    
+    def isValidPacket(self, given_packet):
+        if self.hasValidPacketType(given_packet):
+            # Packet type is valid, now check CRC next
+            metadata, seq_num, data, received_crc = self.getPacketFrom(given_packet)
+            computed_crc = self.getCrcOf(metadata, seq_num, data)
+            if computed_crc == received_crc:
+                # CRC is valid, packet is not corrupted
+                return True
+            else:
+                print("CRC8 not match: received {} but expected {}".format(received_crc, computed_crc))
+        else:
+            # Invalid packet type received
+            self.mPrint(bcolors.WARNING, 
+                        inputString = "Invalid packet type ID received: {}".format(
+                            self.getPacketTypeIdOf(given_packet)))
+        return False
+    
+    def parseData(self, byte1, byte2):
+        return int.from_bytes(byte1, byteorder='little') + (int.from_bytes(byte2, byteorder='little') << BITS_PER_BYTE) / 100.0
         
     def parsePacket(self, packetBytes):
         # Check for NULL packet or incomplete packet
         if not packetBytes or len(packetBytes) < PACKET_SIZE:
             return ERROR_VALUE, ERROR_VALUE, None
-        #print("{}{} has New packet: {}{}".format(bcolors.OKGREEN, self.beetle_mac_addr, packetBytes, bcolors.ENDC))
         self.mPrint2(inputString = "{} has new packet: {}".format(self.beetle_mac_addr, packetBytes))
-        if not self.hasValidPacketType(packetBytes):
-            self.mPrint(bcolors.WARNING, 
-                        inputString = "Invalid packet type ID received: {}".format(self.getPacketTypeIdOfpacketBytes))
+        if not self.isValidPacket(packetBytes):
             return ERROR_VALUE, ERROR_VALUE, None
-        packet_id, seq_num, data, dataCrc = self.getPacketFrom(packetBytes)
-        computedCrc = self.getCrcOf(packet_id, seq_num, data)
-        if dataCrc != computedCrc:
-            print("CRC8 not match: received {} but expected {}".format(dataCrc, computedCrc))
-            return ERROR_VALUE, ERROR_VALUE, None
-        """ if packet_id == PacketType.P1_IMU.value or packet_id == PacketType.P2_IMU.value:
-            #self.mPrint(bcolors.OKGREEN, "IMU data: [{}, {}, {}], [{}, {}, {}]".format(data[0:1]))
-            print(struct.unpack('H', bytearray(data[0:1])))
-        else:
-            self.mPrint(bcolors.OKGREEN, "New packet: {}".format(packetBytes)) """
+        metadata, seq_num, data, dataCrc = self.getPacketFrom(packetBytes)
+        packet_id = self.metadataToPacketType(metadata)
         return packet_id, seq_num, data
 
     def sendHello(self, seq_num):
@@ -304,6 +306,9 @@ class Beetle(threading.Thread):
     def getPacketTypeIdOf(self, packet):
         packet_id = packet[0] & LOWER_4BITS_MASK
         return packet_id
+
+    def metadataToPacketType(self, metadata):
+        return metadata & LOWER_4BITS_MASK
     
     def isValidPacketType(self, packet_type_id):
         return packet_type_id <= PacketType.GAME_STAT.value and packet_type_id >= PacketType.HELLO.value

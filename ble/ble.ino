@@ -49,7 +49,8 @@ void setup() {
 
 void loop() {
   if (!hasHandshake) {
-    hasHandshake = doHandshake();
+    while (!doHandshake());
+    hasHandshake = true;
   }
   // Assert: hasHandshake == true
   if (Serial.available()) {

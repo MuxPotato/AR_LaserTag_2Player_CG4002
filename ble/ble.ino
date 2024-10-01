@@ -30,28 +30,16 @@ void sendDummyPacket() {
 
 void sendAckPacket(uint16_t givenSeqNum) {
   BlePacket ackPacket;
-  ackPacket.metadata = PacketType::ACK;
-  ackPacket.seqNum = givenSeqNum;
-  ackPacket.data[0] = (byte)'A';
-  ackPacket.data[1] = (byte)'C';
-  ackPacket.data[2] = (byte)'K';
-  ackPacket.data[3] = 0;
-  ackPacket.data[4] = 0;
-  ackPacket.crc = getCrcOf(ackPacket);
+  createAckPacket(ackPacket, givenSeqNum);
   sendBuffer.push_back(ackPacket);
 }
 
 void sendSynPacket(byte givenSeqNum) {
   BlePacket synPacket;
-  synPacket.metadata = PacketType::ACK;
-  synPacket.seqNum = givenSeqNum;
-  synPacket.data[0] = (byte)'A';
-  synPacket.data[1] = (byte)'C';
-  synPacket.data[2] = (byte)'K';
+  createAckPacket(synPacket, givenSeqNum);
   synPacket.data[3] = (byte)'S';
   synPacket.data[4] = (byte)'Y';
   synPacket.data[5] = (byte)'N';
-  synPacket.crc = getCrcOf(synPacket);
   sendBuffer.push_back(synPacket);
 }
 
@@ -83,17 +71,19 @@ void loop() {
     if (!sendBuffer.isEmpty()) {
       BlePacket firstPacket = sendBuffer.get(FIRST_ELEMENT);
       sendPacket(firstPacket);
-      unsigned long sentTime = millis();
       BlePacket resultPacket;
+      unsigned long sentTime = millis();
       readPacket(recvBuff, resultPacket);
+      unsigned long recvTime = millis();
       if (getPacketTypeOf(resultPacket) == PacketType::HELLO) {
         hasHandshake = false;
         handshakeStatus = STAT_HELLO;
         return;
       }
       if (getPacketTypeOf(resultPacket) == PacketType::ACK &&
-        (millis() - sentTime) < BLE_TIMEOUT) {
+        (recvTime - sentTime) < BLE_TIMEOUT) {
         sendBuffer.pop_front();
+        seqNum += 1;
       } else if (getPacketTypeOf(resultPacket) != PacketType::ACK) {
         sendAckPacket(resultPacket.seqNum);
       }

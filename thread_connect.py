@@ -28,13 +28,14 @@ GATT_SERIAL_CHARACTERISTIC_UUID = "0000dfb1-0000-1000-8000-00805f9b34fb"
 class PacketType(Enum):
     HELLO = 0
     ACK = 1
-    P1_IMU = 2
-    P1_IR_RECV = 3
-    P1_IR_TRANS = 4
-    P2_IMU = 5
-    P2_IR_RECV = 6
-    P2_IR_TRANS = 7
-    GAME_STAT = 8
+    NACK = 2
+    P1_IMU = 3
+    P1_IR_RECV = 4
+    P1_IR_TRANS = 5
+    P2_IMU = 6
+    P2_IR_RECV = 7
+    P2_IR_TRANS = 8
+    GAME_STAT = 9
 
 class bcolors:
     HEADER = '\033[95m'
@@ -132,39 +133,66 @@ class Beetle(threading.Thread):
     def mPrint(self, color, inputString):
         print("{}{}{}".format(color, inputString, bcolors.ENDC))
 
+    def doHandshake(self):
+        mSentHelloTime = time.time()
+        while not self.hasHandshake:
+            # Send HELLO
+            if not self.hasSentHello:
+                mSentHelloTime = time.time()
+                self.sendHello(INITIAL_SEQ_NUM)
+                self.hasSentHello = True
+            # Handle HELLO timeout
+            elif (time.time() - mSentHelloTime) >= BLE_TIMEOUT:
+                self.hasSentHello = False
+                continue
+            # Check for ACK to HELLO
+            if self.mBeetle.waitForNotifications(BLE_TIMEOUT):
+                if len(self.mDataBuffer) < PACKET_SIZE:
+                    self.fragmentedCount += 1
+                    continue
+                mRecvTime = time.time()
+                # bytearray for 20-byte packet
+                packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
+                # Parse packet from 20-byte
+                packet_id, beetle_seq_num, data = self.parsePacket(packetBytes)
+                if data and (len(data) > 0):
+                    if (mRecvTime - mSentHelloTime) >= BLE_TIMEOUT:
+                        self.hasSentHello = False
+                        continue
+                    # Send SYN+ACK
+                    if packet_id == PacketType.ACK.value:
+                        if beetle_seq_num < self.seq_num:
+                            # TODO: Consider if this logic is valid; will we 'forget' any lost packets?
+                            self.seq_num = beetle_seq_num
+                        # If self.seq_num < beetle_seq_num, assume that beetle will update to our seq_num and leave ours unchanged
+                        self.sendAck(self.seq_num)
+                        # BUG: If Beetle never received the SYN+ACK sent above, laptop
+                        #   one-sided-ly thinks it completed handshake but Beetle is still waiting
+                        #   Consider letting the Beetle signal that the handshake failed
+                        self.hasHandshake = True
+                else:
+                    self.hasSentHello = False
+
     def main(self):
         while not self.terminateEvent.is_set():
             try:
-                # Send HELLO
-                if (not self.hasHandshake) and (not self.hasSentHello):
-                    self.sendHelloTime = time.time()
-                    self.sendHello(INITIAL_SEQ_NUM, self.serial_char)
-                    self.hasSentHello = True
-                # Handle HELLO timeout
-                elif (not self.hasHandshake) and self.hasSentHello and (time.time() - self.sendHelloTime) >= BLE_TIMEOUT:
-                    self.hasSentHello = False
-                    continue
-                # Check for ACK to HELLO
-                if self.mBeetle.waitForNotifications(BLE_TIMEOUT):
+                if not self.hasHandshake:
+                    # Perform 3-way handshake
+                    self.doHandshake()
+                # Handshake already completed
+                elif self.mBeetle.waitForNotifications(BLE_TIMEOUT):
+                    mRecvTime = time.time()
                     if len(self.mDataBuffer) < PACKET_SIZE:
                         self.fragmentedCount += 1
-                    mRecvTime = time.time()
                     # bytearray for 20-byte packet
                     packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
                     # Parse packet from 20-byte
                     packet_id, seq_num, data = self.parsePacket(packetBytes)
                     if data and (len(data) > 0):
-                        if not self.hasHandshake:
-                            # Send SYN+ACK
-                            if packet_id == PacketType.ACK.value:
-                                self.sendAck(seq_num, self.serial_char)
-                                # BUG: If Beetle never received the SYN+ACK sent above, laptop
-                                #   one-sided-ly thinks it completed handshake but Beetle is still waiting
-                                #   Consider letting the Beetle signal that the handshake failed
-                                self.hasHandshake = True
-                        else:
-                            if packet_id != PacketType.ACK.value:
-                                self.sendAck(seq_num, self.serial_char)
+                        # Packet is valid
+                        # Check if packet is an ACK packet
+                        if packet_id != PacketType.ACK.value:
+                            self.sendAck(seq_num)
             
             except Exception as err:
                 print(err)
@@ -236,11 +264,15 @@ class Beetle(threading.Thread):
             return ERROR_VALUE, ERROR_VALUE, None
         #print("{}{} has New packet: {}{}".format(bcolors.OKGREEN, self.beetle_mac_addr, packetBytes, bcolors.ENDC))
         self.mPrint2(inputString = "{} has new packet: {}".format(self.beetle_mac_addr, packetBytes))
-        # packet_id = packetBytes[0]
+        if not self.hasValidPacketType(packetBytes):
+            self.mPrint(bcolors.WARNING, 
+                        inputString = "Invalid packet type ID received: {}".format(self.getPacketTypeIdOfpacketBytes))
+            return ERROR_VALUE, ERROR_VALUE, None
         packet_id, seq_num, data, dataCrc = self.getPacketFrom(packetBytes)
         computedCrc = self.getCrcOf(packet_id, seq_num, data)
         if dataCrc != computedCrc:
             print("CRC8 not match: received {} but expected {}".format(dataCrc, computedCrc))
+            return ERROR_VALUE, ERROR_VALUE, None
         """ if packet_id == PacketType.P1_IMU.value or packet_id == PacketType.P2_IMU.value:
             #self.mPrint(bcolors.OKGREEN, "IMU data: [{}, {}, {}], [{}, {}, {}]".format(data[0:1]))
             print(struct.unpack('H', bytearray(data[0:1])))
@@ -248,16 +280,19 @@ class Beetle(threading.Thread):
             self.mPrint(bcolors.OKGREEN, "New packet: {}".format(packetBytes)) """
         return packet_id, seq_num, data
 
-    def sendHello(self, seq_num, serial_char):
+    def sendHello(self, seq_num):
         HELLO = "HELLO"
         hello_packet = self.createPacket(PacketType.HELLO.value, seq_num, bytes(HELLO, encoding = 'ascii'))
         print("Sending HELLO: {}".format(hello_packet))
-        serial_char.write(hello_packet)
+        self.sendPacket(hello_packet)
 
-    def sendAck(self, seq_num, serial_char):
+    def sendAck(self, seq_num):
         SYNACK = "SYNACK"
         syn_ack_packet = self.createPacket(PacketType.ACK.value, seq_num, bytes(SYNACK, encoding = "ascii"))
-        serial_char.write(syn_ack_packet)
+        self.sendPacket(syn_ack_packet)
+
+    def sendPacket(self, packet):
+        self.serial_char.write(packet)
 
     def addPaddingBytes(self, data, target_len):
         num_padding_bytes = target_len - len(data)
@@ -265,6 +300,16 @@ class Beetle(threading.Thread):
         for i in range(0, num_padding_bytes):
             result.append(num_padding_bytes)
         return num_padding_bytes, result
+    
+    def getPacketTypeIdOf(self, packet):
+        packet_id = packet[0] & LOWER_4BITS_MASK
+        return packet_id
+    
+    def isValidPacketType(self, packet_type_id):
+        return packet_type_id <= PacketType.GAME_STAT.value and packet_type_id >= PacketType.HELLO.value
+
+    def hasValidPacketType(self, packet):
+        return self.isValidPacketType(self.getPacketTypeIdOf(packet))
 
 if __name__=="__main__":
     beetles = []

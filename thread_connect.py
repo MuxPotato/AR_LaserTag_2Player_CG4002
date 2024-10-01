@@ -11,8 +11,10 @@ INITIAL_SEQ_NUM = 0
 ERROR_VALUE = -1
 BLE_TIMEOUT = 0.25
 PACKET_SIZE = 20
+PACKET_TYPE_ID_LENGTH = 4
 PACKET_FORMAT = "=BH16sB"
 BITS_PER_BYTE = 8
+LOWER_4BITS_MASK = 0x0f
 BLUNO_MAC_ADDR_LIST = [
     "f4:b8:5e:42:67:2b",
     "F4:B8:5E:42:6D:75",
@@ -67,7 +69,8 @@ class BlePacketDelegate(DefaultDelegate):
             print(err)
     
     def isHeaderByte(self, dataByte):
-        return dataByte <= PacketType.GAME_STAT.value and dataByte >= PacketType.HELLO.value
+        packet_id = dataByte & LOWER_4BITS_MASK
+        return packet_id <= PacketType.GAME_STAT.value and packet_id >= PacketType.HELLO.value
 
 class Beetle(threading.Thread):
     def __init__(self, beetle_mac_addr, color = bcolors.OKGREEN):
@@ -195,21 +198,24 @@ class Beetle(threading.Thread):
     def createPacket(self, packet_id, seq_num, data):
         # TODO: Avoid hardcoding this value
         data_length = 16
+        num_padding_bytes = 0
         if (len(data) < data_length):
-            data = self.addPaddingBytes(data, data_length)
-        dataCrc = self.getCrcOf(packet_id, seq_num, data)
-        packet = struct.pack(PACKET_FORMAT, packet_id, seq_num, data, dataCrc)
+            num_padding_bytes, data = self.addPaddingBytes(data, data_length)
+        metadata = packet_id + (num_padding_bytes << PACKET_TYPE_ID_LENGTH)
+        dataCrc = self.getCrcOf(metadata, seq_num, data)
+        packet = struct.pack(PACKET_FORMAT, metadata, seq_num, data, dataCrc)
         return packet
 
-    def getCrcOf(self, packet_id, seq_num, data):
+    def getCrcOf(self, metadata, seq_num, data):
         crc8 = anycrc.Model('CRC8-SMBUS')
-        crc8.update(packet_id.to_bytes())
+        crc8.update(metadata.to_bytes())
         crc8.update(seq_num.to_bytes(length = 2, byteorder = 'little'))
         dataCrc = crc8.update(data)
         return dataCrc
     
     def getPacketFrom(self, packetBytes):
-        packet_id, seq_num, data, dataCrc = struct.unpack(PACKET_FORMAT, packetBytes)
+        metadata, seq_num, data, dataCrc = struct.unpack(PACKET_FORMAT, packetBytes)
+        packet_id = metadata & LOWER_4BITS_MASK
         return packet_id, seq_num, data, dataCrc
     
     def parseData(self, byte1, byte2):
@@ -258,7 +264,7 @@ class Beetle(threading.Thread):
         result = bytearray(data)
         for i in range(0, num_padding_bytes):
             result.append(num_padding_bytes)
-        return result
+        return num_padding_bytes, result
 
 if __name__=="__main__":
     beetles = []

@@ -133,6 +133,33 @@ class Beetle(threading.Thread):
     def mPrint(self, color, inputString):
         print("{}{}{}".format(color, inputString, bcolors.ENDC))
 
+    def main(self):
+        while not self.terminateEvent.is_set():
+            try:
+                if not self.hasHandshake:
+                    # Perform 3-way handshake
+                    self.doHandshake()
+                # Handshake already completed
+                elif self.mBeetle.waitForNotifications(BLE_TIMEOUT):
+                    mRecvTime = time.time()
+                    if len(self.mDataBuffer) < PACKET_SIZE:
+                        self.fragmentedCount += 1
+                    # bytearray for 20-byte packet
+                    packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
+                    # Parse packet from 20-byte
+                    packet_id, seq_num, data = self.parsePacket(packetBytes)
+                    if data and (len(data) > 0):
+                        # Packet is valid
+                        # Check if packet is an ACK packet
+                        if packet_id != PacketType.ACK.value:
+                            self.sendAck(seq_num)
+            
+            except Exception as err:
+                print(err)
+                self.reconnect()
+                self.main()
+        self.disconnect()
+
     def doHandshake(self):
         mSentHelloTime = time.time()
         while not self.hasHandshake:
@@ -172,33 +199,6 @@ class Beetle(threading.Thread):
                         self.hasHandshake = True
                 else:
                     self.hasSentHello = False
-
-    def main(self):
-        while not self.terminateEvent.is_set():
-            try:
-                if not self.hasHandshake:
-                    # Perform 3-way handshake
-                    self.doHandshake()
-                # Handshake already completed
-                elif self.mBeetle.waitForNotifications(BLE_TIMEOUT):
-                    mRecvTime = time.time()
-                    if len(self.mDataBuffer) < PACKET_SIZE:
-                        self.fragmentedCount += 1
-                    # bytearray for 20-byte packet
-                    packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
-                    # Parse packet from 20-byte
-                    packet_id, seq_num, data = self.parsePacket(packetBytes)
-                    if data and (len(data) > 0):
-                        # Packet is valid
-                        # Check if packet is an ACK packet
-                        if packet_id != PacketType.ACK.value:
-                            self.sendAck(seq_num)
-            
-            except Exception as err:
-                print(err)
-                self.reconnect()
-                self.main()
-        self.disconnect()
 
     def run(self):
         self.connect()

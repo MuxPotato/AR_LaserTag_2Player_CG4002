@@ -63,31 +63,34 @@ void loop() {
     } else if (getPacketTypeOf(currPacket) != PacketType::ACK) {
       sendAckPacket(currPacket.seqNum);
     }
+  } else if (!sendBuffer.isFull()) {
+    // If there's no packet received, send dummy packet
+    sendDummyPacket();
   }
+  // Send packet from sendBuffer if any exist
+  if (!sendBuffer.isEmpty()) {
+    BlePacket firstPacket = sendBuffer.get(FIRST_ELEMENT);
+    sendPacket(firstPacket);
 
-  if (hasHandshake) {
-    if (!sendBuffer.isFull()) {
-      sendDummyPacket();
+    // Read response packet from laptop
+    BlePacket resultPacket;
+    unsigned long sentTime = millis();
+    // Block until complete packet received
+    readPacket(recvBuff, resultPacket);
+    unsigned long recvTime = millis();
+    if (getPacketTypeOf(resultPacket) == PacketType::HELLO) {
+      hasHandshake = false;
+      handshakeStatus = STAT_HELLO;
+      return;
     }
-    if (!sendBuffer.isEmpty()) {
-      BlePacket firstPacket = sendBuffer.get(FIRST_ELEMENT);
-      sendPacket(firstPacket);
-      BlePacket resultPacket;
-      unsigned long sentTime = millis();
-      readPacket(recvBuff, resultPacket);
-      unsigned long recvTime = millis();
-      if (getPacketTypeOf(resultPacket) == PacketType::HELLO) {
-        hasHandshake = false;
-        handshakeStatus = STAT_HELLO;
-        return;
-      }
-      if (getPacketTypeOf(resultPacket) == PacketType::ACK &&
-        (recvTime - sentTime) < BLE_TIMEOUT) {
-        sendBuffer.pop_front();
-        seqNum += 1;
-      } else if (getPacketTypeOf(resultPacket) != PacketType::ACK) {
-        sendAckPacket(resultPacket.seqNum);
-      }
+    if (getPacketTypeOf(resultPacket) == PacketType::ACK &&
+      (recvTime - sentTime) < BLE_TIMEOUT) {
+      // Packet received by laptop, remove from sendBuffer
+      sendBuffer.pop_front();
+      seqNum += 1;
+    } else if (getPacketTypeOf(resultPacket) != PacketType::ACK) {
+      // TODO: Handle actual data from laptop that is not HELLO or ACK
+      sendAckPacket(resultPacket.seqNum);
     }
   }
 }

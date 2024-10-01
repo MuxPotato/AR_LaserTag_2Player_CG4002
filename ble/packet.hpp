@@ -8,6 +8,7 @@
 #define MAX_BUFFER_SIZE 40
 #define PACKET_SIZE 20
 #define PACKET_DATA_SIZE 16
+#define PACKET_TYPE_SIZE 4
 
 struct BlePacket {
 	/* Start packet header */
@@ -184,6 +185,11 @@ byte getPacketTypeOf(const BlePacket &packet) {
     return INVALID_PACKET_ID;
   }
   return packetTypeId;
+}
+
+byte getNumOfPaddingBytes(const BlePacket &packet) {
+  byte numPaddingBytes = packet.metadata >> PACKET_TYPE_SIZE;
+  return numPaddingBytes;
 }
 
 bool isHeadByte(byte currByte) {

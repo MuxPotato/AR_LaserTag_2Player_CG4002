@@ -2,7 +2,7 @@
 
 HandshakeStatus handshakeStatus = STAT_NONE;
 bool hasHandshake = false;
-uint16_t seqNum = 0;
+uint16_t seqNum = INITIAL_SEQ_NUM;
 unsigned long sentPacketTime = 0;
 CircularBuffer<char> recvBuff{};
 CircularBuffer<BlePacket> sendBuffer{};
@@ -96,8 +96,7 @@ void loop() {
 }
 
 bool doHandshake() {
-  unsigned long prevTime = millis();
-  uint16_t prevSeqNum = seqNum;
+  unsigned long mSentTime = millis();
   while (true) {
     if (handshakeStatus == STAT_NONE) {
       /* Either Beetle got powered off accidentally and reconnected, 
@@ -106,26 +105,32 @@ bool doHandshake() {
       readPacket(recvBuff, mPacket);
       if (getPacketTypeOf(mPacket) == PacketType::HELLO) {
         handshakeStatus = STAT_HELLO;
-        prevSeqNum = mPacket.seqNum;
       }
     } else if (handshakeStatus == STAT_HELLO) {
       BlePacket ackPacket;
-      createAckPacket(ackPacket, prevSeqNum);
+      createAckPacket(ackPacket, seqNum);
       sendPacket(ackPacket);
-      prevTime = millis();
+      mSentTime = millis();
       handshakeStatus = STAT_ACK;
     } else if (handshakeStatus == STAT_ACK) {
       BlePacket packet;
       readPacket(recvBuff, packet);
-      if ((millis() - prevTime) > BLE_TIMEOUT) {
+      if ((millis() - mSentTime) > BLE_TIMEOUT) {
         // Timeout, retransmit ACK packet
         handshakeStatus = STAT_HELLO;
-        prevTime = millis();
+        mSentTime = millis();
         continue;
       }
       // Check whether laptop sent SYN+ACK
       if (getPacketTypeOf(packet) == PacketType::ACK) {
+        uint16_t laptopSeqNum = INITIAL_SEQ_NUM;
+        if (laptopSeqNum < seqNum) {
+          // TODO: Verify whether this is sound, will we 'forget' any lost packets?
+          seqNum = laptopSeqNum;
+        }
+        // If seqNum < laptopSeqNum, we assume that laptop will update its internal seqNum count
         handshakeStatus = STAT_SYN;
+        // Handshake is now complete
         return true;
       } else if (getPacketTypeOf(packet) == PacketType::HELLO) {
         // HELLO packet again, restart handshake

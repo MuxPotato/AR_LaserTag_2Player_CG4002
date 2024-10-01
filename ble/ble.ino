@@ -67,11 +67,11 @@ void loop() {
   if (Serial.available()) {
     BlePacket currPacket;
     readPacket(recvBuff, currPacket);
-    if ((currPacket.metadata & LOWER_4BIT_MASK) == PacketType::HELLO) {
+    if (getPacketTypeOf(currPacket) == PacketType::HELLO) {
       hasHandshake = false;
       handshakeStatus = STAT_HELLO;
       return;
-    } else if ((currPacket.metadata & LOWER_4BIT_MASK) != PacketType::ACK) {
+    } else if (getPacketTypeOf(currPacket) != PacketType::ACK) {
       sendAckPacket(currPacket.seqNum);
     }
   }
@@ -86,15 +86,15 @@ void loop() {
       unsigned long sentTime = millis();
       BlePacket resultPacket;
       readPacket(recvBuff, resultPacket);
-      if ((resultPacket.metadata & LOWER_4BIT_MASK) == PacketType::HELLO) {
+      if (getPacketTypeOf(resultPacket) == PacketType::HELLO) {
         hasHandshake = false;
         handshakeStatus = STAT_HELLO;
         return;
       }
-      if ((resultPacket.metadata & LOWER_4BIT_MASK) == PacketType::ACK &&
+      if (getPacketTypeOf(resultPacket) == PacketType::ACK &&
         (millis() - sentTime) < BLE_TIMEOUT) {
         sendBuffer.pop_front();
-      } else if ((resultPacket.metadata & LOWER_4BIT_MASK) != PacketType::ACK) {
+      } else if (getPacketTypeOf(resultPacket) != PacketType::ACK) {
         sendAckPacket(resultPacket.seqNum);
       }
     }
@@ -110,14 +110,14 @@ bool doHandshake() {
        * or Beetle is connecting to laptop for the first time */
       BlePacket mPacket;
       readPacket(recvBuff, mPacket);
-      if ((mPacket.metadata & LOWER_4BIT_MASK) == PacketType::HELLO) {
+      if (getPacketTypeOf(mPacket) == PacketType::HELLO) {
         handshakeStatus = STAT_HELLO;
         prevSeqNum = mPacket.seqNum;
       }
     } else if (handshakeStatus == STAT_HELLO) {
       BlePacket ackPacket;
       createAckPacket(ackPacket, prevSeqNum);
-      Serial.write((byte *) &ackPacket, sizeof(ackPacket));
+      sendPacket(ackPacket);
       prevTime = millis();
       handshakeStatus = STAT_ACK;
     } else if (handshakeStatus == STAT_ACK) {
@@ -130,10 +130,10 @@ bool doHandshake() {
         continue;
       }
       // Check whether laptop sent SYN+ACK
-      if ((packet.metadata & LOWER_4BIT_MASK) == PacketType::ACK) {
+      if (getPacketTypeOf(packet) == PacketType::ACK) {
         handshakeStatus = STAT_SYN;
         return true;
-      } else if ((packet.metadata & LOWER_4BIT_MASK) == PacketType::HELLO) {
+      } else if (getPacketTypeOf(packet) == PacketType::HELLO) {
         // HELLO packet again, restart handshake
         handshakeStatus = STAT_HELLO;
       }

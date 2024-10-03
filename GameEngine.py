@@ -192,9 +192,14 @@ class GameEngine(Thread):
         action_p1 = "none"  # Default action for player 1
         action_p2 = "none"  # Default action for player 2
 
-        # Parse the action string (e.g., "shoot:1", "reload:2")
+        # Validate and split the action string (e.g., "shoot:1", "reload:2")
         if ":" in action:
-            action_type, player_id = action.split(":")
+            parts = action.split(":")
+            if len(parts) != 2:
+                print_message('Game Engine', f"Invalid action format: {action}")
+                return None
+
+            action_type, player_id = parts
             player_id = int(player_id)
 
             if action_type == "shoot":
@@ -214,6 +219,15 @@ class GameEngine(Thread):
                     else:
                         action_p2 = "reload"
                 print_message('Game Engine', f"Player {player_id} attempted to reload: {'Success' if success else 'Failed'}")
+
+            elif action_type in ["basket", "soccer", "volley", "bowl", "bomb"]:
+                # Handle the AI actions for sports or bomb
+                print_message('Game Engine', f"Player {player_id} performed AI action: {action_type}")
+                if player_id == 1:
+                    action_p1 = action_type
+                else:
+                    action_p2 = action_type
+                print_message('Game Engine', f"Player {player_id} performed {action_type}")
 
             elif action_type == "ai_damage":
                 self.take_ai_damage(player_id)
@@ -250,6 +264,9 @@ class GameEngine(Thread):
                         action_p2 = "charge_shield"
                 print_message('Game Engine', f"Player {player_id} charged their shield: {'Success' if success else 'Failed'}")
 
+            # New: Handling the fov action
+            elif action_type == "fov":
+                print_message('Game Engine', f"Received Field of View query for Player {player_id}")
             else:
                 print_message('Game Engine', f"Unknown action type: {action_type}")
         else:
@@ -265,6 +282,7 @@ class GameEngine(Thread):
         )
 
         return viz_format
+
 
     
 
@@ -298,6 +316,55 @@ class GameEngine(Thread):
     #     )
         
     #     return viz_format
+
+
+    def process_fov_response(self, response):
+        print_message('Game Engine', f"Processing FOV response: {response}")
+
+        # Parse response in the format: "fov:<player_id>:<opponent_player_id>:<hit_or_miss>:<is_bomb>"
+        if ":" in response:
+            _, player_id, opponent_player_id, hit_or_miss, is_bomb = response.split(":")
+            player_id = int(player_id)  # The player who performed the action
+            opponent_player_id = int(opponent_player_id)  # The opponent who will take damage
+            hit_or_miss = int(hit_or_miss)  # 1 for hit, 0 for miss
+            is_bomb = int(is_bomb)  # 1 if it's a bomb, 0 if it's another AI move
+
+            if hit_or_miss == 1:
+                print_message('Game Engine', f"Player {player_id} hit Player {opponent_player_id} with their action")
+
+                # Apply bomb damage or regular AI damage to the opponent
+                if is_bomb == 1:
+                    print_message('Game Engine', f"Player {opponent_player_id} takes bomb damage")
+                    self.take_bomb_damage(opponent_player_id)  # Apply bomb damage to the opponent
+                else:
+                    print_message('Game Engine', f"Player {opponent_player_id} takes AI damage")
+                    self.take_ai_damage(opponent_player_id)  # Apply regular AI damage to the opponent
+            else:
+                print_message('Game Engine', f"Player {player_id}'s action missed Player {opponent_player_id}")
+
+        # Update game state after processing FOV
+        self.update_both_players_game_state()
+
+        # After processing, send the updated game state to the visualizer
+        action_p1 = "none"
+        action_p2 = "none"
+
+        # Update based on the player's last action (bomb, AI, etc.)
+        if player_id == 1:
+            action_p1 = "bomb" if is_bomb == 1 else "ai_action"
+        elif player_id == 2:
+            action_p2 = "bomb" if is_bomb == 1 else "ai_action"
+
+        viz_format = (
+            f"p1_hp:{self.hp_p1},p1_bombs:{self.bomb_p1},p1_shieldCharges:{self.shieldCharges_p1},"
+            f"p1_shieldHp:{self.shieldHp_p1},p1_bullets:{self.bullets_p1},p1_deaths:{self.deaths_p1},"
+            f"p2_hp:{self.hp_p2},p2_bombs:{self.bomb_p2},p2_shieldCharges:{self.shieldCharges_p2},"
+            f"p2_shieldHp:{self.shieldHp_p2},p2_bullets:{self.bullets_p2},p2_deaths:{self.deaths_p2},"
+            f"p1_action:{action_p1},p2_action:{action_p2}"
+        )
+
+        print_message('Game Engine', f"Sending updated game state to visualizer: {viz_format}")
+        self.viz_queue.put(viz_format)  # Send updated state to the visualizer
 
 
 

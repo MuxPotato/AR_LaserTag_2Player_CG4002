@@ -77,8 +77,11 @@ class MQTT(Thread):
     #         query = f"fov"
     #         self.client.publish(self.fov_topic,query)
 
-    # Function to send the current game state to Unity
     def send_game_state(self, message):
+        if message is None:
+            print_message('MQTT', "Received an empty message, skipping game state update.")
+            return  # Skip further processing if message is None
+
         # Publish the message to the gamestate topic
         self.client.publish(self.gamestate_topic, message)
         print_message('MQTT', "Sent game state to phone")
@@ -96,6 +99,7 @@ class MQTT(Thread):
             print_message('MQTT', "Querying phone if opponent in field of view for Player 2's bomb")
             query = f"fov"
             self.client.publish(self.fov_topic, query)
+
 
 
 

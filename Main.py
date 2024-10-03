@@ -44,6 +44,24 @@ try:
     visualizer.start()
     print("starting visualizer thread")
     print("_"*30)
+
+    ## ADDED
+    # Simulate user input to send actions to GameEngine
+    while True:
+        action_input = input("Enter a move (e.g., 'shoot:1', 'reload:2', 'basket:1'): ").strip()
+        if action_input in ["exit", "quit"]:
+            print("Exiting the system...")
+            break  # Exit the input loop
+        if ":" in action_input:
+            # Simulate sending the action to the phone_action_queue of GameEngine
+            phone_action_queue.put(action_input)
+            print(f"Action '{action_input}' sent to GameEngine.")
+        else:
+            print("Invalid input format. Please use the format 'action:player_id'.")
+
+    # After breaking out of the loop, you can cleanly shut down threads
+    relay_server.shutdown()  # Signal the relay server to shut down
+    visualizer.shutdown()    # Signal the visualizer (MQTT) to shut down
     
     
     relay_server.join()

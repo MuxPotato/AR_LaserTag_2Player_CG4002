@@ -10,7 +10,7 @@ from AIThread import AI
 
 
 #host = '172.26.190.191'
-relayhost = '172.26.190.191'
+relayhost = '172.26.191.210'
 #socket.gethostbyname(socket.gethostname())
 relayport = 5055
 
@@ -22,12 +22,14 @@ action_queue = queue.Queue()
 game_engine_queue = queue.Queue()
 viz_queue = queue.Queue()
 eval_queue = queue.Queue()
+phone_action_queue = queue.Queue() # Added
 
 relay_server = RelayServer(host = relayhost,port = relayport,IMU_queue=IMU_queue, game_engine_queue=game_engine_queue)
 ai = AI(IMU_queue=IMU_queue,action_queue=action_queue)
 game_engine = GameEngine(action_queue=action_queue, game_engine_queue = game_engine_queue,viz_queue=viz_queue, eval_queue=eval_queue)
+#game_engine = GameEngine(action_queue=action_queue, game_engine_queue = game_engine_queue,viz_queue=viz_queue, eval_queue=eval_queue,phone_action_queue=phone_action_queue)
 eval_client = EvalClient(eval_queue=eval_queue,server_ip=evalhost,server_port=evalport)
-visualizer = MQTT(viz_queue=viz_queue)
+visualizer = MQTT(viz_queue=viz_queue,phone_action_queue=phone_action_queue)
 
 threads = [relay_server, ai, game_engine, eval_client, visualizer]
 try:

@@ -10,7 +10,7 @@ from AIThread import AI
 
 
 #host = '172.26.190.191'
-relayhost = '172.26.190.191'
+relayhost = '172.26.191.210'
 #socket.gethostbyname(socket.gethostname())
 relayport = 5055
 

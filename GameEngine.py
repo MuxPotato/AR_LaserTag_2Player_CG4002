@@ -355,6 +355,10 @@ class GameEngine(Thread):
         elif player_id == 2:
             action_p2 = "bomb" if is_bomb == 1 else "ai_action"
 
+
+        # TODO: Add checking with Eval_server code
+
+
         viz_format = (
             f"p1_hp:{self.hp_p1},p1_bombs:{self.bomb_p1},p1_shieldCharges:{self.shieldCharges_p1},"
             f"p1_shieldHp:{self.shieldHp_p1},p1_bullets:{self.bullets_p1},p1_deaths:{self.deaths_p1},"

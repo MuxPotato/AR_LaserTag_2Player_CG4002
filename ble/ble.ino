@@ -34,6 +34,12 @@ void sendAckPacket(uint16_t givenSeqNum) {
   sendBuffer.push_back(ackPacket);
 }
 
+void sendNackPacket(uint16_t givenSeqNum) {
+  BlePacket nackPacket;
+  createNackPacket(nackPacket, givenSeqNum);
+  sendBuffer.push_back(nackPacket);
+}
+
 void sendSynPacket(byte givenSeqNum) {
   BlePacket synPacket;
   createAckPacket(synPacket, givenSeqNum);

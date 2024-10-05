@@ -241,7 +241,6 @@ void readPacket(CircularBuffer<char> &recvBuff, BlePacket &packet) {
   }
   // receiveBuffer.length() >= PACKET_SIZE
   convertBytesToPacket(recvBuff, packet);
-  return packet;
 }
 
 void sendPacket(const BlePacket &packet) {

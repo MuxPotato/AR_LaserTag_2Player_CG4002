@@ -59,7 +59,7 @@ void loop() {
     hasHandshake = true;
   }
   // Assert: hasHandshake == true
-  if (Serial.available()) {
+  if (Serial.available() > 0) {
     BlePacket currPacket;
     readPacket(recvBuff, currPacket);
     if (getPacketTypeOf(currPacket) == PacketType::HELLO) {

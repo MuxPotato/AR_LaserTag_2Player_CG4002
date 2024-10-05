@@ -181,10 +181,10 @@ uint8_t getCrcOf(const BlePacket &packet) {
 }
 
 byte getPacketTypeOf(const BlePacket &packet) {
-  byte packetTypeId = packet.metadata & LOWER_4BIT_MASK;
-  if (packetTypeId < PacketType::HELLO || packetTypeId > PacketType::P2_IR_TRANS) {
+  if (!isHeadByte(packet.metadata)) {
     return INVALID_PACKET_ID;
   }
+  byte packetTypeId = parsePacketTypeFrom(packet.metadata);
   return packetTypeId;
 }
 
@@ -194,13 +194,17 @@ byte getNumOfPaddingBytes(const BlePacket &packet) {
 }
 
 bool isHeadByte(byte currByte) {
-  byte packetId = currByte & LOWER_4BIT_MASK;
+  byte packetId = parsePacketTypeFrom(currByte);
   return packetId >= PacketType::HELLO && packetId <= PacketType::GAME_STAT;
 }
 
 bool isPacketValid(BlePacket &packet) {
   // TODO: Implement actual checks
   return true;
+}
+
+byte parsePacketTypeFrom(byte metadata) {
+  return metadata & LOWER_4BIT_MASK;
 }
 
 // Accept BlePacket to be returned as a parameter passed by reference for efficiency

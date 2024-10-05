@@ -343,6 +343,6 @@ if __name__=="__main__":
             index += 1
         for thisBeetle in beetles:
             thisBeetle.join()
-    except KeyboardInterrupt as err:
+    except KeyboardInterrupt:
         for mBeetle in beetles:
             mBeetle.quit()

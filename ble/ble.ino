@@ -80,24 +80,35 @@ void loop() {
     sendPacket(packetToSend);
     sentPacketTime = millis();
 
-    // Read response packet from laptop
-    BlePacket resultPacket;
-    // Block until complete packet received
-    readPacket(recvBuff, resultPacket);
-    unsigned long recvTime = millis();
-    if (getPacketTypeOf(resultPacket) == PacketType::HELLO) {
-      hasHandshake = false;
-      handshakeStatus = STAT_HELLO;
-      return;
-    }
-    if (getPacketTypeOf(resultPacket) == PacketType::ACK &&
-      (recvTime - sentPacketTime) < BLE_TIMEOUT) {
-      // Packet received by laptop, remove from sendBuffer
+    // Only handle HELLO and ACK here, leave the others to the earlier main packet parsing code block
+    if (getPacketTypeOf(packetToSend) != PacketType::ACK) {
+      // Read response packet from laptop
+      BlePacket resultPacket;
+      // Block until complete packet received
+      readPacket(recvBuff, resultPacket);
+      unsigned long recvTime = millis();
+      // Ideally we should handle this in the main packet parsing code block, but for quick response we duplicate the logic here too
+      if (getPacketTypeOf(resultPacket) == PacketType::HELLO) {
+        hasHandshake = false;
+        handshakeStatus = STAT_HELLO;
+        return;
+      }
+      if (getPacketTypeOf(resultPacket) == PacketType::ACK &&
+        resultPacket.seqNum == packetToSend.seqNum &&
+        (recvTime - sentPacketTime) < BLE_TIMEOUT) {
+        // Packet received by laptop, remove from sendBuffer
+        sendBuffer.pop_front();
+        seqNum += 1;
+      } /* else if (getPacketTypeOf(resultPacket) != PacketType::ACK) {
+        // TODO: Handle actual data from laptop that is not HELLO or ACK
+        // BUG: Currently when Beetle sends IMU packet and waits for ACK but instead gets DUMMY packet from laptop, Beetle ACKs DUMMY and ends loop() iteration but doesn't wait for laptop to ACK
+        // BUG: This block duplicates with the Serial.available() if block earlier in loop(), think of how to avoid duplicate incoming packet parsing/handling
+        sendNackPacket(resultPacket.seqNum);
+      } */
+    } else {
+      // Don't read response from laptop if Beetle just sent an ACK to a laptop's data packet
+      // But still remove the packet from buffer
       sendBuffer.pop_front();
-      seqNum += 1;
-    } else if (getPacketTypeOf(resultPacket) != PacketType::ACK) {
-      // TODO: Handle actual data from laptop that is not HELLO or ACK
-      sendAckPacket(resultPacket.seqNum);
     }
   }
 }
@@ -147,7 +158,6 @@ bool doHandshake() {
   }
   return false;
 }
-
 
 bool sendPacketFrom(CircularBuffer<BlePacket> &sendBuffer) {
   // Nothing can be done if the buffer is empty!

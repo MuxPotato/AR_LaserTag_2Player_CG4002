@@ -75,8 +75,8 @@ void loop() {
   }
   // Send packet from sendBuffer if any exist
   if (!sendBuffer.isEmpty()) {
-    BlePacket firstPacket = sendBuffer.get(FIRST_ELEMENT);
-    sendPacket(firstPacket);
+    BlePacket packetToSend = sendBuffer.get(FIRST_ELEMENT);
+    sendPacket(packetToSend);
 
     // Read response packet from laptop
     BlePacket resultPacket;

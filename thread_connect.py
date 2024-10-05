@@ -3,6 +3,7 @@ from enum import Enum
 import struct
 import threading
 import time
+import traceback
 from bluepy.btle import BTLEDisconnectError, DefaultDelegate, Peripheral
 import anycrc
 
@@ -66,8 +67,8 @@ class BlePacketDelegate(DefaultDelegate):
                     self.dataBuffer.append(dataByte)
                 else:
                     print("Dropping byte {}".format(dataByte))
-        except Exception as err:
-            print(err)
+        except Exception as exc:
+            traceback.print_exception(exc)
     
     def isHeaderByte(self, dataByte):
         packet_id = dataByte & LOWER_4BITS_MASK
@@ -159,8 +160,8 @@ class Beetle(threading.Thread):
                         if packet_id != PacketType.ACK.value:
                             self.sendAck(seq_num)
             
-            except Exception as err:
-                print(err)
+            except Exception as exc:
+                traceback.print_exception(exc)
                 self.reconnect()
                 self.main()
         self.disconnect()

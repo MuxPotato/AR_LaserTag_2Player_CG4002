@@ -61,6 +61,7 @@ void loop() {
   // Assert: hasHandshake == true
   if (Serial.available() > 0) {
     BlePacket currPacket;
+    // Block until 1 complete 20-byte packet is received and read into currPacket
     readPacket(recvBuff, currPacket);
     if (getPacketTypeOf(currPacket) == PacketType::HELLO) {
       hasHandshake = false;

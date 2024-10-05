@@ -147,6 +147,10 @@ class Beetle(threading.Thread):
                         continue
                     # bytearray for 20-byte packet
                     packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
+                    if not self.isValidPacket(packetBytes):
+                        # TODO: Figure out what seq num to send
+                        self.sendNack(self.seq_num)
+                        continue
                     # Parse packet from 20-byte
                     packet_id, seq_num, data = self.parsePacket(packetBytes)
                     if data and (len(data) > 0):
@@ -181,6 +185,10 @@ class Beetle(threading.Thread):
                 mRecvTime = time.time()
                 # bytearray for 20-byte packet
                 packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
+                if not self.isValidPacket(packetBytes):
+                    # TODO: Figure out what seq num to send
+                    self.sendNack(self.seq_num)
+                    continue
                 # Parse packet from 20-byte
                 packet_id, beetle_seq_num, data = self.parsePacket(packetBytes)
                 if data and (len(data) > 0):

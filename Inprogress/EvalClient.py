@@ -13,9 +13,10 @@ from Crypto.Util.Padding import pad
 from Color import print_message
 
 class EvalClient(Thread):
-    def __init__(self,eval_queue,server_ip, server_port):
+    def __init__(self,eval_queue,server_ip, server_port,from_eval_queue):
         Thread.__init__(self)
         self.eval_queue = eval_queue
+        self.from_eval_queue = from_eval_queue
         self.secret_key = b'PLEASEMAYITWORKS'
         self.server_ip = server_ip
         self.server_port = server_port  
@@ -107,12 +108,13 @@ class EvalClient(Thread):
             print("_"*30)
             print_message('Eval Client',f"Received message from game engine")
             print()
-
+            
             # send message to eval server 
             self.send_text(json.dumps(message))
             success,response = self.recv_text()
             if success:
                 print_message('Eval Client',f"Received {response} from EvalServer")
+                self.from_eval_queue.put(response)
                 print("_"*30)
                 
             else: 

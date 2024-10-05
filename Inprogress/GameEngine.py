@@ -4,12 +4,13 @@ import random
 from Color import print_message
 
 class GameEngine(Thread):
-     def __init__(self,game_engine_queue,action_queue, eval_queue, viz_queue):
+     def __init__(self,game_engine_queue,action_queue, eval_queue, viz_queue,from_eval_queue):
         Thread.__init__(self)
         self.game_engine_queue = game_engine_queue
         self.action_queue = action_queue
         self.eval_queue = eval_queue 
         self.viz_queue = viz_queue 
+        self.from_eval_queue = from_eval_queue
 
 
          # Player 1 Variables
@@ -191,7 +192,7 @@ class GameEngine(Thread):
             player_id = int(player_id)
 
             if action_type == "shoot":
-                success = self.shoot(player_id)
+                success = self.shoot(2)
                 success = self.take_bullet_damage(2)
                 if success:
                     if player_id == 1:
@@ -201,7 +202,7 @@ class GameEngine(Thread):
                 print_message('Game Engine', f"Player {player_id} attempted to shoot: {'Success' if success else 'Failed'}")
 
             elif action_type == "reload":
-                success = self.reload(player_id)
+                success = self.reload(2)
                 if success:
                     if player_id == 1:
                         action_p1 = "reload"
@@ -209,7 +210,7 @@ class GameEngine(Thread):
                         action_p2 = "reload"
                 print_message('Game Engine', f"Player {player_id} attempted to reload: {'Success' if success else 'Failed'}")
 
-            elif action_type in ["basket", "soccer", "volley", "bowl", "bomb"]:
+            elif action_type in ["basket", "soccer", "volley", "bowl"]:
                 # Handle the AI actions for sports or bomb
                 print_message('Game Engine', f"Player {player_id} performed AI action: {action_type}")
                 self.take_ai_damage(2)
@@ -230,7 +231,7 @@ class GameEngine(Thread):
                 print_message('Game Engine', f"Player {2} took rain bomb damage: {'Success' if success else 'Failed'}")
 
             elif action_type == "shield":
-                success = self.charge_shield(player_id)
+                success = self.charge_shield(2)
                 if success:
                     if player_id == 1:
                         action_p1 = "shield"
@@ -268,7 +269,7 @@ class GameEngine(Thread):
             
             # i need 2 formats one is for putting in the viz_queue and one is for putting in the eval_queue 
             # first is viz_queue format 
-            viz_format = self.process_phone_action(action) # make dummy game state data but use action from what AI sent 
+            viz_format = self.process_phone_action(action) 
         
 
             
@@ -299,5 +300,10 @@ class GameEngine(Thread):
             self.viz_queue.put(viz_format)
             
             self.eval_queue.put(eval_server_format)
+            updated_game_state = self.from_eval_queue.get()
+            print_message('Game Engine',f"Received updated game state from eval server")
+
+            # need to send the updated game state to phone 
+
         
 

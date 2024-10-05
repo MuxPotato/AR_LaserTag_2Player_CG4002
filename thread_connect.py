@@ -144,6 +144,7 @@ class Beetle(threading.Thread):
                     mRecvTime = time.time()
                     if len(self.mDataBuffer) < PACKET_SIZE:
                         self.fragmentedCount += 1
+                        continue
                     # bytearray for 20-byte packet
                     packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
                     # Parse packet from 20-byte

@@ -260,7 +260,7 @@ class Beetle(threading.Thread):
                 # CRC is valid, packet is not corrupted
                 return True
             else:
-                print("CRC8 not match: received {} but expected {}".format(received_crc, computed_crc))
+                print("CRC8 not match: received {} but expected {} for packet {}".format(received_crc, computed_crc, given_packet))
         else:
             # Invalid packet type received
             self.mPrint(bcolors.WARNING, 

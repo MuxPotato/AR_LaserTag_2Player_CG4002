@@ -77,10 +77,10 @@ void loop() {
   if (!sendBuffer.isEmpty()) {
     BlePacket packetToSend = sendBuffer.get(FIRST_ELEMENT);
     sendPacket(packetToSend);
+    sentPacketTime = millis();
 
     // Read response packet from laptop
     BlePacket resultPacket;
-    unsigned long sentTime = millis();
     // Block until complete packet received
     readPacket(recvBuff, resultPacket);
     unsigned long recvTime = millis();
@@ -90,7 +90,7 @@ void loop() {
       return;
     }
     if (getPacketTypeOf(resultPacket) == PacketType::ACK &&
-      (recvTime - sentTime) < BLE_TIMEOUT) {
+      (recvTime - sentPacketTime) < BLE_TIMEOUT) {
       // Packet received by laptop, remove from sendBuffer
       sendBuffer.pop_front();
       seqNum += 1;

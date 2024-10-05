@@ -293,6 +293,11 @@ class Beetle(threading.Thread):
         syn_ack_packet = self.createPacket(PacketType.ACK.value, seq_num, bytes(SYNACK, encoding = "ascii"))
         self.sendPacket(syn_ack_packet)
 
+    def sendNack(self, seq_num):
+        NACK = "NACK"
+        nack_packet = self.createPacket(PacketType.NACK.value, seq_num, bytes(NACK, encoding = "ascii"))
+        self.sendPacket(nack_packet)
+
     def sendPacket(self, packet):
         self.serial_char.write(packet)
 

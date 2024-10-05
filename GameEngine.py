@@ -56,14 +56,21 @@ class GameEngine(Thread):
 
     def reload(self, player_id):
         if player_id == 1:
-            self.bullets_p1 = 6
-            self.update_both_players_game_state()
-            return True
+            if self.bullets_p1 == 0:  # Only reload if bullets are empty
+                self.bullets_p1 = 6
+                self.update_both_players_game_state()
+                return True
+            else:
+                return False  # Cannot reload if bullets are not empty
         elif player_id == 2:
-            self.bullets_p2 = 6
-            self.update_both_players_game_state()
-            return True
+            if self.bullets_p2 == 0:  # Only reload if bullets are empty
+                self.bullets_p2 = 6
+                self.update_both_players_game_state()
+                return True
+            else:
+                return False  # Cannot reload if bullets are not empty
         return False
+
 
     def take_ai_damage(self, player_id):
         if player_id == 1:

@@ -3,7 +3,7 @@ from queue import Queue
 import random
 from Color import print_message
 
-ACTIONS = ["gun", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"]
+ACTIONS = ["gun", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"] #TODO need to add logout 
 
 class AI(Thread):
     def __init__(self,IMU_queue,action_queue):

@@ -56,15 +56,21 @@ class GameEngine(Thread):
             return False
 
      def reload(self, player_id):
-            if player_id == 1:
+        if player_id == 1:
+            if self.bullets_p1 == 0:  # Only reload if bullets are empty
                 self.bullets_p1 = 6
                 self.update_both_players_game_state()
                 return True
-            elif player_id == 2:
+            else:
+                return False  # Cannot reload if bullets are not empty
+        elif player_id == 2:
+            if self.bullets_p2 == 0:  # Only reload if bullets are empty
                 self.bullets_p2 = 6
                 self.update_both_players_game_state()
                 return True
-            return False
+            else:
+                return False  # Cannot reload if bullets are not empty
+        return False
 
      def take_ai_damage(self, player_id):
             if player_id == 1:
@@ -263,13 +269,14 @@ class GameEngine(Thread):
             print("_"*30)
             print_message('Game Engine',"Received message from RelayServer")
             print()
-            action = self.action_queue.get()
+            actionformat = self.action_queue.get()
+            action = actionformat.split(":")[0]
             print_message('Game Engine',f"Received '{action}' from AI")
 
             
             # i need 2 formats one is for putting in the viz_queue and one is for putting in the eval_queue 
             # first is viz_queue format 
-            viz_format = self.process_phone_action(action) 
+            viz_format = self.process_phone_action(actionformat) 
         
 
             

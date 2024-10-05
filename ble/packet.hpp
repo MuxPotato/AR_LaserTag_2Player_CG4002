@@ -199,7 +199,20 @@ bool isHeadByte(byte currByte) {
 }
 
 bool isPacketValid(BlePacket &packet) {
-  // TODO: Implement actual checks
+  if (!isHeadByte(packet.metadata)) {
+    return false;
+  }
+  uint8_t computedCrc = getCrcOf(packet);
+  uint8_t receivedCrc = packet.crc;
+  if (computedCrc != receivedCrc) {
+    return false;
+  }
+  byte numPaddingBytes = getNumOfPaddingBytes(packet);
+  for (size_t i = 1; i <= numPaddingBytes; i += 1) {
+    if (packet.data[PACKET_DATA_SIZE - i] != numPaddingBytes) {
+      return false;
+    }
+  }
   return true;
 }
 

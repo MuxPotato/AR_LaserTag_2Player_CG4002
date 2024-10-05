@@ -118,7 +118,9 @@ public:
 
 bool doHandshake();
 uint8_t getCrcOf(const BlePacket &packet);
+byte parsePacketTypeFrom(byte metadata);
 bool sendPacketFrom(CircularBuffer<BlePacket> &sendBuffer);
+bool isHeadByte(byte currByte);
 
 void convertBytesToPacket(CircularBuffer<char> &dataBuffer, BlePacket &packet) {
   packet.metadata = dataBuffer.pop_front();
@@ -141,6 +143,11 @@ void createPacket(BlePacket &packet, byte packetType, short givenSeqNum, byte da
 void createAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   byte data[PACKET_DATA_SIZE] = {'A', 'C', 'K'};
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, data);
+}
+
+void createNackPacket(BlePacket &nackPacket, uint16_t givenSeqNum) {
+  byte data[PACKET_DATA_SIZE] = {'N', 'A', 'C', 'K'};
+  createPacket(nackPacket, PacketType::NACK, givenSeqNum, data);
 }
 
 void floatToData(char data[PACKET_DATA_SIZE], float x1, float y1, float z1, float x2, float y2, float z2) {
@@ -198,7 +205,7 @@ bool isHeadByte(byte currByte) {
   return packetId >= PacketType::HELLO && packetId <= PacketType::GAME_STAT;
 }
 
-bool isPacketValid(BlePacket &packet) {
+bool isValidPacket(BlePacket &packet) {
   if (!isHeadByte(packet.metadata)) {
     return false;
   }

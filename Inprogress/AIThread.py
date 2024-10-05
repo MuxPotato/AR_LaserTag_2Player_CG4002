@@ -18,7 +18,8 @@ class AI(Thread):
         print()
         #action = "bomb"
         action = self.random_action()
-        self.action_queue.put(action)
+        combined_message = action + ":1" 
+        self.action_queue.put(combined_message)
         
 
     def random_action(self):

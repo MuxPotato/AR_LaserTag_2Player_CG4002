@@ -4,6 +4,7 @@ import struct
 import threading
 import time
 import traceback
+from typing import NamedTuple
 from bluepy.btle import BTLEDisconnectError, DefaultDelegate, Peripheral
 import anycrc
 
@@ -37,6 +38,12 @@ class PacketType(Enum):
     P2_IR_RECV = 7
     P2_IR_TRANS = 8
     GAME_STAT = 9
+
+class BlePacket(NamedTuple):
+    metadata: int
+    seq_num: int
+    data: bytearray
+    crc: int
 
 class bcolors:
     HEADER = '\033[95m'

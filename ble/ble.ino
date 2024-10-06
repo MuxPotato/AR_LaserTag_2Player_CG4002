@@ -31,13 +31,13 @@ void sendDummyPacket() {
 void sendAckPacket(uint16_t givenSeqNum) {
   BlePacket ackPacket;
   createAckPacket(ackPacket, givenSeqNum);
-  sendBuffer.push_back(ackPacket);
+  sendPacket(ackPacket);
 }
 
 void sendNackPacket(uint16_t givenSeqNum) {
   BlePacket nackPacket;
   createNackPacket(nackPacket, givenSeqNum);
-  sendBuffer.push_back(nackPacket);
+  sendPacket(nackPacket);
 }
 
 void sendSynPacket(byte givenSeqNum) {

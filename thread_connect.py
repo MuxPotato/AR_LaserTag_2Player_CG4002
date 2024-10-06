@@ -286,7 +286,7 @@ class Beetle(threading.Thread):
         return False
     
     def parseData(self, byte1, byte2):
-        return int.from_bytes(byte1, byteorder='little') + (int.from_bytes(byte2, byteorder='little') << BITS_PER_BYTE) / 100.0
+        return (byte1 + (byte2 << BITS_PER_BYTE)) / 100.0
         
     def parsePacket(self, packetBytes):
         # Check for NULL packet or incomplete packet

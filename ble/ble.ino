@@ -2,6 +2,8 @@
 
 HandshakeStatus handshakeStatus = STAT_NONE;
 bool hasHandshake = false;
+// A periodic packet is either IMU data or IR packet
+bool hasPeriodicPacket = false;
 uint16_t seqNum = INITIAL_SEQ_NUM;
 unsigned long sentPacketTime = 0;
 CircularBuffer<char> recvBuff{};
@@ -70,9 +72,10 @@ void loop() {
     } else if (getPacketTypeOf(currPacket) != PacketType::ACK) {
       sendAckPacket(currPacket.seqNum);
     }
-  } else if (!sendBuffer.isFull()) {
+  } else if (!sendBuffer.isFull() && !hasPeriodicPacket) {
     // If there's no packet received, send dummy packet
     sendDummyPacket();
+    hasPeriodicPacket = true;
   }
   // Send packet from sendBuffer if any exist
   if (!sendBuffer.isEmpty()) {
@@ -99,6 +102,11 @@ void loop() {
         // Packet received by laptop, remove from sendBuffer
         sendBuffer.pop_front();
         seqNum += 1;
+        if (getPacketTypeOf(packetToSend) == PacketType::P1_IMU 
+            || getPacketTypeOf(packetToSend) == PacketType::P2_IMU) {
+          // Indicate that sendBuffer has no IMU packet now
+          hasPeriodicPacket = false;
+        }
       } /* else if (getPacketTypeOf(resultPacket) != PacketType::ACK) {
         // TODO: Handle actual data from laptop that is not HELLO or ACK
         // BUG: Currently when Beetle sends IMU packet and waits for ACK but instead gets DUMMY packet from laptop, Beetle ACKs DUMMY and ends loop() iteration but doesn't wait for laptop to ACK

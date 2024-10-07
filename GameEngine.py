@@ -4,13 +4,15 @@ import random
 from Color import print_message
 
 class GameEngine(Thread):
-    def __init__(self,game_engine_queue,action_queue, eval_queue, viz_queue,phone_action_queue):
+    def __init__(self,game_engine_queue,action_queue, eval_queue, viz_queue,phone_action_queue,from_eval_queue):
         Thread.__init__(self)
         self.game_engine_queue = game_engine_queue
         self.action_queue = action_queue
         self.eval_queue = eval_queue 
         self.viz_queue = viz_queue 
         self.phone_action_queue = phone_action_queue  # New queue for phone actions
+        self.from_eval_queue = from_eval_queue
+
 
         # Player 1 Variables
         self.hp_p1 = 100
@@ -396,15 +398,15 @@ class GameEngine(Thread):
             except queue.Empty:
                 # Handle the case where the queue is empty (timeout)
                 IMU_info = None
-            
-            try:
-                # Attempt to get action from action_queue with a timeout
-                action = self.action_queue.get(timeout=0.01)  # Adjust timeout as needed
-                print_message('Game Engine', f"Received '{action}' from AI")
-            except queue.Empty:
-                # Handle the case where no action is available
-                action = None
         
+        
+                
+
+            # Handle phone action if it's not empty
+            if not self.phone_action_queue.empty():
+                phone_action = self.phone_action_queue.get()
+                #print_message('Game Engine', f"Received action '{phone_action}' from phone")
+                viz_format = self.process_phone_action(phone_action)
                 eval_server_format = {
                 'player_id': 1,
                 'action': action,
@@ -428,15 +430,15 @@ class GameEngine(Thread):
                 }
             }
                 self.eval_queue.put(eval_server_format)
-
-            # Handle phone action if it's not empty
-            if not self.phone_action_queue.empty():
-                phone_action = self.phone_action_queue.get()
-                #print_message('Game Engine', f"Received action '{phone_action}' from phone")
-                viz_format = self.process_phone_action(phone_action)
+                
+                
+                updated_game_state = self.from_eval_queue.get()
+                print_message('Game Engine',"Received {updated_game_state} from eval server")
 
                 # Put into eval queue and viz queue
+                
                 self.viz_queue.put(viz_format)
+                
                 #self.eval_queue.put(eval_server_format)
 
         

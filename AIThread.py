@@ -6,10 +6,10 @@ from Color import print_message
 ACTIONS = ["gun", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"]
 
 class AI(Thread):
-    def __init__(self,IMU_queue,action_queue):
+    def __init__(self,IMU_queue,phone_action_queue):
         Thread.__init__(self)
         self.IMU_queue = IMU_queue
-        self.action_queue = action_queue
+        self.phone_action_queue = phone_action_queue
     
     def run(self):
       while True:
@@ -18,7 +18,7 @@ class AI(Thread):
         print()
         #action = "bomb"
         action = self.random_action()
-        self.action_queue.put(action)
+        self.phone_action_queue.put(action)
         
 
     def random_action(self):

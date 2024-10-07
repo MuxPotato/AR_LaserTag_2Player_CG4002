@@ -167,7 +167,10 @@ class Beetle(threading.Thread):
                         # Packet is valid
                         # Check if packet is an ACK packet
                         if packet_id != PacketType.ACK.value:
-                            self.sendAck(seq_num)
+                            self.sendAck(self.seq_num)
+                        else:
+                            # Received ACK packet, increment seq num
+                            self.seq_num += 1
             
             except Exception as exc:
                 traceback.print_exception(exc)

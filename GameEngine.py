@@ -32,6 +32,8 @@ class GameEngine(Thread):
         self.hp_bullet = 5
         self.hp_bomb = 5
 
+
+
     def get_player_state(self, player_id):
         if player_id == 1:
             return [self.hp_p1, self.shieldHp_p1, self.shieldCharges_p1, self.bullets_p1, self.bomb_p1, self.deaths_p1,
@@ -196,6 +198,13 @@ class GameEngine(Thread):
     def process_phone_action(self, action):
         print_message('Game Engine', f"Processing phone action: {action}")
 
+        # Check if it's an FOV response (expected format: 'fov:<player_id>:<opponent_player_id>:<hit_or_miss>:<is_bomb>')
+        # Process FOV response itself place something in the viz queue
+        if action.startswith("fov:"):
+            self.process_fov_response(action)
+            return
+
+        # If not an FOV response, proceed with regular action processing
         action_p1 = "none"  # Default action for player 1
         action_p2 = "none"  # Default action for player 2
 
@@ -271,9 +280,6 @@ class GameEngine(Thread):
                         action_p2 = "charge_shield"
                 print_message('Game Engine', f"Player {player_id} charged their shield: {'Success' if success else 'Failed'}")
 
-            # New: Handling the fov action
-            elif action_type == "fov":
-                print_message('Game Engine', f"Received Field of View query for Player {player_id}")
             else:
                 print_message('Game Engine', f"Unknown action type: {action_type}")
         else:
@@ -342,7 +348,7 @@ class GameEngine(Thread):
                 # Apply bomb damage or regular AI damage to the opponent
                 if is_bomb == 1:
                     print_message('Game Engine', f"Player {opponent_player_id} takes bomb damage")
-                    self.take_bomb_damage(opponent_player_id)  # Apply bomb damage to the opponent
+                    self.take_rain_bomb_damage(opponent_player_id)  # Apply bomb damage to the opponent
                 else:
                     print_message('Game Engine', f"Player {opponent_player_id} takes AI damage")
                     self.take_ai_damage(opponent_player_id)  # Apply regular AI damage to the opponent
@@ -352,15 +358,11 @@ class GameEngine(Thread):
         # Update game state after processing FOV
         self.update_both_players_game_state()
 
-        # After processing, send the updated game state to the visualizer
+        # Note, the actions are always none here bcs we already did it, and are just updating the game state here
         action_p1 = "none"
         action_p2 = "none"
 
-        # Update based on the player's last action (bomb, AI, etc.)
-        if player_id == 1:
-            action_p1 = "bomb" if is_bomb == 1 else "ai_action"
-        elif player_id == 2:
-            action_p2 = "bomb" if is_bomb == 1 else "ai_action"
+
 
 
         # TODO: Add checking with Eval_server code
@@ -402,39 +404,35 @@ class GameEngine(Thread):
             except queue.Empty:
                 # Handle the case where no action is available
                 action = None
-            
-            if IMU_info:
-                # Only proceed if valid data was received from the game_engine_queue
-                game_state = self.random_game_state()
-
+        
                 eval_server_format = {
-                    'player_id': 1,
-                    'action': action,
-                    'game_state': {
-                        'p1': {
-                            'hp': game_state['hp'],
-                            'bullets': game_state['bullets'],
-                            'bombs': game_state['bombs'],
-                            'shield_hp': game_state['shield_hp'],
-                            'deaths': game_state['deaths'],
-                            'shields': game_state['shields']
-                        },
-                        'p2': {  # Dummy data for another player
-                            'hp': random.randint(10, 90),
-                            'bullets': random.randint(0, 6),
-                            'bombs': random.randint(0, 2),
-                            'shield_hp': random.randint(0, 30),
-                            'deaths': random.randint(0, 3),
-                            'shields': random.randint(0, 3)
-                        }
+                'player_id': 1,
+                'action': action,
+                'game_state': {
+                    'p1': {
+                        'hp': self.hp_p1,
+                        'bullets': self.bullets_p1,
+                        'bombs': self.bomb_p1,
+                        'shield_hp': self.shieldHp_p1,
+                        'deaths': self.deaths_p1,
+                        'shields': self.shieldCharges_p1
+                    },
+                    'p2': {  
+                        'hp': self.hp_p2,
+                        'bullets': self.bullets_p2,
+                        'bombs': self.bomb_p2,
+                        'shield_hp': self.shieldHp_p2,
+                        'deaths': self.deaths_p2,
+                        'shields': self.shieldCharges_p2
                     }
                 }
+            }
                 self.eval_queue.put(eval_server_format)
 
             # Handle phone action if it's not empty
             if not self.phone_action_queue.empty():
                 phone_action = self.phone_action_queue.get()
-                print_message('Game Engine', f"Received action '{phone_action}' from phone")
+                #print_message('Game Engine', f"Received action '{phone_action}' from phone")
                 viz_format = self.process_phone_action(phone_action)
 
                 # Put into eval queue and viz queue

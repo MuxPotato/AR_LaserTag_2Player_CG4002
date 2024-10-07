@@ -219,6 +219,8 @@ class GameEngine(Thread):
             elif action_type in ["basket", "soccer", "volley", "bowl"]:
                 # Handle the AI actions for sports or bomb
                 print_message('Game Engine', f"Player {player_id} performed AI action: {action_type}")
+                
+                ## Temp for 1-player game
                 self.take_ai_damage(2)
                 if player_id == 1:
                     action_p1 = action_type

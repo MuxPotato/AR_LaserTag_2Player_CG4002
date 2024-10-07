@@ -3,7 +3,10 @@ from queue import Queue
 import random
 from Color import print_message
 
-ACTIONS = ["shoot", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"]
+#ACTIONS = ["shoot", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"] 
+#TODO Figure out eval server for non AI actions 
+
+ACTIONS = ["bomb", "reload", "basket", "soccer", "volley", "bowl"]
 
 class AI(Thread):
     def __init__(self,IMU_queue,phone_action_queue,action_queue):

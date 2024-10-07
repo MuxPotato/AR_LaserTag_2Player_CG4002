@@ -205,6 +205,9 @@ class GameEngine(Thread):
         if action.startswith("fov:"):
             self.process_fov_response(action)
             return
+        #else:
+            #self.eval_queue.put()
+        
 
         # If not an FOV response, proceed with regular action processing
         action_p1 = "none"  # Default action for player 1
@@ -434,7 +437,7 @@ class GameEngine(Thread):
                 
                 #print_message('Game Engine', f"Received action '{phone_action}' from phone")
                 viz_format = self.process_phone_action(phone_action)
-                s
+                
                 
                 
                 

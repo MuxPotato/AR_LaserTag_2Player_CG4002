@@ -160,6 +160,7 @@ class Beetle(threading.Thread):
                         # TODO: Figure out what seq num to send
                         self.sendNack(self.seq_num)
                         continue
+                    # assert packetBytes is a valid 20-byte packet
                     # Parse packet from 20-byte
                     packet_id, seq_num, data = self.parsePacket(packetBytes)
                     if data and (len(data) > 0):

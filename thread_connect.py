@@ -215,6 +215,7 @@ class Beetle(threading.Thread):
                             mSeqNum += 1
                             # TODO: Implement using SYN+ACK to synchronise seq num with Beetle
                             # Send a SYN+ACK back to Beetle
+                            self.mPrint2("Sending SYN+ACK to {}".format(self.beetle_mac_addr))
                             self.sendAck(mSeqNum)
                             mSynTime = time.time()
                             hasAck = True
@@ -332,13 +333,13 @@ class Beetle(threading.Thread):
     def sendHello(self, seq_num):
         HELLO = "HELLO"
         hello_packet = self.createPacket(PacketType.HELLO.value, seq_num, bytes(HELLO, encoding = 'ascii'))
-        print("Sending HELLO: {}".format(hello_packet))
+        self.mPrint2("Sending HELLO to {}".format(self.beetle_mac_addr))
         self.sendPacket(hello_packet)
 
     def sendAck(self, seq_num):
-        SYNACK = "SYNACK"
-        syn_ack_packet = self.createPacket(PacketType.ACK.value, seq_num, bytes(SYNACK, encoding = "ascii"))
-        self.sendPacket(syn_ack_packet)
+        ACK = "SYNACK"
+        ack_packet = self.createPacket(PacketType.ACK.value, seq_num, bytes(ACK, encoding = "ascii"))
+        self.sendPacket(ack_packet)
 
     def sendNack(self, seq_num):
         NACK = "NACK"

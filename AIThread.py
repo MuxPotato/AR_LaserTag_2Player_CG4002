@@ -3,12 +3,13 @@ from queue import Queue
 import random
 from Color import print_message
 
-ACTIONS = ["gun", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"]
+ACTIONS = ["shoot", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"]
 
 class AI(Thread):
-    def __init__(self,IMU_queue,phone_action_queue):
+    def __init__(self,IMU_queue,phone_action_queue,action_queue):
         Thread.__init__(self)
         self.IMU_queue = IMU_queue
+        self.action_queue = action_queue 
         self.phone_action_queue = phone_action_queue
     
     def run(self):
@@ -18,7 +19,9 @@ class AI(Thread):
         print()
         #action = "bomb"
         action = self.random_action()
-        self.phone_action_queue.put(action)
+        combined_action = action + ":1"
+        self.action_queue.put(action)
+        self.phone_action_queue.put(combined_action)
         
 
     def random_action(self):

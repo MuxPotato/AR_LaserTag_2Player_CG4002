@@ -64,7 +64,7 @@ class RelayServer(Thread):
         print_message('Relay Server',"Sending message to game engine")
         #print("RelayServer: Sending message to game engine")
         print("_" * 30)
-        self.game_engine_queue.put(msg)
+        #self.game_engine_queue.put(msg)
         
 
     def run(self): 

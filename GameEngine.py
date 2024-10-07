@@ -4,14 +4,14 @@ import random
 from Color import print_message
 
 class GameEngine(Thread):
-    def __init__(self,game_engine_queue,action_queue, eval_queue, viz_queue,phone_action_queue,from_eval_queue):
+    def __init__(self,game_engine_queue, eval_queue, viz_queue,phone_action_queue,from_eval_queue,action_queue):
         Thread.__init__(self)
         self.game_engine_queue = game_engine_queue
-        self.action_queue = action_queue
         self.eval_queue = eval_queue 
         self.viz_queue = viz_queue 
         self.phone_action_queue = phone_action_queue  # New queue for phone actions
         self.from_eval_queue = from_eval_queue
+        self.action_queue = action_queue
 
 
         # Player 1 Variables
@@ -364,9 +364,34 @@ class GameEngine(Thread):
         action_p1 = "none"
         action_p2 = "none"
 
+        action = self.action_queue.get()
+
+        eval_server_format = {
+                'player_id': 1,
+                'action': action,
+                'game_state': {
+                    'p1': {
+                        'hp': self.hp_p1,
+                        'bullets': self.bullets_p1,
+                        'bombs': self.bomb_p1,
+                        'shield_hp': self.shieldHp_p1,
+                        'deaths': self.deaths_p1,
+                        'shields': self.shieldCharges_p1
+                    },
+                    'p2': {  
+                        'hp': self.hp_p2,
+                        'bullets': self.bullets_p2,
+                        'bombs': self.bomb_p2,
+                        'shield_hp': self.shieldHp_p2,
+                        'deaths': self.deaths_p2,
+                        'shields': self.shieldCharges_p2
+                    }
+                }
+            }
 
 
 
+        self.eval_queue.put(eval_server_format)
         # TODO: Add checking with Eval_server code
 
 
@@ -400,40 +425,22 @@ class GameEngine(Thread):
                 IMU_info = None
         
         
-                
-
+            print("Reached Game Engine Main Loop")
+            print("Checking if phone action queue is empty")
+            
             # Handle phone action if it's not empty
             if not self.phone_action_queue.empty():
                 phone_action = self.phone_action_queue.get()
+                
                 #print_message('Game Engine', f"Received action '{phone_action}' from phone")
                 viz_format = self.process_phone_action(phone_action)
-                eval_server_format = {
-                'player_id': 1,
-                'action': action,
-                'game_state': {
-                    'p1': {
-                        'hp': self.hp_p1,
-                        'bullets': self.bullets_p1,
-                        'bombs': self.bomb_p1,
-                        'shield_hp': self.shieldHp_p1,
-                        'deaths': self.deaths_p1,
-                        'shields': self.shieldCharges_p1
-                    },
-                    'p2': {  
-                        'hp': self.hp_p2,
-                        'bullets': self.bullets_p2,
-                        'bombs': self.bomb_p2,
-                        'shield_hp': self.shieldHp_p2,
-                        'deaths': self.deaths_p2,
-                        'shields': self.shieldCharges_p2
-                    }
-                }
-            }
-                self.eval_queue.put(eval_server_format)
+                s
                 
                 
+                
+                print("Retreiving from eval queue")
                 updated_game_state = self.from_eval_queue.get()
-                print_message('Game Engine',"Received {updated_game_state} from eval server")
+                print_message('Game Engine',f"Received {updated_game_state} from eval server")
 
                 # Put into eval queue and viz queue
                 

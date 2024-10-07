@@ -18,7 +18,7 @@ evalhost = '127.0.0.1'
 evalport = 8888
 
 IMU_queue = queue.Queue()
-#action_queue = queue.Queue()
+action_queue = queue.Queue()
 game_engine_queue = queue.Queue()
 viz_queue = queue.Queue()
 eval_queue = queue.Queue()
@@ -26,9 +26,9 @@ phone_action_queue = queue.Queue() # Added
 from_eval_queue = queue.Queue()
 
 relay_server = RelayServer(host = relayhost,port = relayport,IMU_queue=IMU_queue, game_engine_queue=game_engine_queue)
-ai = AI(IMU_queue=IMU_queue,phone_action_queue=phone_action_queue)
+ai = AI(IMU_queue=IMU_queue,phone_action_queue=phone_action_queue,action_queue = action_queue)
 #game_engine = GameEngine(action_queue=action_queue, game_engine_queue = game_engine_queue,viz_queue=viz_queue, eval_queue=eval_queue)
-game_engine = GameEngine(phone_action_queue=phone_action_queue, game_engine_queue = game_engine_queue,viz_queue=viz_queue, eval_queue=eval_queue,phone_action_queue=phone_action_queue, from_eval_queue = from_eval_queue)
+game_engine = GameEngine(phone_action_queue=phone_action_queue, game_engine_queue = game_engine_queue,viz_queue=viz_queue, eval_queue=eval_queue, from_eval_queue = from_eval_queue,action_queue = action_queue)
 eval_client = EvalClient(eval_queue=eval_queue,server_ip=evalhost,server_port=evalport,from_eval_queue = from_eval_queue)
 visualizer = MQTT(viz_queue=viz_queue,phone_action_queue=phone_action_queue)
 

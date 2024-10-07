@@ -7,9 +7,10 @@ from Color import print_message
 import time 
 class MQTT(Thread):
 
-    def __init__(self,viz_queue):
+    def __init__(self,viz_queue,phone_action_queue):
         Thread.__init__(self)
         self.viz_queue = viz_queue 
+        self.phone_action_queue = phone_action_queue 
         self.gamestate_topic = "tovisualizer/gamestate"  # Topic for sending updates to Unity about gamestate 
         self.fov_topic = "tovisualizer/field_of_view"  # Topic for asking Unity if player in field of view, only if action is bomb
         self.viz_response = "fromvisualizer/response" # topic to get response 

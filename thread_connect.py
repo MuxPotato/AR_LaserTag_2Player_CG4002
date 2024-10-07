@@ -20,7 +20,8 @@ LOWER_4BITS_MASK = 0x0f
 BLUNO_MAC_ADDR_LIST = [
     "f4:b8:5e:42:67:2b",
     "F4:B8:5E:42:6D:75",
-    "F4:B8:5E:42:67:6E"
+    "F4:B8:5E:42:67:6E",
+    "B4:99:4C:89:1B:FD"
 ]
 ## BLE GATT
 GATT_SERIAL_SERVICE_UUID = "0000dfb0-0000-1000-8000-00805f9b34fb"
@@ -175,47 +176,68 @@ class Beetle(threading.Thread):
 
     def doHandshake(self):
         mSentHelloTime = time.time()
+        mSynTime = time.time()
+        mSeqNum = INITIAL_SEQ_NUM
         while not self.hasHandshake:
             # Send HELLO
             if not self.hasSentHello:
+                self.sendHello(mSeqNum)
                 mSentHelloTime = time.time()
-                self.sendHello(INITIAL_SEQ_NUM)
                 self.hasSentHello = True
-            # Handle HELLO timeout
-            elif (time.time() - mSentHelloTime) >= BLE_TIMEOUT:
-                self.hasSentHello = False
-                continue
-            # Check for ACK to HELLO
-            if self.mBeetle.waitForNotifications(BLE_TIMEOUT):
-                if len(self.mDataBuffer) < PACKET_SIZE:
-                    self.fragmentedCount += 1
-                    continue
-                mRecvTime = time.time()
-                # bytearray for 20-byte packet
-                packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
-                if not self.isValidPacket(packetBytes):
-                    # TODO: Figure out what seq num to send
-                    self.sendNack(self.seq_num)
-                    continue
-                # Parse packet from 20-byte
-                packet_id, beetle_seq_num, data = self.parsePacket(packetBytes)
-                if data and (len(data) > 0):
-                    if (mRecvTime - mSentHelloTime) >= BLE_TIMEOUT:
+            else:
+                hasAck = False
+                # Wait for Beetle to ACK
+                while not hasAck:
+                    if (time.time() - mSentHelloTime) >= BLE_TIMEOUT:
+                        # Handle BLE timeout for HELLO
                         self.hasSentHello = False
-                        continue
-                    # Send SYN+ACK
-                    if packet_id == PacketType.ACK.value:
-                        if beetle_seq_num < self.seq_num:
-                            # TODO: Consider if this logic is valid; will we 'forget' any lost packets?
-                            self.seq_num = beetle_seq_num
-                        # If self.seq_num < beetle_seq_num, assume that beetle will update to our seq_num and leave ours unchanged
-                        self.sendAck(self.seq_num)
-                        # BUG: If Beetle never received the SYN+ACK sent above, laptop
-                        #   one-sided-ly thinks it completed handshake but Beetle is still waiting
-                        #   Consider letting the Beetle signal that the handshake failed
-                        self.hasHandshake = True
-                else:
-                    self.hasSentHello = False
+                        break
+                    # Has not timed out yet, wait for ACK from Beetle
+                    if self.mBeetle.waitForNotifications(BLE_TIMEOUT):
+                        if len(self.mDataBuffer) < PACKET_SIZE:
+                            self.fragmentedCount += 1
+                            continue
+                        # bytearray for 20-byte packet
+                        packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
+                        if not self.isValidPacket(packetBytes):
+                            # Restart handshake since Beetle sent invalid packet
+                            self.hasSentHello = False
+                            break
+                        # assert packetBytes is a valid 20-byte packet
+                        # Parse packet
+                        packet_id, beetle_seq_num, data = self.parsePacket(packetBytes)
+                        if packet_id == PacketType.ACK.value:
+                            # Beetle has ACKed the HELLO
+                            mSeqNum += 1
+                            # TODO: Implement using SYN+ACK to synchronise seq num with Beetle
+                            # Send a SYN+ACK back to Beetle
+                            self.sendAck(mSeqNum)
+                            mSynTime = time.time()
+                            hasAck = True
+                # Just in case Beetle NACK the SYN+ACK, we want to retransmit
+                while (time.time() - mSynTime) < BLE_TIMEOUT:
+                    # Wait for incoming packets
+                    if self.mBeetle.waitForNotifications(BLE_TIMEOUT):
+                        if len(self.mDataBuffer) < PACKET_SIZE:
+                            self.fragmentedCount += 1
+                            continue
+                        # bytearray for 20-byte packet
+                        packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
+                        if not self.isValidPacket(packetBytes):
+                            # Inform Beetle that incoming packet is corrupted
+                            self.sendNack(self.getSeqNumFrom(packetBytes))
+                            continue
+                        # Parse packet
+                        packet_id, beetle_seq_num, data = self.parsePacket(packetBytes)
+                        if packet_id == PacketType.NACK.value:
+                            # SYN+ACK not received by Beetle, resend a SYN+ACK
+                            self.sendAck(mSeqNum)
+                            # Update mSynTime to wait for any potential NACK from Beetle again
+                            mSynTime = time.time()
+                            hasAck = True
+                # No NACK during timeout period, Beetle is assumed to have received SYN+ACK
+                self.hasHandshake = True
+                self.mPrint2(inputString = "Handshake completed with {}".format(self.beetle_mac_addr))
 
     def run(self):
         self.connect()
@@ -264,6 +286,10 @@ class Beetle(threading.Thread):
     def getPacketFrom(self, packetBytes):
         metadata, seq_num, data, dataCrc = struct.unpack(PACKET_FORMAT, packetBytes)
         return metadata, seq_num, data, dataCrc
+    
+    def getSeqNumFrom(self, packetBytes):
+        seq_num = packetBytes[1] + (packetBytes[2] << BITS_PER_BYTE)
+        return seq_num
     
     def isHeaderByte(self, dataByte):
         return dataByte <= PacketType.GAME_STAT.value and dataByte >= PacketType.HELLO.value

@@ -95,6 +95,7 @@ class Beetle(threading.Thread):
         self.sendHelloTime = 0
         self.mRecvTime = 0
         self.fragmentedCount = 0
+        self.lastPacketSent = None
         self.terminateEvent = threading.Event()
         self.mService = None
         self.serial_char = None
@@ -157,16 +158,19 @@ class Beetle(threading.Thread):
                     packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
                     if not self.isValidPacket(packetBytes):
                         # TODO: Figure out what seq num to send
-                        self.sendNack(self.seq_num)
+                        self.lastPacketSent = self.sendNack(self.seq_num)
                         continue
                     # assert packetBytes is a valid 20-byte packet
                     # Parse packet from 20-byte
                     packet_id, seq_num, data = self.parsePacket(packetBytes)
                     if data and (len(data) > 0):
                         # Packet is valid
-                        # Check if packet is an ACK packet
-                        if packet_id != PacketType.ACK.value:
-                            self.sendAck(self.seq_num)
+                        if packet_id == PacketType.NACK.value:
+                            self.mPrint2("Received NACK from {}, resending last packet".format(self.beetle_mac_addr))
+                            self.sendPacket(self.lastPacketSent)
+                        elif packet_id != PacketType.ACK.value:
+                            # Packet is not ACK, so we ACK the packet
+                            self.lastPacketSent = self.sendAck(self.seq_num)
                         else:
                             # Received ACK packet, increment seq num
                             self.seq_num += 1

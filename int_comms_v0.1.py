@@ -13,6 +13,7 @@ INITIAL_SEQ_NUM = 0
 ERROR_VALUE = -1
 BLE_TIMEOUT = 0.25
 PACKET_SIZE = 20
+PACKET_DATA_SIZE = 16
 PACKET_TYPE_ID_LENGTH = 4
 PACKET_FORMAT = "=BH16sB"
 BITS_PER_BYTE = 8
@@ -57,6 +58,14 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+# Public functions
+def is_metadata_byte(given_byte):
+    packet_type = metadata_to_packet_type(given_byte)
+    return packet_type <= PacketType.GAME_STAT.value and packet_type >= PacketType.HELLO.value
+
+def metadata_to_packet_type(metadata):
+    return metadata & LOWER_4BITS_MASK
+
 # Delegate
 class BlePacketDelegate(DefaultDelegate):
     def __init__(self, serial_char, dataBuffer):
@@ -71,7 +80,7 @@ class BlePacketDelegate(DefaultDelegate):
             if len(data) < PACKET_SIZE:
                 print("{}Fragmented packet received{}".format(bcolors.WARNING, bcolors.ENDC))
             for dataByte in data:
-                if self.isHeaderByte(dataByte) or len(self.dataBuffer) > 0:
+                if is_metadata_byte(dataByte) or len(self.dataBuffer) > 0:
                     self.dataBuffer.append(dataByte)
                 else:
                     print("Dropping byte {}".format(dataByte))
@@ -157,16 +166,17 @@ class Beetle(threading.Thread):
                         self.fragmentedCount += 1
                         continue
                     # bytearray for 20-byte packet
-                    packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
+                    packetBytes = self.get_packet_from(self.mDataBuffer)
                     if not self.isValidPacket(packetBytes):
                         # TODO: Figure out what seq num to send
                         self.lastPacketSent = self.sendNack(self.seq_num)
                         continue
                     # assert packetBytes is a valid 20-byte packet
                     # Parse packet from 20-byte
-                    packet_id, seq_num, data = self.parsePacket(packetBytes)
-                    if data and (len(data) > 0):
+                    receivedPacket = self.parsePacket(packetBytes)
+                    if receivedPacket.data and (len(receivedPacket.data) > 0):
                         # Packet is valid
+                        packet_id = self.getPacketTypeOf(receivedPacket)
                         if packet_id == PacketType.NACK.value:
                             self.mPrint2("Received NACK from {}, resending last packet".format(self.beetle_mac_addr))
                             self.sendPacket(self.lastPacketSent)
@@ -209,7 +219,7 @@ class Beetle(threading.Thread):
                             self.fragmentedCount += 1
                             continue
                         # bytearray for 20-byte packet
-                        packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
+                        packetBytes = self.get_packet_from(self.mDataBuffer)
                         if not self.isValidPacket(packetBytes):
                             # Restart handshake since Beetle sent invalid packet
                             mLastPacketSent = self.sendNack(mSeqNum)
@@ -217,7 +227,8 @@ class Beetle(threading.Thread):
                             continue
                         # assert packetBytes is a valid 20-byte packet
                         # Parse packet
-                        packet_id, beetle_seq_num, data = self.parsePacket(packetBytes)
+                        receivedPacket = self.parsePacket(packetBytes)
+                        packet_id = self.getPacketTypeOf(receivedPacket)
                         if packet_id == PacketType.ACK.value:
                             # Beetle has ACKed the HELLO
                             mSeqNum += 1
@@ -237,18 +248,18 @@ class Beetle(threading.Thread):
                             self.fragmentedCount += 1
                             continue
                         # bytearray for 20-byte packet
-                        packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
+                        packetBytes = self.get_packet_from(self.mDataBuffer)
                         if not self.isValidPacket(packetBytes):
                             # Inform Beetle that incoming packet is corrupted
                             self.mPrint2("Invalid packet received from {}".format(self.beetle_mac_addr))
                             mLastPacketSent = self.sendNack(self.getSeqNumFrom(packetBytes))
                             continue
                         # Parse packet
-                        packet_id, beetle_seq_num, data = self.parsePacket(packetBytes)
+                        receivedPacket = self.parsePacket(packetBytes)
+                        packet_id = self.getPacketTypeOf(receivedPacket)
                         if packet_id == PacketType.NACK.value:
                             # SYN+ACK not received by Beetle, resend a SYN+ACK
                             self.mPrint2("Received NACK from {}, resending SYN+ACK".format(self.beetle_mac_addr))
-                            #mLastPacketSent = self.sendAck(mSeqNum)
                             self.sendPacket(mLastPacketSent)
                             # Update mSynTime to wait for any potential NACK from Beetle again
                             mSynTime = time.time()
@@ -260,22 +271,30 @@ class Beetle(threading.Thread):
         self.connect()
         self.main()
 
-    def checkReceiveBuffer(self, receiveBuffer):
+    def addPaddingBytes(self, data, target_len):
+        num_padding_bytes = target_len - len(data)
+        result = bytearray(data)
+        for i in range(0, num_padding_bytes):
+            result.append(num_padding_bytes)
+        return num_padding_bytes, result
+
+    """
+        receivedBuffer assumed to have a valid 20-byte packet if it has at least 20 bytes
+    """
+    def get_packet_from(self, receiveBuffer):
         if len(receiveBuffer) >= PACKET_SIZE:
             # bytearray for 20-byte packet
-            dataPacket = bytearray()
+            packet = bytearray()
             # Read 20 bytes from input buffer
             for i in range(0, PACKET_SIZE):
-                dataPacket.append(receiveBuffer.popleft())
-            if self.isValidPacket(dataPacket):
-                return dataPacket
-            return bytearray()
+                packet.append(receiveBuffer.popleft())
+            self.mPrint2("{} has new packet: {}".format(self.beetle_mac_addr, packet))
+            return packet
         else:
             return bytearray()
         
     def createPacket(self, packet_id, seq_num, data):
-        # TODO: Avoid hardcoding this value
-        data_length = 16
+        data_length = PACKET_DATA_SIZE
         num_padding_bytes = 0
         if (len(data) < data_length):
             num_padding_bytes, data = self.addPaddingBytes(data, data_length)
@@ -300,21 +319,18 @@ class Beetle(threading.Thread):
         z2 = self.parseData(dataBytes[10], dataBytes[11])
         return x1, y1, z1, x2, y2, z2
     
-    def getPacketFrom(self, packetBytes):
-        metadata, seq_num, data, dataCrc = struct.unpack(PACKET_FORMAT, packetBytes)
-        return metadata, seq_num, data, dataCrc
+    def getPacketTypeOf(self, blePacket):
+        return metadata_to_packet_type(blePacket.metadata)
     
     def getSeqNumFrom(self, packetBytes):
         seq_num = packetBytes[1] + (packetBytes[2] << BITS_PER_BYTE)
         return seq_num
     
-    def isHeaderByte(self, dataByte):
-        return dataByte <= PacketType.GAME_STAT.value and dataByte >= PacketType.HELLO.value
-    
     def isValidPacket(self, given_packet):
-        if self.hasValidPacketType(given_packet):
+        metadata, seq_num, data, received_crc = self.unpack_packet_bytes(given_packet)
+        packet_type = metadata_to_packet_type(metadata)
+        if self.isValidPacketType(packet_type):
             # Packet type is valid, now check CRC next
-            metadata, seq_num, data, received_crc = self.getPacketFrom(given_packet)
             computed_crc = self.getCrcOf(metadata, seq_num, data)
             if computed_crc == received_crc:
                 # CRC is valid, packet is not corrupted
@@ -328,19 +344,22 @@ class Beetle(threading.Thread):
                             self.getPacketTypeIdOf(given_packet)))
         return False
     
+    def isValidPacketType(self, packet_type_id):
+        return packet_type_id <= PacketType.GAME_STAT.value and packet_type_id >= PacketType.HELLO.value
+    
     def parseData(self, byte1, byte2):
         return (byte1 + (byte2 << BITS_PER_BYTE)) / 100.0
         
+    """
+        packetBytes assumed to be a valid 20-byte packet
+    """
     def parsePacket(self, packetBytes):
         # Check for NULL packet or incomplete packet
         if not packetBytes or len(packetBytes) < PACKET_SIZE:
             return ERROR_VALUE, ERROR_VALUE, None
-        self.mPrint2(inputString = "{} has new packet: {}".format(self.beetle_mac_addr, packetBytes))
-        if not self.isValidPacket(packetBytes):
-            return ERROR_VALUE, ERROR_VALUE, None
-        metadata, seq_num, data, dataCrc = self.getPacketFrom(packetBytes)
-        packet_id = self.metadataToPacketType(metadata)
-        return packet_id, seq_num, data
+        metadata, seq_num, data, dataCrc = self.unpack_packet_bytes(packetBytes)
+        packet = BlePacket(metadata, seq_num, data, dataCrc)
+        return packet
 
     def sendHello(self, seq_num):
         HELLO = "HELLO"
@@ -363,26 +382,10 @@ class Beetle(threading.Thread):
 
     def sendPacket(self, packet):
         self.serial_char.write(packet)
-
-    def addPaddingBytes(self, data, target_len):
-        num_padding_bytes = target_len - len(data)
-        result = bytearray(data)
-        for i in range(0, num_padding_bytes):
-            result.append(num_padding_bytes)
-        return num_padding_bytes, result
     
-    def getPacketTypeIdOf(self, packet):
-        packet_id = packet[0] & LOWER_4BITS_MASK
-        return packet_id
-
-    def metadataToPacketType(self, metadata):
-        return metadata & LOWER_4BITS_MASK
-    
-    def isValidPacketType(self, packet_type_id):
-        return packet_type_id <= PacketType.GAME_STAT.value and packet_type_id >= PacketType.HELLO.value
-
-    def hasValidPacketType(self, packet):
-        return self.isValidPacketType(self.getPacketTypeIdOf(packet))
+    def unpack_packet_bytes(self, packetBytes):
+        metadata, seq_num, data, data_crc = struct.unpack(PACKET_FORMAT, packetBytes)
+        return metadata, seq_num, data, data_crc
 
 """ if __name__=="__main__":
     beetles = []

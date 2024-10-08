@@ -83,7 +83,7 @@ class BlePacketDelegate(DefaultDelegate):
         return packet_id <= PacketType.GAME_STAT.value and packet_id >= PacketType.HELLO.value
 
 class Beetle(threading.Thread):
-    def __init__(self, beetle_mac_addr, color = bcolors.OKGREEN):
+    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.OKGREEN):
         super().__init__()
         self.beetle_mac_addr = beetle_mac_addr
         self.mBeetle = Peripheral()
@@ -99,6 +99,8 @@ class Beetle(threading.Thread):
         self.terminateEvent = threading.Event()
         self.mService = None
         self.serial_char = None
+        self.outgoing_queue = outgoing_queue
+        self.incoming_queue = incoming_queue
         # Configure Peripheral
         self.mBeetle.withDelegate(BlePacketDelegate(self.serial_char, self.mDataBuffer))
 
@@ -382,7 +384,7 @@ class Beetle(threading.Thread):
     def hasValidPacketType(self, packet):
         return self.isValidPacketType(self.getPacketTypeIdOf(packet))
 
-if __name__=="__main__":
+""" if __name__=="__main__":
     beetles = []
     colors = [bcolors.OKGREEN, bcolors.OKCYAN, bcolors.FAIL]
     try:
@@ -396,4 +398,52 @@ if __name__=="__main__":
             thisBeetle.join()
     except KeyboardInterrupt:
         for mBeetle in beetles:
-            mBeetle.quit()
+            mBeetle.quit() """
+
+class MainThread(threading.Thread):
+    MAIN_BLUNO_MAC_ADDR_LIST = [
+        # Below must be IMU(glove) Beetle
+        "F4:B8:5E:42:67:6E",
+        # Below must be vest Beetle
+        "F4:B8:5E:42:6D:75",
+        # Below must be gun Beetle
+        "B4:99:4C:89:1B:FD"
+    ]
+
+    def __init__(self, outgoing_imu_queue, outgoing_game_state_queue, incoming_game_state_queue):
+        super().__init__()
+        self.outgoing_imu_queue = outgoing_imu_queue
+        self.outgoing_game_state_queue = outgoing_game_state_queue
+        self.incoming_game_state_queue = incoming_game_state_queue
+        self.incoming_glove_queue = deque()
+        self.incoming_vest_queue = deque()
+        self.incoming_gun_queue = deque()
+
+    def run(self):
+        self.main()
+
+    def main(self):
+        beetles = []
+        colors = [bcolors.OKGREEN, bcolors.OKCYAN, bcolors.FAIL]
+        try:
+            index = 0
+            for i in range(3):
+                beetle_addr = MainThread.MAIN_BLUNO_MAC_ADDR_LIST[i]
+                thisBeetle = None
+                if i == 0:
+                    # IMU(glove) Beetle
+                    thisBeetle = Beetle(beetle_addr, colors[index], self.outgoing_imu_queue, self.incoming_glove_queue)
+                elif i == 1:
+                    # Vest Beetle
+                    thisBeetle = Beetle(beetle_addr, colors[index], self.outgoing_game_state_queue, self.incoming_vest_queue)
+                elif i == 2:
+                    # Gun Beetle
+                    thisBeetle = Beetle(beetle_addr, colors[index], self.outgoing_game_state_queue, self.incoming_gun_queue)
+                thisBeetle.start()
+                beetles.append(thisBeetle)
+                index += 1
+            for thisBeetle in beetles:
+                thisBeetle.join()
+        except KeyboardInterrupt:
+            for mBeetle in beetles:
+                mBeetle.quit()

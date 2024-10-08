@@ -6,14 +6,13 @@ from Color import print_message
 
 
 class RelayServer(Thread): 
-    def __init__(self, host,port,IMU_queue, game_engine_queue): 
+    def __init__(self, host,port,IMU_queue): 
         Thread.__init__(self) 
         self.host = host 
         self.port = port 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((self.host, self.port))
         self.IMU_queue = IMU_queue 
-        self.game_engine_queue = game_engine_queue
         self.server.settimeout(1.0)
         self.stop_event = Event()
 

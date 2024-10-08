@@ -25,13 +25,28 @@ class EvalClient(Thread):
         self.is_running = False 
         self.conn = None
        
-    
+    # Debug
+    # def connect(self):
+    #     """
+    #     Establish a connection to the server.
+    #     """
+    #     self.socket.connect((self.server_ip, self.server_port))
+    #     self.send_text("hello")
+
+
     def connect(self):
         """
         Establish a connection to the server.
         """
-        self.socket.connect((self.server_ip, self.server_port))
-        self.send_text("hello")
+        try:
+            self.socket.connect((self.server_ip, self.server_port))
+            print("Connection to eval_server established successfully.")
+            self.send_text("hello")
+        except (ConnectionRefusedError, TimeoutError) as e:
+            print(f"Failed to connect to server: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
         
     def encrypt_message(self, message_dict):
         """
@@ -103,7 +118,9 @@ class EvalClient(Thread):
     def run(self):
         self.connect()
         while True:
+            
             message = self.eval_queue.get()
+            
             #print(f"EvalClient: Received '{message}' from game engine")
             print("_"*30)
             print_message('Eval Client',f"Received message from game engine")

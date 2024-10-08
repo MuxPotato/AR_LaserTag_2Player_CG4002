@@ -4,9 +4,9 @@ import random
 from Color import print_message
 
 class GameEngine(Thread):
-    def __init__(self,game_engine_queue, eval_queue, viz_queue,phone_action_queue,from_eval_queue,action_queue):
+    def __init__(self, eval_queue, viz_queue,phone_action_queue,from_eval_queue,action_queue):
         Thread.__init__(self)
-        self.game_engine_queue = game_engine_queue
+        
         self.eval_queue = eval_queue 
         self.viz_queue = viz_queue 
         self.phone_action_queue = phone_action_queue  # New queue for phone actions
@@ -398,17 +398,7 @@ class GameEngine(Thread):
         # TODO: Add checking with Eval_server code
 
 
-        viz_format = (
-            f"p1_hp:{self.hp_p1},p1_bombs:{self.bomb_p1},p1_shieldCharges:{self.shieldCharges_p1},"
-            f"p1_shieldHp:{self.shieldHp_p1},p1_bullets:{self.bullets_p1},p1_deaths:{self.deaths_p1},"
-            f"p2_hp:{self.hp_p2},p2_bombs:{self.bomb_p2},p2_shieldCharges:{self.shieldCharges_p2},"
-            f"p2_shieldHp:{self.shieldHp_p2},p2_bullets:{self.bullets_p2},p2_deaths:{self.deaths_p2},"
-            f"p1_action:{action_p1},p2_action:{action_p2}"
-        )
-
-        print_message('Game Engine', f"Sending updated game state to visualizer: {viz_format}")
-        self.viz_queue.put(viz_format)  # Send updated state to the visualizer
-
+        
 
 
 
@@ -417,39 +407,35 @@ class GameEngine(Thread):
 
     def run(self):
         while True:
-            try:
-                # Attempt to get from game_engine_queue with a timeout
-                IMU_info = self.game_engine_queue.get(timeout=0.01)  # Adjust timeout as needed
-                print("_" * 30)
-                print_message('Game Engine', "Received message from RelayServer")
-                print()
-            except queue.Empty:
-                # Handle the case where the queue is empty (timeout)
-                IMU_info = None
         
-        
-            print("Reached Game Engine Main Loop")
-            print("Checking if phone action queue is empty")
+            #print("Reached Game Engine Main Loop")
+            #print("Checking if phone action queue is empty")
             
             # Handle phone action if it's not empty
             if not self.phone_action_queue.empty():
                 phone_action = self.phone_action_queue.get()
                 
                 #print_message('Game Engine', f"Received action '{phone_action}' from phone")
-                viz_format = self.process_phone_action(phone_action)
-                
-                
-                
-                
-                print("Retreiving from eval queue")
-                updated_game_state = self.from_eval_queue.get()
-                print_message('Game Engine',f"Received {updated_game_state} from eval server")
+            viz_format = self.process_phone_action(phone_action)
+            self.viz_queue.put(viz_format)
+            #waiting for phone to reply 
+            # TODO we need to think about what happens if MQTT disconnects or anything happens such that phone cannot reply, need to timeout the queue.get() and do what? hardcode a value? reconnect MQTT and? 
+            phone_action = self.phone_action_queue.get()
+            temp_viz_format = self.process_phone_action(phone_action) # viz format returned not used as need eval server response to send updated info to viz 
+            updated_game_state = self.from_eval_queue.get()
+            print_message('Game Engine',f"Received {updated_game_state} from eval server")
 
-                # Put into eval queue and viz queue
+            #TODO make new game state with response from eval server and then put in viz queue 
+            ''' 
+            maybe a new function to update_game_state() 
+            viz_format = update_game_state(updated_game_state)
+
+            print_message('Game Engine', f"Sending updated game state to visualizer: {viz_format}")
+            self.viz_queue.put(viz_format)  # Send updated state to the visualizer AFTER eval server replies 
+   
+            '''
                 
-                self.viz_queue.put(viz_format)
                 
-                #self.eval_queue.put(eval_server_format)
 
         
 

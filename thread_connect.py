@@ -91,7 +91,6 @@ class Beetle(threading.Thread):
         # Runtime variables
         self.mDataBuffer = deque()
         self.hasHandshake = False
-        self.hasSentHello = False
         self.seq_num = 0
         self.sendHelloTime = 0
         self.mRecvTime = 0
@@ -179,23 +178,25 @@ class Beetle(threading.Thread):
         self.disconnect()
 
     def doHandshake(self):
+        mHasSentHello = False
         mSentHelloTime = time.time()
         mSynTime = time.time()
         mSeqNum = INITIAL_SEQ_NUM
+        mLastPacketSent = None
         while not self.hasHandshake:
             # Send HELLO
-            if not self.hasSentHello:
-                self.sendHello(mSeqNum)
+            if not mHasSentHello:
+                mLastPacketSent = self.sendHello(mSeqNum)
                 mSentHelloTime = time.time()
-                self.hasSentHello = True
+                mHasSentHello = True
             else:
                 hasAck = False
                 # Wait for Beetle to ACK
                 while not hasAck:
                     if (time.time() - mSentHelloTime) >= BLE_TIMEOUT:
                         # Handle BLE timeout for HELLO
-                        self.hasSentHello = False
-                        break
+                        mLastPacketSent = self.sendHello(mSeqNum)
+                        mSentHelloTime = time.time()
                     # Has not timed out yet, wait for ACK from Beetle
                     if self.mBeetle.waitForNotifications(BLE_TIMEOUT):
                         if len(self.mDataBuffer) < PACKET_SIZE:
@@ -205,8 +206,9 @@ class Beetle(threading.Thread):
                         packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
                         if not self.isValidPacket(packetBytes):
                             # Restart handshake since Beetle sent invalid packet
-                            self.hasSentHello = False
-                            break
+                            mLastPacketSent = self.sendNack(mSeqNum)
+                            self.mPrint2(inputString = "Invalid packet received from {}, expected ACK".format(self.beetle_mac_addr))
+                            continue
                         # assert packetBytes is a valid 20-byte packet
                         # Parse packet
                         packet_id, beetle_seq_num, data = self.parsePacket(packetBytes)
@@ -216,9 +218,11 @@ class Beetle(threading.Thread):
                             # TODO: Implement using SYN+ACK to synchronise seq num with Beetle
                             # Send a SYN+ACK back to Beetle
                             self.mPrint2("Sending SYN+ACK to {}".format(self.beetle_mac_addr))
-                            self.sendAck(mSeqNum)
+                            mLastPacketSent = self.sendAck(mSeqNum)
                             mSynTime = time.time()
                             hasAck = True
+                        elif packet_id == PacketType.NACK.value:
+                            self.sendPacket(mLastPacketSent)
                 # Just in case Beetle NACK the SYN+ACK, we want to retransmit
                 while (time.time() - mSynTime) < BLE_TIMEOUT:
                     # Wait for incoming packets
@@ -230,16 +234,18 @@ class Beetle(threading.Thread):
                         packetBytes = self.checkReceiveBuffer(self.mDataBuffer)
                         if not self.isValidPacket(packetBytes):
                             # Inform Beetle that incoming packet is corrupted
-                            self.sendNack(self.getSeqNumFrom(packetBytes))
+                            self.mPrint2("Invalid packet received from {}".format(self.beetle_mac_addr))
+                            mLastPacketSent = self.sendNack(self.getSeqNumFrom(packetBytes))
                             continue
                         # Parse packet
                         packet_id, beetle_seq_num, data = self.parsePacket(packetBytes)
                         if packet_id == PacketType.NACK.value:
                             # SYN+ACK not received by Beetle, resend a SYN+ACK
-                            self.sendAck(mSeqNum)
+                            self.mPrint2("Received NACK from {}, resending SYN+ACK".format(self.beetle_mac_addr))
+                            #mLastPacketSent = self.sendAck(mSeqNum)
+                            self.sendPacket(mLastPacketSent)
                             # Update mSynTime to wait for any potential NACK from Beetle again
                             mSynTime = time.time()
-                            hasAck = True
                 # No NACK during timeout period, Beetle is assumed to have received SYN+ACK
                 self.hasHandshake = True
                 self.mPrint2(inputString = "Handshake completed with {}".format(self.beetle_mac_addr))
@@ -335,16 +341,19 @@ class Beetle(threading.Thread):
         hello_packet = self.createPacket(PacketType.HELLO.value, seq_num, bytes(HELLO, encoding = 'ascii'))
         self.mPrint2("Sending HELLO to {}".format(self.beetle_mac_addr))
         self.sendPacket(hello_packet)
+        return hello_packet
 
     def sendAck(self, seq_num):
         ACK = "SYNACK"
         ack_packet = self.createPacket(PacketType.ACK.value, seq_num, bytes(ACK, encoding = "ascii"))
         self.sendPacket(ack_packet)
+        return ack_packet
 
     def sendNack(self, seq_num):
         NACK = "NACK"
         nack_packet = self.createPacket(PacketType.NACK.value, seq_num, bytes(NACK, encoding = "ascii"))
         self.sendPacket(nack_packet)
+        return nack_packet
 
     def sendPacket(self, packet):
         self.serial_char.write(packet)

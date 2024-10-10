@@ -28,11 +28,12 @@ if __name__=="__main__":
     try:
         imu_beetle = GloveBeetle(IMU_BEETLE, imu_collector_queue, dummy_incoming_queue, color)
         imu_beetle.start()
-        imu_beetle.join()
+        while True:
+            pass
     except KeyboardInterrupt:
         if imu_beetle:
             imu_beetle.quit()
-        time.sleep(1)
+            imu_beetle.join()
         dump_imu_data_to_csv(imu_collector_queue)
     sys.exit(0)
     

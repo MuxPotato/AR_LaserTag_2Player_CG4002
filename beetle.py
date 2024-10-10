@@ -333,16 +333,15 @@ class Beetle(threading.Thread):
     def unpack_packet_bytes(self, packetBytes):
         metadata, seq_num, data, data_crc = struct.unpack(PACKET_FORMAT, packetBytes)
         return metadata, seq_num, data, data_crc
-    
-class GunBeetle(Beetle):
+   
+class GloveBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.OKGREEN):
         super.__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
 
-class ImuBeetle(Beetle):
+class GunBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.OKGREEN):
         super.__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
 
 class VestBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.OKGREEN):
         super.__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
-        

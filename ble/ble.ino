@@ -7,21 +7,30 @@ enum HandshakeStatus {
   STAT_SYN = 3
 };
 
+enum SenderState {
+  IDLE,
+  WAITING_FOR_ACK,
+};
+
 bool hasHandshake = false;
 HandshakeStatus handshakeStatus = STAT_NONE;
 MyQueue<byte> recvBuffer{};
-// Zero-initialise sentPacket
-BlePacket sentPacket = {};
-unsigned long sentPacketTime = 0;
+// Zero-initialise lastSentPacket
+BlePacket lastSentPacket = {};
+unsigned long lastSentPacketTime = 0;
 uint16_t seqNum = INITIAL_SEQ_NUM;
 bool shouldResendAfterHandshake = false;
+SenderState senderState = IDLE;
+bool isWaitingForAck = false;
+bool hasReceivedAck = false;
+uint8_t numRetries = 0;
 
 void setup() {
   Serial.begin(BAUDRATE);
-  /* Initialise sentPacket with invalid metadata
+  /* Initialise lastSentPacket with invalid metadata
     to ensure it's detected as corrupted if ever
     sent without assigning actual (valid) packet */
-  sentPacket.metadata = PLACEHOLDER_METADATA;
+  lastSentPacket.metadata = PLACEHOLDER_METADATA;
 }
 
 void loop() {
@@ -36,7 +45,7 @@ void loop() {
         BlePacket nackPacket;
         createNackPacket(nackPacket, seqNum);
         sendPacket(nackPacket);
-        // TODO: Consider if we want to update sentPacket so that even corrupted NACK packets are retransmitted to laptop?
+        // TODO: Consider if we want to update lastSentPacket so that even corrupted NACK packets are retransmitted to laptop?
         return;
       }
       // assert isPacketValid(newPacket) = true
@@ -51,10 +60,10 @@ void loop() {
           break;
         case PacketType::NACK:
           // Update packet CRC just in case it got corrupted like it sometimes happens on the Beetle
-          fixPacketCrc(sentPacket);
+          fixPacketCrc(lastSentPacket);
           // Only retransmit if packet is valid
-          if (isPacketValid(sentPacket) && getPacketTypeOf(sentPacket) != PacketType::NACK) {
-            sendPacket(sentPacket);
+          if (isPacketValid(lastSentPacket) && getPacketTypeOf(lastSentPacket) != PacketType::NACK) {
+            sendPacket(lastSentPacket);
           }
           break;
         case INVALID_PACKET_ID:
@@ -66,24 +75,24 @@ void loop() {
           BlePacket ackPacket;
           createAckPacket(ackPacket, seqNum);
           sendPacket(ackPacket);
-          sentPacket = ackPacket;
+          lastSentPacket = ackPacket;
       } // switch (receivedPacketType)
     } // if (recvBuffer.size() >= PACKET_SIZE)
   } else {
     // TODO: Send sensor data
-    if (shouldResendAfterHandshake && isPacketValid(sentPacket)) {
-      sendPacket(sentPacket);
-      if (getPacketTypeOf(sentPacket) == PacketType::NACK) {
+    if (shouldResendAfterHandshake && isPacketValid(lastSentPacket)) {
+      sendPacket(lastSentPacket);
+      if (getPacketTypeOf(lastSentPacket) == PacketType::NACK) {
         // Don't wait for ACK when we retransmit a NACK
         return;
       }
     } else {
-      sentPacket = sendDummyPacket();
+      lastSentPacket = sendDummyPacket();
     }
-    sentPacketTime = millis();
+    lastSentPacketTime = millis();
     bool mHasAck = false;
     while (!mHasAck) {
-      if ((millis() - sentPacketTime) < BLE_TIMEOUT) {
+      if ((millis() - lastSentPacketTime) < BLE_TIMEOUT) {
         // Read incoming bytes
         readIntoRecvBuffer(recvBuffer);
         if (recvBuffer.size() >= PACKET_SIZE) {
@@ -115,11 +124,11 @@ void loop() {
               }
             } else if (receivedPacketType == PacketType::NACK && receivedPacket.seqNum == seqNum) {
               // Update packet CRC just in case it got corrupted like it sometimes happens on the Beetle
-              fixPacketCrc(sentPacket);
+              fixPacketCrc(lastSentPacket);
               // Only retransmit if packet is valid
-              if (isPacketValid(sentPacket)) {
+              if (isPacketValid(lastSentPacket)) {
                 // Received NACK, retransmit now
-                sendPacket(sentPacket);
+                sendPacket(lastSentPacket);
               }
             } else if (receivedPacketType == PacketType::HELLO) {
               shouldResendAfterHandshake = true;
@@ -133,9 +142,9 @@ void loop() {
       } else {
         /* BUG: Somehow the Beetle gets stuck here trying to retransmit when the laptop gets disconnected */
         // Packet has timed out, retransmit
-        sendPacket(sentPacket);
+        sendPacket(lastSentPacket);
         // Update sent time and wait for ACK again
-        sentPacketTime = millis();
+        lastSentPacketTime = millis();
       }
     } // while (!mHasAck)
   }
@@ -221,8 +230,8 @@ bool doHandshake() {
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   byte packetData[PACKET_DATA_SIZE] = {};
   uint16_t seqNumToSyn = seqNum;
-  if (shouldResendAfterHandshake && isPacketValid(sentPacket)) {
-    seqNumToSyn = sentPacket.seqNum;
+  if (shouldResendAfterHandshake && isPacketValid(lastSentPacket)) {
+    seqNumToSyn = lastSentPacket.seqNum;
   }
   packetData[0] = (byte) seqNumToSyn;
   packetData[1] = (byte) seqNumToSyn >> BITS_PER_BYTE;
@@ -258,7 +267,7 @@ BlePacket sendDummyPacket() {
 }
 
 void sendPacket(BlePacket &packetToSend) {
-  if ((millis() - sentPacketTime) < TRANSMIT_DELAY) {
+  if ((millis() - lastSentPacketTime) < TRANSMIT_DELAY) {
     delay(TRANSMIT_DELAY);
   }
   Serial.write((byte *) &packetToSend, sizeof(packetToSend));

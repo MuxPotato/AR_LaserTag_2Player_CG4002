@@ -9,7 +9,7 @@ from utils import BITS_PER_BYTE, BLE_TIMEOUT, ERROR_VALUE, GATT_SERIAL_CHARACTER
 from bluepy.btle import BTLEException, Peripheral
 
 class Beetle(threading.Thread):
-    def __init__(self, beetle_mac_addr, color = bcolors.BRIGHT_WHITE):
+    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
         super().__init__()
         self.beetle_mac_addr = beetle_mac_addr
         self.mBeetle = Peripheral()
@@ -24,6 +24,8 @@ class Beetle(threading.Thread):
         self.terminateEvent = threading.Event()
         self.mService = None
         self.serial_char = None
+        self.outgoing_queue = outgoing_queue
+        self.incoming_queue = incoming_queue
         # Configure Peripheral
         self.mBeetle.withDelegate(BlePacketDelegate(self.serial_char, self.mDataBuffer))
 
@@ -332,3 +334,15 @@ class Beetle(threading.Thread):
         metadata, seq_num, data, data_crc = struct.unpack(PACKET_FORMAT, packetBytes)
         return metadata, seq_num, data, data_crc
     
+class GunBeetle(Beetle):
+    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.OKGREEN):
+        super.__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
+
+class ImuBeetle(Beetle):
+    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.OKGREEN):
+        super.__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
+
+class VestBeetle(Beetle):
+    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.OKGREEN):
+        super.__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
+        

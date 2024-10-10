@@ -15,7 +15,7 @@ class BlePacketDelegate(DefaultDelegate):
         try:
             # Add incoming bytes to receive buffer
             if len(data) < PACKET_SIZE:
-                print("{}Fragmented packet received{}".format(bcolors.WARNING, bcolors.ENDC))
+                print("{}Fragmented packet received{}".format(bcolors.BRIGHT_YELLOW, bcolors.ENDC))
             for dataByte in data:
                 if is_metadata_byte(dataByte) or len(self.dataBuffer) > 0:
                     self.dataBuffer.append(dataByte)

@@ -148,6 +148,11 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
 }
 
+/* Implement this function in actual Beetles(e.g. process game state packet) */
+void handleGamePacket(const BlePacket &gamePacket) {
+  // TODO: Implement processing a given gamePacket
+}
+
 void processGivenPacket(const BlePacket &packet) {
   char givenPacketType = getPacketTypeOf(packet);
   switch (givenPacketType) {
@@ -186,6 +191,8 @@ void processGivenPacket(const BlePacket &packet) {
       sendPacket(nackPacket);
       break;
     default:
+      // Process the packet to handle specific game logic(e.g. updating Beetle's internal game state)
+      handleGamePacket(packet);
       BlePacket ackPacket;
       createAckPacket(ackPacket, seqNum);
       sendPacket(ackPacket);

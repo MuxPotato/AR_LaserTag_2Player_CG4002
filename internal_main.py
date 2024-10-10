@@ -4,7 +4,7 @@ import sys
 import threading
 import traceback
 from beetle import GunBeetle, GloveBeetle, VestBeetle
-from utils import bcolors
+from internal_utils import bcolors
 
 class InternalMainThread(threading.Thread):
     MAIN_BLUNO_MAC_ADDR_LIST = [

@@ -31,6 +31,27 @@ BLUNO_MAC_ADDR_LIST = [
     "B4:99:4C:89:18:1D"
 ]
 
+BEETLE_MAC_ADDR_MAP = {
+    # Below must be player 1 IMU(glove) Beetle
+    "F4:B8:5E:42:61:62": 1,
+    # Below must be player 1 vest Beetle
+    "F4:B8:5E:42:6D:75": 1,
+    # Below must be player 1 gun Beetle
+    "F4:B8:5E:42:67:6E": 1,
+
+    # Below must be player 2 IMU(glove) Beetle
+    "B4:99:4C:89:1B:FD": 2,
+    # Below must be player 2 vest Beetle
+    "D0:39:72:DF:CA:F2": 2,
+    # Below must be player 2 gun Beetle
+    "F4:B8:5E:42:6D:0E": 2,
+
+    # Extra 1
+#    "B4:99:4C:89:1B:FD": 1,
+    # Extra 2
+#    "B4:99:4C:89:18:1D": 2,
+}
+
 ## BLE GATT
 GATT_SERIAL_SERVICE_UUID = "0000dfb0-0000-1000-8000-00805f9b34fb"
 GATT_SERIAL_CHARACTERISTIC_UUID = "0000dfb1-0000-1000-8000-00805f9b34fb"
@@ -81,7 +102,14 @@ class ImuPacket(NamedTuple):
     accel: MutableSequence[float]
     gyro: MutableSequence[float]
 
+class VestPacket(NamedTuple):
+    beetle_mac: str
+    vestBoolean: bool
+
 # Public functions
+def get_player_id_for(beetle_mac_addr):
+    return BEETLE_MAC_ADDR_MAP[beetle_mac_addr]
+
 def is_metadata_byte(given_byte):
     packet_type = metadata_to_packet_type(given_byte)
     return packet_type <= BlePacketType.GAME_STAT.value and packet_type >= BlePacketType.HELLO.value

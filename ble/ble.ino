@@ -225,7 +225,7 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
     seqNumToSyn = sentPacket.seqNum;
   }
   packetData[0] = (byte) seqNumToSyn;
-  packetData[1] = (byte) seqNumToSyn >> BITS_PER_BYTE;
+  packetData[1] = (byte) (seqNumToSyn >> BITS_PER_BYTE);
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
 }
 

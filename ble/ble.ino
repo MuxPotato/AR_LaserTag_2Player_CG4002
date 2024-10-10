@@ -7,10 +7,8 @@ enum HandshakeStatus {
   STAT_SYN = 3
 };
 
-enum SenderState {
-  IDLE,
-  WAITING_FOR_ACK,
-};
+void processIncomingPacket();
+void retransmitLastPacket();
 
 bool hasHandshake = false;
 HandshakeStatus handshakeStatus = STAT_NONE;
@@ -20,7 +18,6 @@ BlePacket lastSentPacket = {};
 unsigned long lastSentPacketTime = 0;
 uint16_t seqNum = INITIAL_SEQ_NUM;
 bool shouldResendAfterHandshake = false;
-SenderState senderState = IDLE;
 bool isWaitingForAck = false;
 bool hasReceivedAck = false;
 uint8_t numRetries = 0;
@@ -37,116 +34,29 @@ void loop() {
   if (!hasHandshake) {
     hasHandshake = doHandshake();
   }
-  if (Serial.available() > 0) {
-    readIntoRecvBuffer(recvBuffer);
-    if (recvBuffer.size() >= PACKET_SIZE) {
-      BlePacket receivedPacket = readPacketFrom(recvBuffer);
-      if (!isPacketValid(receivedPacket)) {
-        BlePacket nackPacket;
-        createNackPacket(nackPacket, seqNum);
-        sendPacket(nackPacket);
-        // TODO: Consider if we want to update lastSentPacket so that even corrupted NACK packets are retransmitted to laptop?
-        return;
-      }
-      // assert isPacketValid(newPacket) = true
-      char receivedPacketType = getPacketTypeOf(receivedPacket);
-      switch (receivedPacketType) {
-        case PacketType::HELLO:
-          hasHandshake = false;
-          handshakeStatus = STAT_HELLO;
-          break;
-        case PacketType::ACK:
-          // TODO: Plan how to handle retransmission
-          break;
-        case PacketType::NACK:
-          // Update packet CRC just in case it got corrupted like it sometimes happens on the Beetle
-          fixPacketCrc(lastSentPacket);
-          // Only retransmit if packet is valid
-          if (isPacketValid(lastSentPacket) && getPacketTypeOf(lastSentPacket) != PacketType::NACK) {
-            sendPacket(lastSentPacket);
-          }
-          break;
-        case INVALID_PACKET_ID:
-          BlePacket nackPacket;
-          createNackPacket(nackPacket, seqNum);
-          sendPacket(nackPacket);
-          break;
-        default:
-          BlePacket ackPacket;
-          createAckPacket(ackPacket, seqNum);
-          sendPacket(ackPacket);
-          lastSentPacket = ackPacket;
-      } // switch (receivedPacketType)
-    } // if (recvBuffer.size() >= PACKET_SIZE)
-  } else {
-    // TODO: Send sensor data
-    if (shouldResendAfterHandshake && isPacketValid(lastSentPacket)) {
-      sendPacket(lastSentPacket);
-      if (getPacketTypeOf(lastSentPacket) == PacketType::NACK) {
-        // Don't wait for ACK when we retransmit a NACK
-        return;
-      }
+  if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
+    if (numRetries < MAX_RETRANSMITS) {
+      retransmitLastPacket();
     } else {
-      lastSentPacket = sendDummyPacket();
+      // Max retries reached, stop retransmitting
+      isWaitingForAck = false;
+      hasReceivedAck = false;
+      lastSentPacket.metadata = PLACEHOLDER_METADATA;
     }
-    lastSentPacketTime = millis();
-    bool mHasAck = false;
-    while (!mHasAck) {
-      if ((millis() - lastSentPacketTime) < BLE_TIMEOUT) {
-        // Read incoming bytes
-        readIntoRecvBuffer(recvBuffer);
-        if (recvBuffer.size() >= PACKET_SIZE) {
-          // Read incoming bytes as packet
-          BlePacket receivedPacket = readPacketFrom(recvBuffer);
-          if (!isPacketValid(receivedPacket)) {
-            BlePacket nackPacket;
-            createNackPacket(nackPacket, seqNum);
-            // Received invalid packet, request retransmit with NACK
-            sendPacket(nackPacket);
-          } else {
-            char receivedPacketType = getPacketTypeOf(receivedPacket);
-            if (receivedPacketType == PacketType::ACK) {
-              if (receivedPacket.seqNum > seqNum) {
-                BlePacket nackPacket;
-                createNackPacket(nackPacket, seqNum);
-                // Received invalid packet, request retransmit with NACK
-                sendPacket(nackPacket);
-                continue;
-              }
-              // If receivedPacket.seqNum < seqNum, it's (likely) a delayed ACK packet and we ignore it
-              // ACK received, so stop waiting for incoming ACK
-              mHasAck = true;
-              // Increment seqNum upon every ACK
-              seqNum += 1;
-              if (shouldResendAfterHandshake) {
-                // Interrupted packet has been resent and ACK, stop trying to resend anymore
-                shouldResendAfterHandshake = false;
-              }
-            } else if (receivedPacketType == PacketType::NACK && receivedPacket.seqNum == seqNum) {
-              // Update packet CRC just in case it got corrupted like it sometimes happens on the Beetle
-              fixPacketCrc(lastSentPacket);
-              // Only retransmit if packet is valid
-              if (isPacketValid(lastSentPacket)) {
-                // Received NACK, retransmit now
-                sendPacket(lastSentPacket);
-              }
-            } else if (receivedPacketType == PacketType::HELLO) {
-              shouldResendAfterHandshake = true;
-              hasHandshake = false;
-              handshakeStatus = STAT_HELLO;
-              // Break while loop and perform doHandshake() again
-              break;
-            }
-          }
-        } // if (recvBuffer.size() >= PACKET_SIZE)
-      } else {
-        /* BUG: Somehow the Beetle gets stuck here trying to retransmit when the laptop gets disconnected */
-        // Packet has timed out, retransmit
-        sendPacket(lastSentPacket);
-        // Update sent time and wait for ACK again
-        lastSentPacketTime = millis();
-      }
-    } // while (!mHasAck)
+  }
+  if (Serial.available() > 0) {
+    // Received some bytes from laptop, process them
+    processIncomingPacket();
+  } else {
+    // No bytes received from laptop, so send sensor data if needed
+    if (!isWaitingForAck) {
+      // Only send new packet if previous packet has already been ACK-ed
+      lastSentPacket = sendDummyPacket();
+      // Update last packet sent time to track timeout
+      lastSentPacketTime = millis();
+      hasReceivedAck = false;
+      isWaitingForAck = true;
+    }
   }
 }
 
@@ -230,12 +140,75 @@ bool doHandshake() {
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   byte packetData[PACKET_DATA_SIZE] = {};
   uint16_t seqNumToSyn = seqNum;
-  if (shouldResendAfterHandshake && isPacketValid(lastSentPacket)) {
+  if (isWaitingForAck && isPacketValid(lastSentPacket)) {
     seqNumToSyn = lastSentPacket.seqNum;
   }
   packetData[0] = (byte) seqNumToSyn;
   packetData[1] = (byte) seqNumToSyn >> BITS_PER_BYTE;
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
+}
+
+void processGivenPacket(const BlePacket &packet) {
+  char givenPacketType = getPacketTypeOf(packet);
+  switch (givenPacketType) {
+    case PacketType::HELLO:
+      isWaitingForAck = true;
+      hasHandshake = false;
+      handshakeStatus = STAT_HELLO;
+      break;
+    case PacketType::ACK:
+      if (packet.seqNum > seqNum) {
+        BlePacket nackPacket;
+        createNackPacket(nackPacket, seqNum);
+        // Inform laptop about seq num mismatch by sending a NACK with our current seq num
+        sendPacket(nackPacket);
+        return;
+      }
+      // If packet.seqNum < seqNum, it's (likely) a delayed ACK packet and we ignore it
+      // ACK received, so stop waiting for incoming ACK
+      hasReceivedAck = true;
+      isWaitingForAck = false;
+      // Increment seqNum upon every ACK
+      seqNum += 1;
+      break;
+    case PacketType::NACK:
+      if (packet.seqNum == seqNum) {
+        // Only retransmit if packet is valid
+        if (isPacketValid(lastSentPacket) && getPacketTypeOf(lastSentPacket) != PacketType::NACK) {
+          sendPacket(lastSentPacket);
+        }
+        // No else{}: Don't retransmit a corrupted packet or another NACK packet
+      }
+      break;
+    case INVALID_PACKET_ID:
+      BlePacket nackPacket;
+      createNackPacket(nackPacket, seqNum);
+      sendPacket(nackPacket);
+      break;
+    default:
+      BlePacket ackPacket;
+      createAckPacket(ackPacket, seqNum);
+      sendPacket(ackPacket);
+      // Don't retransmit ackPacket, so we invalidate lastSentPacket
+      lastSentPacket.metadata = PLACEHOLDER_METADATA;
+  } // switch (receivedPacketType)
+}
+
+void processIncomingPacket() {
+  // Read incoming bytes into receive buffer
+  readIntoRecvBuffer(recvBuffer);
+  if (recvBuffer.size() >= PACKET_SIZE) {
+    // Complete 20-byte packet received, read 20 bytes from receive buffer as packet
+    BlePacket receivedPacket = readPacketFrom(recvBuffer);
+    if (!isPacketValid(receivedPacket)) {
+      BlePacket nackPacket;
+      createNackPacket(nackPacket, seqNum);
+      // Received invalid packet, request retransmit with NACK
+      sendPacket(nackPacket);
+    } else {
+      processGivenPacket(receivedPacket);
+    }
+  } // if (recvBuffer.size() >= PACKET_SIZE)
 }
 
 int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer) {
@@ -248,6 +221,14 @@ int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer) {
     }
   }
   return numOfBytesRead;
+}
+
+void retransmitLastPacket() {
+  if (isPacketValid(lastSentPacket)) {
+    sendPacket(lastSentPacket);
+    // Update sent time and wait for ACK again
+    lastSentPacketTime = millis();
+  }
 }
 
 BlePacket sendDummyPacket() {

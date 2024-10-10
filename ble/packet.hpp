@@ -1,16 +1,16 @@
-#include "CRC8.h"
+#include <CRC8.h>
 
 #define BAUDRATE 115200
 #define BITS_PER_BYTE 8
-#define BLE_TIMEOUT 200
-#define FIRST_ELEMENT 0
-#define INVALID_PACKET_ID -1
+#define BLE_TIMEOUT 250
 #define INITIAL_SEQ_NUM 0
+#define INVALID_PACKET_ID -1
 #define LOWER_4BIT_MASK 0x0F
 #define MAX_BUFFER_SIZE 40
 #define PACKET_SIZE 20
 #define PACKET_DATA_SIZE 16
-#define PACKET_TYPE_SIZE 4
+#define PLACEHOLDER_METADATA 0x0F
+#define TRANSMIT_DELAY 10
 
 struct BlePacket {
 	/* Start packet header */
@@ -41,14 +41,7 @@ enum PacketType {
 	GAME_STAT = 9
 };
 
-enum HandshakeStatus {
-  STAT_NONE = 0,
-  STAT_HELLO = 1,
-  STAT_ACK = 2,
-  STAT_SYN = 3
-};
-
-template <typename T> class CircularBuffer {
+template <typename T> class MyQueue {
 private:
   T elements[MAX_BUFFER_SIZE];
   int head;
@@ -64,7 +57,7 @@ private:
   }
 
 public:
-  CircularBuffer() {
+  MyQueue() {
     this->length = 0;
     this->head = 0;
     this->tail = 0;
@@ -117,20 +110,18 @@ public:
   }
 };
 
+/* Method declarations */
+void createDataFrom(String givenStr, byte packetData[PACKET_DATA_SIZE]);
+void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum);
 bool doHandshake();
 uint8_t getCrcOf(const BlePacket &packet);
-bool sendPacketFrom(CircularBuffer<BlePacket> &sendBuffer);
+bool isHeadByte(byte currByte);
+byte parsePacketTypeFrom(byte metadata);
+int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer);
+BlePacket sendDummyPacket();
+void sendPacket(BlePacket &packetToSend);
 
-void convertBytesToPacket(CircularBuffer<char> &dataBuffer, BlePacket &packet) {
-  packet.metadata = dataBuffer.pop_front();
-  packet.seqNum = dataBuffer.pop_front() + (dataBuffer.pop_front() << BITS_PER_BYTE);
-  for (auto &dataByte : packet.data) {
-    dataByte = dataBuffer.pop_front();
-  }
-  packet.crc = dataBuffer.pop_front();
-}
-
-void createPacket(BlePacket &packet, byte packetType, short givenSeqNum, byte data[PACKET_DATA_SIZE]) {
+void createPacket(BlePacket &packet, byte packetType, uint16_t givenSeqNum, byte data[PACKET_DATA_SIZE]) {
   packet.metadata = packetType;
   packet.seqNum = givenSeqNum;
   for (byte i = 0; i < PACKET_DATA_SIZE; i += 1) {
@@ -140,102 +131,119 @@ void createPacket(BlePacket &packet, byte packetType, short givenSeqNum, byte da
 }
 
 void createAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
-  byte data[PACKET_DATA_SIZE] = {'A', 'C', 'K'};
-  createPacket(ackPacket, PacketType::ACK, givenSeqNum, data);
+  byte packetData[PACKET_DATA_SIZE] = {};
+  createDataFrom("ACK", packetData);
+  createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
 }
 
-void floatToData(byte data[PACKET_DATA_SIZE], float x1, float y1, float z1, float x2, float y2, float z2) {
-  short x1s = (short) (x1 * 100);
-  data[0] = (byte) x1s;
-  data[1] = (byte) x1s >> BITS_PER_BYTE;
-  short y1s = (short) (y1 * 100);
-  data[2] = (byte) y1s;
-  data[3] = (byte) y1s >> BITS_PER_BYTE;
-  short z1s = (short) (z1 * 100);
-  data[4] = (byte) z1s;
-  data[5] = (byte) z1s >> BITS_PER_BYTE;
-  short x2s = (short) (x2 * 100);
-  data[6] = (byte) x2s;
-  data[7] = (byte) x2s >> BITS_PER_BYTE;
-  short y2s = (short) (y2 * 100);
-  data[8] = (byte) y2s;
-  data[9] = (byte) y2s >> BITS_PER_BYTE;
-  short z2s = (short) (z2 * 100);
-  data[10] = (byte) z2s;
-  data[11] = (byte) z2s >> BITS_PER_BYTE;
-  // Padding bytes
-  for (size_t i = 12; i < PACKET_DATA_SIZE; i += 1) {
-    data[i] = 0;
+void createNackPacket(BlePacket &nackPacket, uint16_t givenSeqNum) {
+  byte packetData[PACKET_DATA_SIZE] = {};
+  createDataFrom("NACK", packetData);
+  createPacket(nackPacket, PacketType::NACK, givenSeqNum, packetData);
+}
+
+void createDataFrom(String givenStr, byte packetData[PACKET_DATA_SIZE]) {
+  const size_t MAX_SIZE = givenStr.length() > PACKET_DATA_SIZE ? PACKET_DATA_SIZE : givenStr.length();
+  const char *stringChar = givenStr.c_str();
+  for (size_t i = 0; i < MAX_SIZE; ++i) {
+    packetData[i] = (byte) *(stringChar + i);
+  }
+  for (size_t i = MAX_SIZE; i < PACKET_DATA_SIZE; ++i) {
+    packetData[i] = 0;
   }
 }
 
+bool fixPacketCrc(BlePacket &givenPacket) {
+  uint8_t computedCrc = getCrcOf(givenPacket);
+  if (computedCrc != givenPacket.crc) {
+    givenPacket.crc = computedCrc;
+    // Return true to indicate that crc value was corrupted and is now fixed
+    return true;
+  }
+  return false;
+}
+
+void floatToData(byte packetData[PACKET_DATA_SIZE], float x1, float y1, float z1, float x2, float y2, float z2) {
+  uint16_t x1s = (uint16_t) (x1 * 100);
+  packetData[0] = (byte) x1s;
+  packetData[1] = (byte) (x1s >> BITS_PER_BYTE);
+  uint16_t y1s = (uint16_t) (y1 * 100);
+  packetData[2] = (byte) y1s;
+  packetData[3] = (byte) (y1s >> BITS_PER_BYTE);
+  uint16_t z1s = (uint16_t) (z1 * 100);
+  packetData[4] = (byte) z1s;
+  packetData[5] = (byte) (z1s >> BITS_PER_BYTE);
+  uint16_t x2s = (uint16_t) (x2 * 100);
+  packetData[6] = (byte) x2s;
+  packetData[7] = (byte) (x2s >> BITS_PER_BYTE);
+  uint16_t y2s = (uint16_t) (y2 * 100);
+  packetData[8] = (byte) y2s;
+  packetData[9] = (byte) (y2s >> BITS_PER_BYTE);
+  uint16_t z2s = (uint16_t) (z2 * 100);
+  packetData[10] = (byte) z2s;
+  packetData[11] = (byte) (z2s >> BITS_PER_BYTE);
+  // Padding bytes
+  for (size_t i = 12; i < PACKET_DATA_SIZE; i += 1) {
+    packetData[i] = 0;
+  }
+}
+
+/* Method definitions */
 uint8_t getCrcOf(const BlePacket &packet) {
   CRC8 crcGen;
   crcGen.add((uint8_t) packet.metadata);
   crcGen.add((uint8_t) packet.seqNum);
-  crcGen.add((uint8_t) packet.seqNum >> BITS_PER_BYTE);
-  for (auto c : packet.data) {
-    crcGen.add((uint8_t) c);
+  crcGen.add((uint8_t) (packet.seqNum >> BITS_PER_BYTE));
+  for (size_t i = 0; i < PACKET_DATA_SIZE; ++i) {
+    uint8_t dataByte = (uint8_t) packet.data[i];
+    crcGen.add(dataByte);
   }
   uint8_t crcValue = crcGen.calc();
   return crcValue;
 }
 
-void getDataFrom(const String &inputString, byte data[PACKET_DATA_SIZE]) {
-  char *stringChars = inputString.c_str();
-  size_t maxChars = inputString.length() < PACKET_DATA_SIZE ? inputString.length() : PACKET_DATA_SIZE;
-  for (size_t i = 0; i < maxChars; i += 1) {
-    char currentChar = *stringChars;
-    data[i] = (byte) currentChar;
-    stringChars += 1;
+void getPacketData(MyQueue<byte> &recvBuffer, byte packetData[PACKET_DATA_SIZE]) {
+  for (size_t i = 0; i < PACKET_DATA_SIZE; ++i) {
+    packetData[i] = recvBuffer.pop_front();
   }
 }
 
-byte getPacketTypeOf(const BlePacket &packet) {
-  byte packetTypeId = packet.metadata & LOWER_4BIT_MASK;
-  if (packetTypeId < PacketType::HELLO || packetTypeId > PacketType::P2_IR_TRANS) {
+char getPacketTypeOf(const BlePacket &packet) {
+  if (!isHeadByte(packet.metadata)) {
     return INVALID_PACKET_ID;
   }
+  char packetTypeId = (char) parsePacketTypeFrom(packet.metadata);
   return packetTypeId;
 }
 
-byte getNumOfPaddingBytes(const BlePacket &packet) {
-  byte numPaddingBytes = packet.metadata >> PACKET_TYPE_SIZE;
-  return numPaddingBytes;
-}
-
 bool isHeadByte(byte currByte) {
-  byte packetId = currByte & LOWER_4BIT_MASK;
+  byte packetId = parsePacketTypeFrom(currByte);
   return packetId >= PacketType::HELLO && packetId <= PacketType::GAME_STAT;
 }
 
+// TODO: Do we want to take seqNum as parameter and check whether current seqNum makes sense vs packet's seqNum?
 bool isPacketValid(BlePacket &packet) {
-  // TODO: Implement actual checks
+  if (!isHeadByte(packet.metadata)) {
+    return false;
+  }
+  uint8_t computedCrc = getCrcOf(packet);
+  if (computedCrc != packet.crc) {
+    return false;
+  }
   return true;
 }
 
-// Accept BlePacket to be returned as a parameter passed by reference for efficiency
-void readPacket(CircularBuffer<char> &recvBuff, BlePacket &packet) {
-  while (recvBuff.size() < PACKET_SIZE) {
-    if (!Serial.available()) {
-      continue;
-    }
-    char newByte = Serial.read();
-    if (isHeadByte(recvBuff.get(FIRST_ELEMENT)) || recvBuff.size() > 0) {
-      // Append new byte to receive buffer
-      recvBuff.push_back(newByte);
-    }
-  }
-  // receiveBuffer.length() >= PACKET_SIZE
-  convertBytesToPacket(recvBuff, packet);
-  return packet;
+byte parsePacketTypeFrom(byte metadata) {
+  return metadata & LOWER_4BIT_MASK;
 }
 
-void sendPacket(const BlePacket &packet) {
-  Serial.write((byte *) &packet, sizeof(packet));
-}
-
-bool shouldIncSeqNumFor(const BlePacket &packet) {
-  byte packetTypeId = packet.metadata & LOWER_4BIT_MASK;
-  return packetTypeId != PacketType::ACK;
+BlePacket readPacketFrom(MyQueue<byte> &recvBuffer) {
+  BlePacket newPacket;
+  newPacket.metadata = (byte) recvBuffer.pop_front();
+  uint16_t seqNumLowByte = (uint16_t) recvBuffer.pop_front();
+  uint16_t seqNumHighByte = (uint16_t) recvBuffer.pop_front();
+  newPacket.seqNum = seqNumLowByte + (seqNumHighByte << BITS_PER_BYTE);
+  getPacketData(recvBuffer, newPacket.data);
+  newPacket.crc = (byte) recvBuffer.pop_front();
+  return newPacket;
 }

@@ -67,7 +67,6 @@ class RelayServer(Thread):
         
 
     def run(self): 
-        time.sleep(2)
         self.server.listen(1)
         # time.sleep(2)
         print('_'*30)

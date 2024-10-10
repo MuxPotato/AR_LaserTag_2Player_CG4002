@@ -406,9 +406,72 @@ class GameEngine(Thread):
         }
 
 
+    def is_curr_game_state_diff_from_updated(self, updated_game_state):
+        """
+        Compare the updated game state with the current game state.
+        Returns True if there are any differences; otherwise, returns False.
+        """
+
+        # Access the current game state
+        current_game_state = {
+            "p1": {
+                "hp": self.hp_p1,
+                "bullets": self.bullets_p1,
+                "bombs": self.bomb_p1,
+                "shield_hp": self.shieldHp_p1,
+                "deaths": self.deaths_p1,
+                "shields": self.shieldCharges_p1,
+            },
+            "p2": {
+                "hp": self.hp_p2,
+                "bullets": self.bullets_p2,
+                "bombs": self.bomb_p2,
+                "shield_hp": self.shieldHp_p2,
+                "deaths": self.deaths_p2,
+                "shields": self.shieldCharges_p2,
+            }
+        }
+
+        # Compare player 1's stats
+        for key in current_game_state["p1"]:
+            if current_game_state["p1"][key] != updated_game_state["p1"][key]:
+                print(f"Difference found for p1 - {key}: {current_game_state['p1'][key]} != {updated_game_state['p1'][key]}")
+                return True
+
+        # Compare player 2's stats
+        for key in current_game_state["p2"]:
+            if current_game_state["p2"][key] != updated_game_state["p2"][key]:
+                print(f"Difference found for p2 - {key}: {current_game_state['p2'][key]} != {updated_game_state['p2'][key]}")
+                return True
+
+        # If no differences are found, return False
+        return False
+
+
+    def update_current_game_state(self, updated_game_state):
+        """
+        Update the current game state with the values from the updated game state.
+        """
+
+        # Update player 1's stats
+        self.hp_p1 = updated_game_state["p1"]["hp"]
+        self.bullets_p1 = updated_game_state["p1"]["bullets"]
+        self.bomb_p1 = updated_game_state["p1"]["bombs"]
+        self.shieldHp_p1 = updated_game_state["p1"]["shield_hp"]
+        self.deaths_p1 = updated_game_state["p1"]["deaths"]
+        self.shieldCharges_p1 = updated_game_state["p1"]["shields"]
+
+        # Update player 2's stats
+        self.hp_p2 = updated_game_state["p2"]["hp"]
+        self.bullets_p2 = updated_game_state["p2"]["bullets"]
+        self.bomb_p2 = updated_game_state["p2"]["bombs"]
+        self.shieldHp_p2 = updated_game_state["p2"]["shield_hp"]
+        self.deaths_p2 = updated_game_state["p2"]["deaths"]
+        self.shieldCharges_p2 = updated_game_state["p2"]["shields"]
 
 
 
+    
 
     def run(self):
         while True:
@@ -443,6 +506,23 @@ class GameEngine(Thread):
 
                 print("Game Engine: Waiting for from_eval_queue")
                 updated_game_state = self.from_eval_queue.get()
+                print("updated game state:")
+                print(updated_game_state)
+
+                # # Check if the eval server's game state differs from the current game state
+                if self.is_curr_game_state_diff_from_updated(updated_game_state):
+
+                    print("Game Engine: curr game state diff from eval game state")
+
+                    print("Game Engine: updating curr game state to eval game state")
+                    self.update_current_game_state(updated_game_state)
+                    
+                    # Put "update_ui" into the phone response queue to update the UI without triggering an action
+                    self.viz_queue.put("update_ui")
+
+            
+
+                
 
                 
 

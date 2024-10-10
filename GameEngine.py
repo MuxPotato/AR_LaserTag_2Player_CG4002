@@ -1,6 +1,7 @@
 from threading import Thread
 import queue
 import random
+import time 
 from Color import print_message
 
 class GameEngine(Thread):
@@ -412,8 +413,8 @@ class GameEngine(Thread):
             #print("Checking if phone action queue is empty")
             
             # Handle phone action if it's not empty
-            if not self.phone_action_queue.empty():
-                phone_action = self.phone_action_queue.get()
+            #if not self.phone_action_queue.empty():
+            phone_action = self.phone_action_queue.get()
                 
                 #print_message('Game Engine', f"Received action '{phone_action}' from phone")
             viz_format = self.process_phone_action(phone_action)
@@ -422,10 +423,11 @@ class GameEngine(Thread):
             # TODO we need to think about what happens if MQTT disconnects or anything happens such that phone cannot reply, need to timeout the queue.get() and do what? hardcode a value? reconnect MQTT and? 
             phone_action = self.phone_action_queue.get()
             temp_viz_format = self.process_phone_action(phone_action) # viz format returned not used as need eval server response to send updated info to viz 
+            time.sleep(5)
             updated_game_state = self.from_eval_queue.get()
             print_message('Game Engine',f"Received {updated_game_state} from eval server")
 
-            #TODO make new game state with response from eval server and then put in viz queue 
+                #TODO make new game state with response from eval server and then put in viz queue 
             ''' 
             maybe a new function to update_game_state() 
             viz_format = update_game_state(updated_game_state)
@@ -436,6 +438,35 @@ class GameEngine(Thread):
             '''
                 
                 
+    # # Before
+    # def run(self):
+    #     while True:
+        
+    #         #print("Reached Game Engine Main Loop")
+    #         #print("Checking if phone action queue is empty")
+            
+    #         # Handle phone action if it's not empty
+    #         if not self.phone_action_queue.empty():
+    #             phone_action = self.phone_action_queue.get()
+                
+    #         #print_message('Game Engine', f"Received action '{phone_action}' from phone")
+    #         viz_format = self.process_phone_action(phone_action)
+    #         self.viz_queue.put(viz_format)
+    #         #waiting for phone to reply 
+    #         # TODO we need to think about what happens if MQTT disconnects or anything happens such that phone cannot reply, need to timeout the queue.get() and do what? hardcode a value? reconnect MQTT and? 
+    #         phone_action = self.phone_action_queue.get()
+    #         temp_viz_format = self.process_phone_action(phone_action) # viz format returned not used as need eval server response to send updated info to viz 
+    #         updated_game_state = self.from_eval_queue.get()
+    #         print_message('Game Engine',f"Received {updated_game_state} from eval server")
 
+    #         #TODO make new game state with response from eval server and then put in viz queue 
+    #         ''' 
+    #         maybe a new function to update_game_state() 
+    #         viz_format = update_game_state(updated_game_state)
+
+    #         print_message('Game Engine', f"Sending updated game state to visualizer: {viz_format}")
+    #         self.viz_queue.put(viz_format)  # Send updated state to the visualizer AFTER eval server replies 
+   
+    #         '''
         
 

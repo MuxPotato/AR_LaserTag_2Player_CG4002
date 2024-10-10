@@ -8,6 +8,15 @@ from Color import print_message
 
 ACTIONS = ["bomb", "reload", "basket", "soccer", "volley", "bowl"]
 
+
+player_data = {
+    'playerID': 1,
+    'accel': [0.1, 0.2, 0.3],
+    'gyro': [0.01, 0.02, 0.03],
+    'isFire': True, #if this is true dont sent AI IMU data 
+    'isHit': False
+}
+
 class AI(Thread):
     def __init__(self,IMU_queue,phone_action_queue):
         Thread.__init__(self)

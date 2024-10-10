@@ -26,3 +26,7 @@
 ## `relay_client.py`: 
 - Relay client that connects to relay server(running on the Ultra96) to send raw data from Beetle to the server and update the Beetles involved with the latest game state
 
+# Quick start
+- Run `python3 external_main.py` without any arguments to start all the necessary threads and run the comms protocols
+- To end transmission and quit, press `CTRL+C` and wait for all threads to terminate
+

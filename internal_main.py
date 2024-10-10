@@ -1,4 +1,3 @@
-from collections import deque
 import queue
 import sys
 import threading

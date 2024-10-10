@@ -1,7 +1,7 @@
 import traceback
 from bluepy.btle import DefaultDelegate
 
-from utils import LOWER_4BITS_MASK, PACKET_SIZE, BlePacketType, bcolors, is_metadata_byte
+from internal_utils import LOWER_4BITS_MASK, PACKET_SIZE, BlePacketType, bcolors, is_metadata_byte
 
 # Delegate
 class BlePacketDelegate(DefaultDelegate):

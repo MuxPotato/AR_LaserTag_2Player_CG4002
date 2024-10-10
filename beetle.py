@@ -5,7 +5,7 @@ import time
 import traceback
 import anycrc
 from ble_delegate import BlePacketDelegate
-from utils import BITS_PER_BYTE, BLE_TIMEOUT, ERROR_VALUE, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, INITIAL_SEQ_NUM, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, GunPacket, ImuPacket, bcolors, metadata_to_packet_type
+from internal_utils import BITS_PER_BYTE, BLE_TIMEOUT, ERROR_VALUE, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, INITIAL_SEQ_NUM, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, GunPacket, ImuPacket, bcolors, metadata_to_packet_type
 from bluepy.btle import BTLEException, Peripheral
 
 class Beetle(threading.Thread):

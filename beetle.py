@@ -29,6 +29,8 @@ class Beetle(threading.Thread):
         # Configure Peripheral
         self.ble_delegate = BlePacketDelegate(self.serial_char, self.mDataBuffer)
         self.mBeetle.withDelegate(self.ble_delegate)
+        self.start_transmit_time = 0
+        self.num_packets_recevied = 0
 
     def connect(self):
         while not self.terminateEvent.is_set():
@@ -60,10 +62,14 @@ class Beetle(threading.Thread):
         return self.hasHandshake
 
     def quit(self):
+        end_transmission_time = time.time()
+        transmission_speed = self.num_packets_recevied / end_transmission_time
         self.terminateEvent.set()
         fragmented_packet_count = self.ble_delegate.get_fragmented_packet_count()
         self.mPrint(bcolors.BRIGHT_YELLOW, "{}: {} fragmented packets"
                 .format(self.beetle_mac_addr, fragmented_packet_count))
+        self.mPrint(bcolors.BRIGHT_YELLOW, 
+                f"""{self.beetle_mac_addr}: Transmission speed {transmission_speed} packets/s""")
 
     def mPrint2(self, inputString):
         self.mPrint(self.color, inputString)
@@ -88,6 +94,8 @@ class Beetle(threading.Thread):
                         self.lastPacketSent = self.sendNack(self.seq_num)
                         continue
                     # assert packetBytes is a valid 20-byte packet
+                    # Keep track of packets received
+                    self.num_packets_recevied += 1
                     # Parse packet from 20-byte
                     receivedPacket = self.parsePacket(packetBytes)
                     if receivedPacket.data and (len(receivedPacket.data) > 0):
@@ -209,6 +217,9 @@ class Beetle(threading.Thread):
                             # Update mSynTime to wait for any potential NACK from Beetle again
                             mSynTime = time.time()
                 # No NACK during timeout period, Beetle is assumed to have received SYN+ACK
+                if self.start_transmit_time == 0:
+                    # Set the time of 1st completion of 3-way handshake so we can compute transmission speed
+                    self.start_transmit_time = time.time()
                 self.hasHandshake = True
                 self.mPrint2(inputString = "Handshake completed with {}".format(self.beetle_mac_addr))
 

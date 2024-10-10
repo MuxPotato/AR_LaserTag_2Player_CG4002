@@ -1,3 +1,10 @@
+# Overview
+- Laptop connects to each Beetle via BLE 4.0 using the Python bluepy library
+- Transmit/Receive protocol used is stop-and-wait half-duplex(Beetle->laptop)
+- ACK and NACK is implemented for reliable transmission: Detecting packet loss(ACK) and packet corruption(NACK)
+- A variant of TCP's 3-way handshake is also implemented to initialise each Beetle's BLE connection
+- Sequence number implemented currently is only for the Beetle(sender), laptop simply synchronises its sequence number with whatever the Beetle's currently is
+
 # Source code structure
 ## `ble/`: Base Beetle code that performs internal comms(transmits dummy packets that are randomly generated floats to immitate IMU data)
 - Requires CRC library

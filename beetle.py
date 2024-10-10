@@ -19,7 +19,6 @@ class Beetle(threading.Thread):
         self.mDataBuffer = deque()
         self.hasHandshake = False
         self.seq_num = 0
-        self.fragmentedCount = 0
         self.lastPacketSent = None
         self.lastPacketSentTime = -1
         self.terminateEvent = threading.Event()
@@ -28,7 +27,8 @@ class Beetle(threading.Thread):
         self.outgoing_queue = outgoing_queue
         self.incoming_queue = incoming_queue
         # Configure Peripheral
-        self.mBeetle.withDelegate(BlePacketDelegate(self.serial_char, self.mDataBuffer))
+        self.ble_delegate = BlePacketDelegate(self.serial_char, self.mDataBuffer)
+        self.mBeetle.withDelegate(self.ble_delegate)
 
     def connect(self):
         while not self.terminateEvent.is_set():
@@ -61,7 +61,9 @@ class Beetle(threading.Thread):
 
     def quit(self):
         self.terminateEvent.set()
-        self.mPrint(bcolors.BRIGHT_YELLOW, "{}: {} fragmented packets".format(self.beetle_mac_addr, self.fragmentedCount))
+        fragmented_packet_count = self.ble_delegate.get_fragmented_packet_count()
+        self.mPrint(bcolors.BRIGHT_YELLOW, "{}: {} fragmented packets"
+                .format(self.beetle_mac_addr, fragmented_packet_count))
 
     def mPrint2(self, inputString):
         self.mPrint(self.color, inputString)
@@ -78,7 +80,6 @@ class Beetle(threading.Thread):
                 # Handshake already completed
                 elif self.mBeetle.waitForNotifications(BLE_TIMEOUT):
                     if len(self.mDataBuffer) < PACKET_SIZE:
-                        self.fragmentedCount += 1
                         continue
                     # bytearray for 20-byte packet
                     packetBytes = self.get_packet_from(self.mDataBuffer)
@@ -158,7 +159,6 @@ class Beetle(threading.Thread):
                     # Has not timed out yet, wait for ACK from Beetle
                     if self.mBeetle.waitForNotifications(BLE_TIMEOUT):
                         if len(self.mDataBuffer) < PACKET_SIZE:
-                            self.fragmentedCount += 1
                             continue
                         # bytearray for 20-byte packet
                         packetBytes = self.get_packet_from(self.mDataBuffer)
@@ -189,7 +189,6 @@ class Beetle(threading.Thread):
                     # Wait for incoming packets
                     if self.mBeetle.waitForNotifications(BLE_TIMEOUT):
                         if len(self.mDataBuffer) < PACKET_SIZE:
-                            self.fragmentedCount += 1
                             continue
                         # bytearray for 20-byte packet
                         packetBytes = self.get_packet_from(self.mDataBuffer)

@@ -9,6 +9,7 @@ class BlePacketDelegate(DefaultDelegate):
         super().__init__()
         self.dataBuffer = dataBuffer
         self.serial_char = serial_char
+        self.fragmented_packet_count = 0
 
     # Bluno Beetle uses cHandle 37
     def handleNotification(self, cHandle, data):
@@ -16,6 +17,7 @@ class BlePacketDelegate(DefaultDelegate):
             # Add incoming bytes to receive buffer
             if len(data) < PACKET_SIZE:
                 print("{}Fragmented packet received{}".format(bcolors.BRIGHT_YELLOW, bcolors.ENDC))
+                self.fragmented_packet_count += 1
             for dataByte in data:
                 if is_metadata_byte(dataByte) or len(self.dataBuffer) > 0:
                     self.dataBuffer.append(dataByte)
@@ -23,6 +25,9 @@ class BlePacketDelegate(DefaultDelegate):
                     print("Dropping byte {}".format(dataByte))
         except Exception as exc:
             traceback.print_exception(exc)
+
+    def get_fragmented_packet_count(self):
+        return self.fragmented_packet_count
     
     def isHeaderByte(self, dataByte):
         packet_id = dataByte & LOWER_4BITS_MASK

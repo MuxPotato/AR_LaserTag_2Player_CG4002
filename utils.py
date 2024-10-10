@@ -1,3 +1,4 @@
+from collections.abc import MutableSequence
 from enum import Enum
 from typing import NamedTuple
 
@@ -11,6 +12,7 @@ PACKET_TYPE_ID_LENGTH = 4
 PACKET_FORMAT = "=BH16sB"
 BITS_PER_BYTE = 8
 LOWER_4BITS_MASK = 0x0f
+IMU_DIMENSION = 3
 MAX_SEQ_NUM = 65535
 
 BLUNO_MAC_ADDR_LIST = [
@@ -69,6 +71,15 @@ class BlePacketType(Enum):
     P2_IR_RECV = 7
     P2_IR_TRANS = 8
     GAME_STAT = 9
+
+class GunPacket(NamedTuple):
+    beetle_mac: str
+    gunBoolean: bool
+
+class ImuPacket(NamedTuple):
+    beetle_mac: str
+    accel: MutableSequence[float]
+    gyro: MutableSequence[float]
 
 # Public functions
 def is_metadata_byte(given_byte):

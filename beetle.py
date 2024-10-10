@@ -5,7 +5,7 @@ import time
 import traceback
 import anycrc
 from ble_delegate import BlePacketDelegate
-from utils import BITS_PER_BYTE, BLE_TIMEOUT, ERROR_VALUE, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, INITIAL_SEQ_NUM, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, bcolors, metadata_to_packet_type
+from utils import BITS_PER_BYTE, BLE_TIMEOUT, ERROR_VALUE, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, INITIAL_SEQ_NUM, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, GunPacket, ImuPacket, bcolors, metadata_to_packet_type
 from bluepy.btle import BTLEException, Peripheral
 
 class Beetle(threading.Thread):
@@ -119,6 +119,7 @@ class Beetle(threading.Thread):
                                 # Increment seq_num since received packet is valid
                                 self.seq_num += 1
                             # TODO: Insert data into outgoing ext comms queue
+                            self.handle_incoming_packet(receivedPacket)
             except BTLEException as ble_exc:
                 self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in connect() for Beetle: {self.beetle_mac_addr}""")
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(ble_exc))
@@ -129,6 +130,9 @@ class Beetle(threading.Thread):
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(exc))
                 self.mPrint2(stacktrace_str)
         self.disconnect()
+
+    def handle_incoming_packet(self, ble_packet):
+        pass
 
     def doHandshake(self):
         mHasSentHello = False
@@ -297,7 +301,7 @@ class Beetle(threading.Thread):
     def parsePacket(self, packetBytes):
         # Check for NULL packet or incomplete packet
         if not packetBytes or len(packetBytes) < PACKET_SIZE:
-            return ERROR_VALUE, ERROR_VALUE, None
+            return BlePacket(ERROR_VALUE, ERROR_VALUE, None, ERROR_VALUE)
         metadata, seq_num, data, dataCrc = self.unpack_packet_bytes(packetBytes)
         packet = BlePacket(metadata, seq_num, data, dataCrc)
         return packet
@@ -335,13 +339,25 @@ class Beetle(threading.Thread):
         return metadata, seq_num, data, data_crc
    
 class GloveBeetle(Beetle):
-    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.OKGREEN):
-        super.__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
+    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
+        super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
+
+    def handle_incoming_packet(self, ble_packet):
+        x1, y1, z1, x2, y2, z2 = self.getDataFrom(ble_packet.data)
+        self.outgoing_queue.put(ImuPacket(self.beetle_mac_addr, [x1, y1, z1], [x2, y2, z2]))
+        # TODO: Stop printing debug line below
+        self.mPrint2("Received IMU data from {}: [{}, {}, {}, {}, {}, {}]"
+                .format(self.beetle_mac_addr, x1, y1, z1, x2, y2, z2))
 
 class GunBeetle(Beetle):
-    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.OKGREEN):
-        super.__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
+    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
+        super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
+
+    def handle_incoming_packet(self, ble_packet):
+        gunBoolean = ble_packet.data[0] == 1
+        self.outgoing_queue.put(GunPacket(self.beetle_mac_addr, gunBoolean))
+        self.mPrint2("Received gun data from {}: {}".format(self.beetle_mac_addr, gunBoolean))
 
 class VestBeetle(Beetle):
-    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.OKGREEN):
-        super.__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
+    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
+        super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)

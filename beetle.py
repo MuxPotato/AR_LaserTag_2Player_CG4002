@@ -17,22 +17,22 @@ class Beetle(threading.Thread):
         self.color = color
         self.terminateEvent = threading.Event()
         # Runtime variables
-        ## Beetle connection variables
-        self.mDataBuffer = deque()
         self.hasHandshake = False
-        ### Sequence number for packets created by Beetle to send to laptop
-        self.beetle_seq_num = INITIAL_SEQ_NUM
-        self.lastPacketSent = None
-        self.lastPacketSentTime = -1
+        ## Receiver variables
+        self.mDataBuffer = deque()
         self.mService = None
         self.serial_char = None
         self.start_transmit_time = 0
+        ### Sequence number for packets created by Beetle to send to laptop
+        self.receiver_seq_num = INITIAL_SEQ_NUM
         self.num_packets_received = 0
         self.outgoing_queue = outgoing_queue
-        ## External communication variables
+        ## Sender variables
         self.is_waiting_for_ack = False
+        self.lastPacketSent = None
+        self.lastPacketSentTime = -1
         ### Sequence number for packets created by laptop to send to Beetle
-        self.laptop_seq_num = INITIAL_SEQ_NUM
+        self.sender_seq_num = INITIAL_SEQ_NUM
         self.incoming_queue = incoming_queue
         # Configure Peripheral
         self.ble_delegate = BlePacketDelegate(self.serial_char, self.mDataBuffer)
@@ -102,7 +102,7 @@ class Beetle(threading.Thread):
                     packetBytes = self.get_packet_from(self.mDataBuffer)
                     if not self.isValidPacket(packetBytes):
                         # TODO: Figure out what seq num to send
-                        self.lastPacketSent = self.sendNack(self.beetle_seq_num)
+                        self.lastPacketSent = self.sendNack(self.receiver_seq_num)
                         continue
                     # assert packetBytes is a valid 20-byte packet
                     # Keep track of packets received
@@ -113,32 +113,32 @@ class Beetle(threading.Thread):
                         # Packet is valid
                         packet_id = self.getPacketTypeOf(receivedPacket)
                         if packet_id == BlePacketType.NACK.value:
-                            if self.beetle_seq_num != receivedPacket.seq_num:
-                                self.beetle_seq_num = receivedPacket.seq_num
+                            if self.receiver_seq_num != receivedPacket.seq_num:
+                                self.receiver_seq_num = receivedPacket.seq_num
                             elif metadata_to_packet_type(self.lastPacketSent[0]) != BlePacketType.ACK.value:
                                 self.mPrint(bcolors.BRIGHT_YELLOW, "Received NACK with seq_num {} from {}, resending last packet"
                                         .format(receivedPacket.seq_num, self.beetle_mac_addr))
                                 self.sendPacket(self.lastPacketSent)
                         elif packet_id != BlePacketType.ACK.value and not self.terminateEvent.is_set():
-                            if self.beetle_seq_num > receivedPacket.seq_num:
+                            if self.receiver_seq_num > receivedPacket.seq_num:
                                 # ACK for earlier packet was lost, synchronise seq num with Beetle
-                                self.beetle_seq_num = receivedPacket.seq_num
+                                self.receiver_seq_num = receivedPacket.seq_num
                                 self.mPrint(bcolors.BRIGHT_YELLOW, "ACK for packet num {} lost, synchronising seq num with {}"
                                         .format(receivedPacket.seq_num, self.beetle_mac_addr))
-                            """ elif self.beetle_seq_num < receivedPacket.seq_num:
+                            """ elif self.receiver_seq_num < receivedPacket.seq_num:
                                 self.lastPacketSent = self.sendNack(receivedPacket.seq_num)
                                 self.mPrint(bcolors.BRIGHT_YELLOW, "Received packet with seq num {} from {}, expected seq num {}"
-                                        .format(receivedPacket.seq_num, self.beetle_mac_addr, self.beetle_seq_num))
+                                        .format(receivedPacket.seq_num, self.beetle_mac_addr, self.receiver_seq_num))
                                 continue """
                             # ACK the received packet
-                            self.lastPacketSent = self.sendAck(self.beetle_seq_num)
-                            if self.beetle_seq_num == MAX_SEQ_NUM:
+                            self.lastPacketSent = self.sendAck(self.receiver_seq_num)
+                            if self.receiver_seq_num == MAX_SEQ_NUM:
                                 # On the Beetle, seq num is 16-bit and overflows. So we 'overflow' by
                                 #   resetting to 0 to synchronise with the Beetle
-                                self.beetle_seq_num = 0
+                                self.receiver_seq_num = 0
                             else:
                                 # Increment seq_num since received packet is valid
-                                self.beetle_seq_num += 1
+                                self.receiver_seq_num += 1
                             # TODO: Insert data into outgoing ext comms queue
                             self.handle_beetle_packet(receivedPacket)
             except BTLEException as ble_exc:
@@ -199,7 +199,7 @@ class Beetle(threading.Thread):
                             mSeqNum += 1
                             receivedPacket = self.parsePacket(packetBytes)
                             beetle_seq_num = receivedPacket.data[0] + (receivedPacket.data[1] << BITS_PER_BYTE)
-                            self.beetle_seq_num = beetle_seq_num
+                            self.receiver_seq_num = beetle_seq_num
                             # Send a SYN+ACK back to Beetle
                             mLastPacketSent = self.sendSynAck(mSeqNum, beetle_seq_num)
                             mSynTime = time.time()
@@ -350,9 +350,9 @@ class Beetle(threading.Thread):
         self.sendPacket(nack_packet)
         return nack_packet
     
-    def sendSynAck(self, my_seq_num, beetle_seq_num):
+    def sendSynAck(self, my_seq_num, seq_num):
         SYNACK = "SYNACK"
-        synack_packet = self.createPacket(BlePacketType.ACK.value, my_seq_num, beetle_seq_num.to_bytes(2, byteorder='little') + bytes(SYNACK, encoding = "ascii"))
+        synack_packet = self.createPacket(BlePacketType.ACK.value, my_seq_num, seq_num.to_bytes(2, byteorder='little') + bytes(SYNACK, encoding = "ascii"))
         self.sendPacket(synack_packet)
         return synack_packet
 

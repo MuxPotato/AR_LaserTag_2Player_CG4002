@@ -132,7 +132,7 @@ class Beetle(threading.Thread):
                     receivedPacket = self.parsePacket(packetBytes)
                     self.handle_beetle_packet(receivedPacket)
             except BTLEException as ble_exc:
-                self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in connect() for Beetle: {self.beetle_mac_addr}""")
+                self.mPrint(bcolors.BRIGHT_YELLOW, f"""Bluetooth exception in main() for Beetle: {self.beetle_mac_addr}""")
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(ble_exc))
                 self.mPrint2(stacktrace_str)
                 self.reconnect()

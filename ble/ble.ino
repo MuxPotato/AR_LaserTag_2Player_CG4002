@@ -191,12 +191,7 @@ void processGivenPacket(const BlePacket &packet) {
       } */
       // If packet.seqNum < senderSeqNum, NACK packet is likely delayed and we drop it
       break;
-    case INVALID_PACKET_ID:
-      BlePacket nackPacket;
-      createNackPacket(nackPacket, receiverSeqNum);
-      sendPacket(nackPacket);
-      break;
-    default:
+    case GAME_STAT:
       // Process the packet to handle specific game logic(e.g. updating Beetle's internal game state)
       handleGamePacket(packet);
       // TODO: Handle synchronising receiver seq num(not sender seq num like code below)
@@ -207,6 +202,13 @@ void processGivenPacket(const BlePacket &packet) {
       createAckPacket(ackPacket, receiverSeqNum);
       sendPacket(ackPacket);
       receiverSeqNum += 1;
+    case INVALID_PACKET_ID:
+    default:
+      // All other packet types are unsupported, inform sender that packet is rejected
+      BlePacket nackPacket;
+      createNackPacket(nackPacket, receiverSeqNum);
+      sendPacket(nackPacket);
+      break;
   } // switch (receivedPacketType)
 }
 

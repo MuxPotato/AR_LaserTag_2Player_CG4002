@@ -141,10 +141,11 @@ class Beetle(threading.Thread):
                 self.receiver_seq_num = incoming_packet.seq_num
                 self.mPrint(bcolors.BRIGHT_YELLOW, "ACK for packet num {} lost, synchronising seq num with {}"
                         .format(incoming_packet.seq_num, self.beetle_mac_addr))
-            """ elif self.receiver_seq_num < incoming_packet.seq_num:
-                self.lastPacketSent = self.sendNack(incoming_packet.seq_num)
+            elif self.receiver_seq_num < incoming_packet.seq_num:
+                self.receiver_seq_num = incoming_packet.seq_num
                 self.mPrint(bcolors.BRIGHT_YELLOW, "Received packet with seq num {} from {}, expected seq num {}"
                         .format(incoming_packet.seq_num, self.beetle_mac_addr, self.receiver_seq_num))
+                """ self.lastPacketSent = self.sendNack(incoming_packet.seq_num)
                 continue """
             # ACK the received packet
             self.sendAck(self.receiver_seq_num)

@@ -36,15 +36,15 @@ void loop() {
     hasHandshake = doHandshake();
   }
   if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
-    if (numRetries < MAX_RETRANSMITS) {
+    //if (numRetries < MAX_RETRANSMITS) {
       retransmitLastPacket();
-      numRetries += 1;
+      /* numRetries += 1;
     } else {
       // Max retries reached, stop retransmitting
       isWaitingForAck = false;
       hasReceivedAck = false;
       lastSentPacket.metadata = PLACEHOLDER_METADATA;
-    }
+    } */
   }
   if (Serial.available() > 0) {
     // Received some bytes from laptop, process them

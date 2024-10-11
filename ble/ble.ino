@@ -20,7 +20,6 @@ uint16_t receiverSeqNum = INITIAL_SEQ_NUM;
 uint16_t senderSeqNum = INITIAL_SEQ_NUM;
 bool shouldResendAfterHandshake = false;
 bool isWaitingForAck = false;
-bool hasReceivedAck = false;
 uint8_t numRetries = 0;
 
 void setup() {
@@ -42,7 +41,6 @@ void loop() {
     } else {
       // Max retries reached, stop retransmitting
       isWaitingForAck = false;
-      hasReceivedAck = false;
       lastSentPacket.metadata = PLACEHOLDER_METADATA;
     } */
   }
@@ -56,7 +54,6 @@ void loop() {
       lastSentPacket = sendDummyPacket();
       // Update last packet sent time to track timeout
       lastSentPacketTime = millis();
-      hasReceivedAck = false;
       isWaitingForAck = true;
     }
   }
@@ -175,7 +172,6 @@ void processGivenPacket(const BlePacket &packet) {
         return;
       }
       // Valid ACK received, so stop waiting for incoming ACK
-      hasReceivedAck = true;
       isWaitingForAck = false;
       // Increment senderSeqNum upon every ACK
       senderSeqNum += 1;

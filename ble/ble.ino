@@ -205,7 +205,7 @@ void processIncomingPacket() {
   if (recvBuffer.size() >= PACKET_SIZE) {
     // Complete 20-byte packet received, read 20 bytes from receive buffer as packet
     BlePacket receivedPacket = readPacketFrom(recvBuffer);
-    if (!isPacketValid(receivedPacket) || receivedPacket.seqNum != seqNum) {
+    if (!isPacketValid(receivedPacket)) {
       BlePacket nackPacket;
       createNackPacket(nackPacket, seqNum);
       // Received invalid packet, request retransmit with NACK

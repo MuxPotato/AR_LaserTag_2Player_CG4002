@@ -16,7 +16,8 @@ MyQueue<byte> recvBuffer{};
 // Zero-initialise lastSentPacket
 BlePacket lastSentPacket = {};
 unsigned long lastSentPacketTime = 0;
-uint16_t seqNum = INITIAL_SEQ_NUM;
+uint16_t receiverSeqNum = INITIAL_SEQ_NUM;
+uint16_t senderSeqNum = INITIAL_SEQ_NUM;
 bool shouldResendAfterHandshake = false;
 bool isWaitingForAck = false;
 bool hasReceivedAck = false;
@@ -139,7 +140,7 @@ bool doHandshake() {
 
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   byte packetData[PACKET_DATA_SIZE] = {};
-  uint16_t seqNumToSyn = seqNum;
+  uint16_t seqNumToSyn = senderSeqNum;
   if (isWaitingForAck && isPacketValid(lastSentPacket)) {
     seqNumToSyn = lastSentPacket.seqNum;
   }
@@ -162,42 +163,50 @@ void processGivenPacket(const BlePacket &packet) {
       handshakeStatus = STAT_HELLO;
       break;
     case PacketType::ACK:
-      if (packet.seqNum > seqNum) {
+      if (packet.seqNum > senderSeqNum) {
         BlePacket nackPacket;
-        createNackPacket(nackPacket, seqNum);
+        createNackPacket(nackPacket, senderSeqNum);
         // Inform laptop about seq num mismatch by sending a NACK with our current seq num
         sendPacket(nackPacket);
         return;
-      } else if (packet.seqNum < seqNum) {
-        // If packet.seqNum < seqNum, it's (likely) a delayed ACK packet and we ignore it
+      } else if (packet.seqNum < senderSeqNum) {
+        // If packet.seqNum < senderSeqNum, it's (likely) a delayed ACK packet and we ignore it
         return;
       }
       // Valid ACK received, so stop waiting for incoming ACK
       hasReceivedAck = true;
       isWaitingForAck = false;
-      // Increment seqNum upon every ACK
-      seqNum += 1;
+      // Increment senderSeqNum upon every ACK
+      senderSeqNum += 1;
       break;
     case PacketType::NACK:
-      if (packet.seqNum == seqNum) {
+      if (packet.seqNum == senderSeqNum) {
         // Only retransmit if packet is valid
         if (isPacketValid(lastSentPacket) && getPacketTypeOf(lastSentPacket) != PacketType::NACK) {
           sendPacket(lastSentPacket);
         }
         // No else{}: Don't retransmit a corrupted packet or another NACK packet
-      }
+      }/*  else if (packet.seqNum > senderSeqNum) {
+        // TODO: Enter 3-way handshake again to synchronise seq nums
+      } */
+      // If packet.seqNum < senderSeqNum, NACK packet is likely delayed and we drop it
       break;
     case INVALID_PACKET_ID:
       BlePacket nackPacket;
-      createNackPacket(nackPacket, seqNum);
+      createNackPacket(nackPacket, receiverSeqNum);
       sendPacket(nackPacket);
       break;
     default:
       // Process the packet to handle specific game logic(e.g. updating Beetle's internal game state)
       handleGamePacket(packet);
+      // TODO: Handle synchronising receiver seq num(not sender seq num like code below)
+      /* if (packet.seqNum < receiverSeqNum) {
+        receiverSeqNum = packet.seqNum;
+      } */
       BlePacket ackPacket;
-      createAckPacket(ackPacket, seqNum);
+      createAckPacket(ackPacket, receiverSeqNum);
       sendPacket(ackPacket);
+      receiverSeqNum += 1;
   } // switch (receivedPacketType)
 }
 
@@ -209,7 +218,7 @@ void processIncomingPacket() {
     BlePacket receivedPacket = readPacketFrom(recvBuffer);
     if (!isPacketValid(receivedPacket)) {
       BlePacket nackPacket;
-      createNackPacket(nackPacket, seqNum);
+      createNackPacket(nackPacket, receiverSeqNum);
       // Received invalid packet, request retransmit with NACK
       sendPacket(nackPacket);
     } else {
@@ -241,7 +250,7 @@ void retransmitLastPacket() {
 BlePacket sendDummyPacket() {
   BlePacket dummyPacket;
   dummyPacket.metadata = PacketType::P1_IMU;
-  dummyPacket.seqNum = seqNum;
+  dummyPacket.seqNum = senderSeqNum;
   float x1 = random(0, 100);
   float y1 = random(0, 100);
   float z1 = random(0, 100);

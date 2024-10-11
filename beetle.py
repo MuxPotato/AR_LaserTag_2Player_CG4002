@@ -15,22 +15,24 @@ class Beetle(threading.Thread):
         self.beetle_mac_addr = beetle_mac_addr
         self.mBeetle = Peripheral()
         self.color = color
+        self.terminateEvent = threading.Event()
         # Runtime variables
+        ## Beetle connection variables
         self.mDataBuffer = deque()
         self.hasHandshake = False
         self.beetle_seq_num = INITIAL_SEQ_NUM
         self.lastPacketSent = None
         self.lastPacketSentTime = -1
-        self.terminateEvent = threading.Event()
         self.mService = None
         self.serial_char = None
+        self.start_transmit_time = 0
+        self.num_packets_received = 0
         self.outgoing_queue = outgoing_queue
+        ## External communication variables
         self.incoming_queue = incoming_queue
         # Configure Peripheral
         self.ble_delegate = BlePacketDelegate(self.serial_char, self.mDataBuffer)
         self.mBeetle.withDelegate(self.ble_delegate)
-        self.start_transmit_time = 0
-        self.num_packets_received = 0
 
     def connect(self):
         while not self.terminateEvent.is_set():

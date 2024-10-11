@@ -20,6 +20,7 @@ class Beetle(threading.Thread):
         ## Beetle connection variables
         self.mDataBuffer = deque()
         self.hasHandshake = False
+        ### Sequence number for packets created by Beetle to send to laptop
         self.beetle_seq_num = INITIAL_SEQ_NUM
         self.lastPacketSent = None
         self.lastPacketSentTime = -1
@@ -29,6 +30,8 @@ class Beetle(threading.Thread):
         self.num_packets_received = 0
         self.outgoing_queue = outgoing_queue
         ## External communication variables
+        ### Sequence number for packets created by laptop to send to Beetle
+        self.laptop_seq_num = INITIAL_SEQ_NUM
         self.incoming_queue = incoming_queue
         # Configure Peripheral
         self.ble_delegate = BlePacketDelegate(self.serial_char, self.mDataBuffer)

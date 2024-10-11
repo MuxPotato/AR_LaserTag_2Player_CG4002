@@ -135,7 +135,7 @@ class Beetle(threading.Thread):
                 self.mPrint(bcolors.BRIGHT_YELLOW, "Received NACK with seq_num {} from {}, resending last packet"
                         .format(incoming_packet.seq_num, self.beetle_mac_addr))
                 self.sendPacket(self.lastPacketSent)
-        elif packet_id != BlePacketType.ACK.value and not self.terminateEvent.is_set():
+        elif packet_id != BlePacketType.ACK.value:
             if self.receiver_seq_num > incoming_packet.seq_num:
                 # ACK for earlier packet was lost, synchronise seq num with Beetle
                 self.receiver_seq_num = incoming_packet.seq_num

@@ -130,7 +130,8 @@ class Beetle(threading.Thread):
             elif self.sender_seq_num > incoming_packet.seq_num:
                 # When sender_seq_num > incoming_packet.seq_num, NACK packet is likely delayed and we ignore it
                 return
-            elif metadata_to_packet_type(self.lastPacketSent[0]) != BlePacketType.ACK.value:
+            elif (metadata_to_packet_type(self.lastPacketSent[0]) != BlePacketType.ACK.value and
+                   self.isValidPacket(self.lastPacketSent)):
                 self.mPrint(bcolors.BRIGHT_YELLOW, "Received NACK with seq_num {} from {}, resending last packet"
                         .format(incoming_packet.seq_num, self.beetle_mac_addr))
                 self.sendPacket(self.lastPacketSent)

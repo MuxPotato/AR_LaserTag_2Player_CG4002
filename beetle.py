@@ -30,6 +30,7 @@ class Beetle(threading.Thread):
         self.num_packets_received = 0
         self.outgoing_queue = outgoing_queue
         ## External communication variables
+        self.is_waiting_for_ack = False
         ### Sequence number for packets created by laptop to send to Beetle
         self.laptop_seq_num = INITIAL_SEQ_NUM
         self.incoming_queue = incoming_queue
@@ -89,7 +90,7 @@ class Beetle(threading.Thread):
                     # Perform 3-way handshake
                     self.doHandshake()
                 # At this point, handshake is now completed
-                if not self.incoming_queue.empty():
+                if not self.is_waiting_for_ack and not self.incoming_queue.empty():
                     # Send outgoing packets to Beetle
                     ext_packet = self.incoming_queue.get()
                     self.mPrint2(f"""Received packet from external comms: {ext_packet}""")

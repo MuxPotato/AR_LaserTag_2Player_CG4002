@@ -7,6 +7,7 @@
 #define INVALID_PACKET_ID -1
 #define LOWER_4BIT_MASK 0x0F
 #define MAX_BUFFER_SIZE 40
+#define MAX_RETRANSMITS 5
 #define PACKET_SIZE 20
 #define PACKET_DATA_SIZE 16
 #define PLACEHOLDER_METADATA 0x0F
@@ -118,6 +119,7 @@ uint8_t getCrcOf(const BlePacket &packet);
 bool isHeadByte(byte currByte);
 byte parsePacketTypeFrom(byte metadata);
 int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer);
+BlePacket sendDummyPacket();
 void sendPacket(BlePacket &packetToSend);
 
 void createPacket(BlePacket &packet, byte packetType, uint16_t givenSeqNum, byte data[PACKET_DATA_SIZE]) {

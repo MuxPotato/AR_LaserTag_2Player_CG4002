@@ -102,8 +102,7 @@ class Beetle(threading.Thread):
                     # bytearray for 20-byte packet
                     packetBytes = self.get_packet_from(self.mDataBuffer)
                     if not self.isValidPacket(packetBytes):
-                        # TODO: Figure out what seq num to send
-                        self.lastPacketSent = self.sendNack(self.receiver_seq_num)
+                        self.sendNack(self.receiver_seq_num)
                         continue
                     # assert packetBytes is a valid 20-byte packet
                     # Keep track of packets received

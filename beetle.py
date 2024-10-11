@@ -131,7 +131,7 @@ class Beetle(threading.Thread):
                                         .format(receivedPacket.seq_num, self.beetle_mac_addr, self.receiver_seq_num))
                                 continue """
                             # ACK the received packet
-                            self.lastPacketSent = self.sendAck(self.receiver_seq_num)
+                            self.sendAck(self.receiver_seq_num)
                             if self.receiver_seq_num == MAX_SEQ_NUM:
                                 # On the Beetle, seq num is 16-bit and overflows. So we 'overflow' by
                                 #   resetting to 0 to synchronise with the Beetle

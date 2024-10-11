@@ -109,7 +109,7 @@ class Beetle(threading.Thread):
                     self.num_packets_received += 1
                     # Parse packet from 20-byte
                     receivedPacket = self.parsePacket(packetBytes)
-                    self.handle_incoming_packet(receivedPacket)
+                    self.handle_beetle_packet(receivedPacket)
             except BTLEException as ble_exc:
                 self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in connect() for Beetle: {self.beetle_mac_addr}""")
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(ble_exc))
@@ -121,7 +121,7 @@ class Beetle(threading.Thread):
                 self.mPrint2(stacktrace_str)
         self.disconnect()
 
-    def handle_incoming_packet(self, incoming_packet):
+    def handle_beetle_packet(self, incoming_packet):
         packet_id = self.getPacketTypeOf(incoming_packet)
         if packet_id == BlePacketType.NACK.value:
             if self.sender_seq_num < incoming_packet.seq_num:
@@ -168,9 +168,9 @@ class Beetle(threading.Thread):
             else:
                 # Increment seq_num since received packet is valid
                 self.receiver_seq_num += 1
-            self.handle_beetle_packet(incoming_packet)
+            self.handle_raw_data_packet(incoming_packet)
 
-    def handle_beetle_packet(self, beetle_packet):
+    def handle_raw_data_packet(self, raw_data_packet):
         pass
 
     def handle_ext_packet(self, ext_packet):
@@ -388,8 +388,8 @@ class GloveBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
         super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
 
-    def handle_beetle_packet(self, beetle_packet):
-        x1, y1, z1, x2, y2, z2 = self.getDataFrom(beetle_packet.data)
+    def handle_raw_data_packet(self, glove_packet):
+        x1, y1, z1, x2, y2, z2 = self.getDataFrom(glove_packet.data)
         internal_imu_packet = ImuPacket(self.beetle_mac_addr, [x1, y1, z1], [x2, y2, z2])
         player_id = get_player_id_for(self.beetle_mac_addr)
         external_imu_packet = external_utils.ImuPacket(player_id, [x1, y1, z1], [x2, y2, z2])
@@ -402,8 +402,8 @@ class GunBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
         super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
 
-    def handle_beetle_packet(self, beetle_packet):
-        gun_boolean = beetle_packet.data[0] == 1
+    def handle_raw_data_packet(self, gun_packet):
+        gun_boolean = gun_packet.data[0] == 1
         internal_gun_packet = GunPacket(self.beetle_mac_addr, gun_boolean)
         player_id = get_player_id_for(self.beetle_mac_addr)
         external_gun_packet = external_utils.GunPacket(player_id, gun_boolean)
@@ -414,8 +414,8 @@ class VestBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
         super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
 
-    def handle_beetle_packet(self, beetle_packet):
-        vest_boolean = beetle_packet.data[0] == 1
+    def handle_raw_data_packet(self, vest_packet):
+        vest_boolean = vest_packet.data[0] == 1
         internal_vest_packet = VestPacket(self.beetle_mac_addr, vest_boolean)
         player_id = get_player_id_for(self.beetle_mac_addr)
         external_vest_packet = external_utils.VestPacket(player_id, vest_boolean)

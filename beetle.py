@@ -156,7 +156,6 @@ class Beetle(threading.Thread):
             else:
                 # Increment seq_num since received packet is valid
                 self.receiver_seq_num += 1
-            # TODO: Insert data into outgoing ext comms queue
             self.handle_beetle_packet(incoming_packet)
 
     def handle_beetle_packet(self, beetle_packet):

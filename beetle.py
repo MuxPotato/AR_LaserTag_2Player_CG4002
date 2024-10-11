@@ -124,8 +124,12 @@ class Beetle(threading.Thread):
     def handle_incoming_packet(self, incoming_packet):
         packet_id = self.getPacketTypeOf(incoming_packet)
         if packet_id == BlePacketType.NACK.value:
-            if self.receiver_seq_num != incoming_packet.seq_num:
-                self.receiver_seq_num = incoming_packet.seq_num
+            if self.sender_seq_num < incoming_packet.seq_num:
+                # TODO: Implement informing receiver to SYN seq num
+                pass
+            elif self.sender_seq_num > incoming_packet.seq_num:
+                # When sender_seq_num > incoming_packet.seq_num, NACK packet is likely delayed and we ignore it
+                return
             elif metadata_to_packet_type(self.lastPacketSent[0]) != BlePacketType.ACK.value:
                 self.mPrint(bcolors.BRIGHT_YELLOW, "Received NACK with seq_num {} from {}, resending last packet"
                         .format(incoming_packet.seq_num, self.beetle_mac_addr))

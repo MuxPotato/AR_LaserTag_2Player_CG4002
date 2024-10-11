@@ -135,6 +135,18 @@ class Beetle(threading.Thread):
                 self.mPrint(bcolors.BRIGHT_YELLOW, "Received NACK with seq_num {} from {}, resending last packet"
                         .format(incoming_packet.seq_num, self.beetle_mac_addr))
                 self.sendPacket(self.lastPacketSent)
+        elif packet_id == BlePacketType.ACK.value:
+            if incoming_packet.seq_num > self.sender_seq_num:
+                # Inform Beetle that ACK seq num is invalid
+                self.sendNack(self.sender_seq_num)
+                return
+            elif incoming_packet.seq_num < self.sender_seq_num:
+                # ACK for earlier packet, likely a delayed packet so we ignore it
+                return
+            # Valid ACK received, stop waiting for ACK and increment sender seq_num
+            self.sender_seq_num += 1
+            self.is_waiting_for_ack = False
+            self.lastPacketSent = None
         elif packet_id != BlePacketType.ACK.value:
             if self.receiver_seq_num > incoming_packet.seq_num:
                 # ACK for earlier packet was lost, synchronise seq num with Beetle

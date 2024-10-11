@@ -30,7 +30,7 @@ class Beetle(threading.Thread):
         self.ble_delegate = BlePacketDelegate(self.serial_char, self.mDataBuffer)
         self.mBeetle.withDelegate(self.ble_delegate)
         self.start_transmit_time = 0
-        self.num_packets_recevied = 0
+        self.num_packets_received = 0
 
     def connect(self):
         while not self.terminateEvent.is_set():
@@ -63,7 +63,7 @@ class Beetle(threading.Thread):
 
     def quit(self):
         end_transmission_time = time.time()
-        transmission_speed = self.num_packets_recevied / end_transmission_time
+        transmission_speed = self.num_packets_received / end_transmission_time
         self.terminateEvent.set()
         fragmented_packet_count = self.ble_delegate.get_fragmented_packet_count()
         self.mPrint(bcolors.BRIGHT_YELLOW, "{}: {} fragmented packets"
@@ -95,7 +95,7 @@ class Beetle(threading.Thread):
                         continue
                     # assert packetBytes is a valid 20-byte packet
                     # Keep track of packets received
-                    self.num_packets_recevied += 1
+                    self.num_packets_received += 1
                     # Parse packet from 20-byte
                     receivedPacket = self.parsePacket(packetBytes)
                     if receivedPacket.data and (len(receivedPacket.data) > 0):

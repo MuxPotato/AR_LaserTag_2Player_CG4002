@@ -168,9 +168,11 @@ void processGivenPacket(const BlePacket &packet) {
         // Inform laptop about seq num mismatch by sending a NACK with our current seq num
         sendPacket(nackPacket);
         return;
+      } else if (packet.seqNum < seqNum) {
+        // If packet.seqNum < seqNum, it's (likely) a delayed ACK packet and we ignore it
+        return;
       }
-      // If packet.seqNum < seqNum, it's (likely) a delayed ACK packet and we ignore it
-      // ACK received, so stop waiting for incoming ACK
+      // Valid ACK received, so stop waiting for incoming ACK
       hasReceivedAck = true;
       isWaitingForAck = false;
       // Increment seqNum upon every ACK

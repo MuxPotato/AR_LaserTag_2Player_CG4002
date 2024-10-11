@@ -13,8 +13,9 @@ def handle_IMU_data(terminate_event, from_ble_IMU_queue, send_func):
         try:
             IMU_data = from_ble_IMU_queue.get(timeout = QUEUE_GET_TIMEOUT)  
             print(f'IMU data received from int comms: {IMU_data}')
+            serialized_imu_data = f"""'IMUPacket': {IMU_data._asdict()}"""
             # Here, you would parse the data and send it to the server
-            send_func(IMU_data)
+            send_func(serialized_imu_data)
 
         except queue.Empty:
             continue
@@ -27,7 +28,8 @@ def handle_shoot_data(terminate_event, from_ble_shoot_queue, send_func):
         try:
             shoot_data = from_ble_shoot_queue.get(timeout = QUEUE_GET_TIMEOUT)  
             print(f'Shoot data received from int comms: {shoot_data}')
-            send_func(shoot_data)
+            serialized_shoot_data = f"""'ShootPacket': {shoot_data._asdict()}"""
+            send_func(serialized_shoot_data)
 
         except queue.Empty:
             continue

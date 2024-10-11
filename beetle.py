@@ -109,10 +109,6 @@ class Beetle(threading.Thread):
                     self.num_packets_received += 1
                     # Parse packet from 20-byte
                     receivedPacket = self.parsePacket(packetBytes)
-                    if receivedPacket.data is None or (len(receivedPacket.data) == 0):
-                        self.mPrint(bcolors.BRIGHT_YELLOW, "Error while parsing packet from {}"
-                                .format(self.beetle_mac_addr))
-                        continue
                     self.handle_incoming_packet(receivedPacket)
             except BTLEException as ble_exc:
                 self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in connect() for Beetle: {self.beetle_mac_addr}""")

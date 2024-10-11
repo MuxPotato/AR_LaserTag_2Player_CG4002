@@ -109,7 +109,7 @@ class Beetle(threading.Thread):
                     self.num_packets_received += 1
                     # Parse packet from 20-byte
                     receivedPacket = self.parsePacket(packetBytes)
-                    if not receivedPacket.data or (len(receivedPacket.data) == 0):
+                    if receivedPacket.data is None or (len(receivedPacket.data) == 0):
                         self.mPrint(bcolors.BRIGHT_YELLOW, "Error while parsing packet from {}"
                                 .format(self.beetle_mac_addr))
                         continue

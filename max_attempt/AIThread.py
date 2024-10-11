@@ -6,7 +6,7 @@ from Color import print_message
 #ACTIONS = ["shoot", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"] 
 #TODO Figure out eval server for non AI actions 
 
-ACTIONS = ["bomb", "reload", "basket", "soccer", "volley", "bowl"]
+ACTIONS = ["bomb", "reload", "basket", "soccer", "volley", "bowl", "shield", "shoot"]
 
 
 player_data = {

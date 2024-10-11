@@ -2,6 +2,7 @@ from threading import Thread
 import queue
 import random
 import time 
+import json
 from Color import print_message
 
 class GameEngine(Thread):
@@ -292,15 +293,31 @@ class GameEngine(Thread):
                         action_p2 = "rain_bomb_damage"
                 print_message('Game Engine', f"Player {player_id} took rain bomb damage: {'Success' if success else 'Failed'}")
 
-            elif action_type == "charge_shield":
+            elif action_type == "shield":
                 success = self.charge_shield(player_id)
                 if success:
                     if player_id == 1:
-                        action_p1 = "charge_shield"
+                        action_p1 = "shield"
                     else:
-                        action_p2 = "charge_shield"
-                print_message('Game Engine', f"Player {player_id} charged their shield: {'Success' if success else 'Failed'}")
+                        action_p2 = "shield"
+                else:
+                    # Indicate failure directly by setting action_p1 or action_p2
+                    if player_id == 1:
+                        action_p1 = "shield_fail"
+                        action_p2 = "none"  # Explicitly set the other action to "none" for clarity
+                    else:
+                        action_p2 = "shield_fail"
+                        action_p1 = "none"
 
+                print_message('Game Engine', f"Player {player_id} attempted to charge their shield: {'Success' if success else 'Failed'}")
+
+
+            elif action_type == "update_ui":
+                # Set both player actions to "update_ui" so that both players update their UI
+                action_p1 = "update_ui"
+                action_p2 = "update_ui"
+                print_message('Game Engine', f"UI update requested for both players.")
+                
             else:
                 print_message('Game Engine', f"Unknown action type: {action_type}")
         else:
@@ -406,69 +423,97 @@ class GameEngine(Thread):
         }
 
 
-    def is_curr_game_state_diff_from_updated(self, updated_game_state):
-        """
-        Compare the updated game state with the current game state.
-        Returns True if there are any differences; otherwise, returns False.
-        """
 
-        # Access the current game state
-        current_game_state = {
-            "p1": {
-                "hp": self.hp_p1,
-                "bullets": self.bullets_p1,
-                "bombs": self.bomb_p1,
-                "shield_hp": self.shieldHp_p1,
-                "deaths": self.deaths_p1,
-                "shields": self.shieldCharges_p1,
-            },
-            "p2": {
-                "hp": self.hp_p2,
-                "bullets": self.bullets_p2,
-                "bombs": self.bomb_p2,
-                "shield_hp": self.shieldHp_p2,
-                "deaths": self.deaths_p2,
-                "shields": self.shieldCharges_p2,
+    def is_curr_game_state_diff_from_updated(self, updated_game_state_str):
+        """
+        Compare the current game state with the updated game state string.
+        Returns True if any differences are found; otherwise, returns False.
+        """
+        try:
+            # Parse the JSON string into a dictionary
+            updated_game_state = json.loads(updated_game_state_str)
+
+            # Access the current game state
+            current_game_state = {
+                "p1": {
+                    "hp": self.hp_p1,
+                    "bullets": self.bullets_p1,
+                    "bombs": self.bomb_p1,
+                    "shield_hp": self.shieldHp_p1,
+                    "deaths": self.deaths_p1,
+                    "shields": self.shieldCharges_p1,
+                },
+                "p2": {
+                    "hp": self.hp_p2,
+                    "bullets": self.bullets_p2,
+                    "bombs": self.bomb_p2,
+                    "shield_hp": self.shieldHp_p2,
+                    "deaths": self.deaths_p2,
+                    "shields": self.shieldCharges_p2,
+                }
             }
-        }
 
-        # Compare player 1's stats
-        for key in current_game_state["p1"]:
-            if current_game_state["p1"][key] != updated_game_state["p1"][key]:
-                print(f"Difference found for p1 - {key}: {current_game_state['p1'][key]} != {updated_game_state['p1'][key]}")
-                return True
+            # Iterate through player 1's stats
+            for key in current_game_state["p1"]:
+                if current_game_state["p1"][key] != updated_game_state["p1"][key]:
+                    print(f"Difference found for p1 - {key}: {current_game_state['p1'][key]} != {updated_game_state['p1'][key]}")
+                    return True
 
-        # Compare player 2's stats
-        for key in current_game_state["p2"]:
-            if current_game_state["p2"][key] != updated_game_state["p2"][key]:
-                print(f"Difference found for p2 - {key}: {current_game_state['p2'][key]} != {updated_game_state['p2'][key]}")
-                return True
+            # Iterate through player 2's stats
+            for key in current_game_state["p2"]:
+                if current_game_state["p2"][key] != updated_game_state["p2"][key]:
+                    print(f"Difference found for p2 - {key}: {current_game_state['p2'][key]} != {updated_game_state['p2'][key]}")
+                    return True
 
-        # If no differences are found, return False
-        return False
+            # If no differences are found, return False
+            return False
+
+        except json.JSONDecodeError as e:
+            print(f"Error: Failed to parse updated game state - {e}")
+            return True
+        except KeyError as e:
+            print(f"Error: Key missing in updated game state - {e}")
+            return True
+        except Exception as e:
+            print(f"Error: {e}")
+            return True
 
 
-    def update_current_game_state(self, updated_game_state):
+
+
+    def update_current_game_state(self, updated_game_state_str):
         """
-        Update the current game state with the values from the updated game state.
+        Update the current game state with the values from the updated game state string.
         """
 
-        # Update player 1's stats
-        self.hp_p1 = updated_game_state["p1"]["hp"]
-        self.bullets_p1 = updated_game_state["p1"]["bullets"]
-        self.bomb_p1 = updated_game_state["p1"]["bombs"]
-        self.shieldHp_p1 = updated_game_state["p1"]["shield_hp"]
-        self.deaths_p1 = updated_game_state["p1"]["deaths"]
-        self.shieldCharges_p1 = updated_game_state["p1"]["shields"]
+        try:
+            # Parse the JSON string into a dictionary
+            updated_game_state = json.loads(updated_game_state_str)
 
-        # Update player 2's stats
-        self.hp_p2 = updated_game_state["p2"]["hp"]
-        self.bullets_p2 = updated_game_state["p2"]["bullets"]
-        self.bomb_p2 = updated_game_state["p2"]["bombs"]
-        self.shieldHp_p2 = updated_game_state["p2"]["shield_hp"]
-        self.deaths_p2 = updated_game_state["p2"]["deaths"]
-        self.shieldCharges_p2 = updated_game_state["p2"]["shields"]
+            # Update player 1's stats
+            self.hp_p1 = updated_game_state["p1"]["hp"]
+            self.bullets_p1 = updated_game_state["p1"]["bullets"]
+            self.bomb_p1 = updated_game_state["p1"]["bombs"]
+            self.shieldHp_p1 = updated_game_state["p1"]["shield_hp"]
+            self.deaths_p1 = updated_game_state["p1"]["deaths"]
+            self.shieldCharges_p1 = updated_game_state["p1"]["shields"]
 
+            # Update player 2's stats
+            self.hp_p2 = updated_game_state["p2"]["hp"]
+            self.bullets_p2 = updated_game_state["p2"]["bullets"]
+            self.bomb_p2 = updated_game_state["p2"]["bombs"]
+            self.shieldHp_p2 = updated_game_state["p2"]["shield_hp"]
+            self.deaths_p2 = updated_game_state["p2"]["deaths"]
+            self.shieldCharges_p2 = updated_game_state["p2"]["shields"]
+
+            print("Current game state successfully updated.")
+
+        except json.JSONDecodeError as e:
+            print(f"Error: Failed to parse updated game state - {e}")
+        except KeyError as e:
+            print(f"Error: Missing key in updated game state - {e}")
+        except Exception as e:
+            print(f"Error: {e}")
 
 
     
@@ -518,7 +563,8 @@ class GameEngine(Thread):
                     self.update_current_game_state(updated_game_state)
                     
                     # Put "update_ui" into the phone response queue to update the UI without triggering an action
-                    self.viz_queue.put("update_ui")
+                    viz_format = self.process_phone_action("update_ui")
+                    self.viz_queue.put(viz_format)
 
             
 

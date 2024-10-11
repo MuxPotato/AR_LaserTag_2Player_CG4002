@@ -30,7 +30,7 @@ class RelayServer(Thread):
                     data += _d
                 if len(data) == 0:
                     print("No data")
-                    break
+                    continue
 
                 data = data.decode("utf-8")
                 length = int(data[:-1])
@@ -45,7 +45,7 @@ class RelayServer(Thread):
                     data += _d
                 if len(data) == 0:
                     print("No data")
-                    break
+                    continue
 
                 msg = data.decode("utf-8")
                 if length != len(data):

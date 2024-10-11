@@ -90,8 +90,9 @@ class Beetle(threading.Thread):
                     # Perform 3-way handshake
                     self.doHandshake()
                 # At this point, handshake is now completed
+                # Only send packets to Beetle if the previous sent packet has been ACK-ed
                 if not self.is_waiting_for_ack and not self.incoming_queue.empty():
-                    # Send outgoing packets to Beetle
+                    # Send outgoing packet to Beetle
                     ext_packet = self.incoming_queue.get()
                     self.mPrint2(f"""Received packet from external comms: {ext_packet}""")
                     self.handle_ext_packet(ext_packet)

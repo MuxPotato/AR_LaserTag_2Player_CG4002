@@ -140,7 +140,7 @@ class Beetle(threading.Thread):
                 # Inform Beetle that ACK seq num is invalid
                 self.sendNack(self.sender_seq_num)
                 return
-            elif incoming_packet.seq_num < self.sender_seq_num:
+            if incoming_packet.seq_num < self.sender_seq_num:
                 # ACK for earlier packet, likely a delayed packet so we ignore it
                 return
             # Valid ACK received, stop waiting for ACK and increment sender seq_num

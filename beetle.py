@@ -302,6 +302,9 @@ class Beetle(threading.Thread):
         return seq_num
     
     def isValidPacket(self, given_packet):
+        # Check for NULL packet or incomplete packet
+        if given_packet is None or len(given_packet) < PACKET_SIZE:
+            return False
         metadata, seq_num, data, received_crc = self.unpack_packet_bytes(given_packet)
         packet_type = metadata_to_packet_type(metadata)
         if self.isValidPacketType(packet_type):

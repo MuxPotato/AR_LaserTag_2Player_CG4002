@@ -38,6 +38,7 @@ void loop() {
   if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
     if (numRetries < MAX_RETRANSMITS) {
       retransmitLastPacket();
+      numRetries += 1;
     } else {
       // Max retries reached, stop retransmitting
       isWaitingForAck = false;

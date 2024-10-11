@@ -18,7 +18,7 @@ class Beetle(threading.Thread):
         # Runtime variables
         self.mDataBuffer = deque()
         self.hasHandshake = False
-        self.beetle_seq_num = 0
+        self.beetle_seq_num = INITIAL_SEQ_NUM
         self.lastPacketSent = None
         self.lastPacketSentTime = -1
         self.terminateEvent = threading.Event()

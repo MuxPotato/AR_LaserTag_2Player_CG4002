@@ -2,6 +2,7 @@ import socket
 from threading import Thread, Event
 import queue
 import time
+import traceback
 
 class RelayServer(Thread):
     def __init__(self, host, port):
@@ -85,16 +86,13 @@ class RelayServer(Thread):
     def run(self):
         self.server.listen(1)
         print(f'Listening on {self.host}:{self.port}')
-        try:
+        while not self.stop_event.is_set():
+            try:
                     client, address = self.server.accept()
                     print(f"Relay Client connected from {address}")
-                    self.handleClient(client, address)
-                    # get from_game_engine queue 
-                    # send those details back to the relay client 
-        except socket.timeout:
-            pass
-        finally:
-            self.server.close()  # Ensure the server is closed when exiting
+                    self.handleClient(client, address) 
+            except socket.timeout:
+                pass
 
     def shutdown(self):
         self.stop_event.set()  # Set the stop event to stop the server loop
@@ -102,8 +100,11 @@ class RelayServer(Thread):
         print("Relay server shutdown initiated")
 
 if __name__ == "__main__":
-    relay_server = RelayServer('172.26.191.210', 5055)  # Start the server
-    relay_server.start()
+    try:
+        relay_server = RelayServer('172.26.191.210', 6055)  # Start the server
+        relay_server.start()
+    except Exception as exc:
+        traceback.print_exception(exc)
 
     try:
         while True:

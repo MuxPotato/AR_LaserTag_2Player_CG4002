@@ -196,8 +196,6 @@ void processGivenPacket(const BlePacket &packet) {
       BlePacket ackPacket;
       createAckPacket(ackPacket, seqNum);
       sendPacket(ackPacket);
-      // Don't retransmit ackPacket, so we invalidate lastSentPacket
-      lastSentPacket.metadata = PLACEHOLDER_METADATA;
   } // switch (receivedPacketType)
 }
 

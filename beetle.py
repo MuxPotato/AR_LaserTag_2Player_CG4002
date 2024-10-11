@@ -139,7 +139,7 @@ class Beetle(threading.Thread):
                                 # Increment seq_num since received packet is valid
                                 self.beetle_seq_num += 1
                             # TODO: Insert data into outgoing ext comms queue
-                            self.handle_incoming_packet(receivedPacket)
+                            self.handle_beetle_packet(receivedPacket)
             except BTLEException as ble_exc:
                 self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in connect() for Beetle: {self.beetle_mac_addr}""")
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(ble_exc))

@@ -61,7 +61,7 @@ class RelayServer(Thread):
 
     def processMessage(self, msg):
         # Log the message to a file
-        with open("received_messages.log", "a") as log_file:
+        with open("packets_from_beetles.log", "a") as log_file:
             log_file.write(f"{time.ctime()}: {msg}\n")
 
         # Check and parse the message (example of differentiating packet types)

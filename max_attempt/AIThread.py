@@ -3,8 +3,12 @@ from queue import Queue
 import random
 from Color import print_message
 
+
+#TODO  get from gun queue 
+
+
 #ACTIONS = ["shoot", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"] 
-#TODO Figure out eval server for non AI actions 
+
 
 ACTIONS = ["bomb", "reload", "basket", "soccer", "volley", "bowl", "shield", "shoot"]
 

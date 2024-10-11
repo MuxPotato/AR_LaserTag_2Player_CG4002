@@ -192,30 +192,32 @@ void processGivenPacket(const BlePacket &packet) {
       // If packet.seqNum < senderSeqNum, NACK packet is likely delayed and we drop it
       break;
     case GAME_STAT:
-      uint16_t seqNumToAck = receiverSeqNum;
-      if (receiverSeqNum == packet.seqNum) {
-        // Process the packet to handle specific game logic(e.g. updating Beetle's internal game state)
-        handleGamePacket(packet);
-        receiverSeqNum += 1;
-      } else if (receiverSeqNum > packet.seqNum) {
-        /* If receiverSeqNum > packet.seqNum, I incremented receiverSeqNum after sending ACK 
-            but sender did not receive ACK and thus retransmitted packet
-          */
-        // ACK the packet but don't decrement my sequence number
-        seqNumToAck = packet.seqNum;
-        // Don't process the same packet again
+      {
+        uint16_t seqNumToAck = receiverSeqNum;
+        if (receiverSeqNum == packet.seqNum) {
+          // Process the packet to handle specific game logic(e.g. updating Beetle's internal game state)
+          handleGamePacket(packet);
+          receiverSeqNum += 1;
+        } else if (receiverSeqNum > packet.seqNum) {
+          /* If receiverSeqNum > packet.seqNum, I incremented receiverSeqNum after sending ACK 
+              but sender did not receive ACK and thus retransmitted packet
+            */
+          // ACK the packet but don't decrement my sequence number
+          seqNumToAck = packet.seqNum;
+          // Don't process the same packet again
+        }
+        // TODO: Consider what to do if receiverSeqNum < packet.seqNum?
+        BlePacket ackPacket;
+        createAckPacket(ackPacket, seqNumToAck);
+        sendPacket(ackPacket);
+        break;
       }
-      // TODO: Consider what to do if receiverSeqNum < packet.seqNum?
-      BlePacket ackPacket;
-      createAckPacket(ackPacket, seqNumToAck);
-      sendPacket(ackPacket);
     case INVALID_PACKET_ID:
     default:
       // All other packet types are unsupported, inform sender that packet is rejected
       BlePacket nackPacket;
       createNackPacket(nackPacket, receiverSeqNum);
       sendPacket(nackPacket);
-      break;
   } // switch (receivedPacketType)
 }
 

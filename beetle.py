@@ -379,7 +379,7 @@ class Beetle(threading.Thread):
     def parsePacket(self, packetBytes):
         # Check for NULL packet or incomplete packet
         if packetBytes is None or len(packetBytes) < PACKET_SIZE:
-            return BlePacket(ERROR_VALUE, ERROR_VALUE, None, ERROR_VALUE)
+            return BlePacket(ERROR_VALUE, ERROR_VALUE, bytearray(), ERROR_VALUE)
         metadata, seq_num, data, dataCrc = self.unpack_packet_bytes(packetBytes)
         packet = BlePacket(metadata, seq_num, data, dataCrc)
         return packet

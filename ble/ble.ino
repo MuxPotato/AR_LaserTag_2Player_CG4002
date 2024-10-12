@@ -252,6 +252,8 @@ void retransmitLastPacket() {
     sendPacket(lastSentPacket);
     // Update sent time and wait for ACK again
     lastSentPacketTime = millis();
+  } else {
+    isWaitingForAck = false;
   }
 }
 

@@ -1,4 +1,4 @@
-from collections.abc import MutableSequence
+from typing import MutableSequence
 from enum import Enum
 from typing import NamedTuple
 

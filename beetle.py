@@ -281,13 +281,22 @@ class Beetle(threading.Thread):
                         # Parse packet
                         receivedPacket = self.parsePacket(packetBytes)
                         packet_id = self.getPacketTypeOf(receivedPacket)
-                        if packet_id == BlePacketType.NACK.value:
+                        if (packet_id == BlePacketType.NACK.value or 
+                                    (packet_id == BlePacketType.ACK.value and 
+                                            self.getSeqNumFrom(packetBytes) < mSeqNum)):
                             # SYN+ACK not received by Beetle, resend a SYN+ACK
-                            self.mPrint(bcolors.BRIGHT_YELLOW, "Received NACK from {}, resending SYN+ACK"
-                                    .format(self.beetle_mac_addr))
+                            if packet_id == BlePacketType.NACK.value:
+                                self.mPrint(bcolors.BRIGHT_YELLOW, "Received NACK from {}, resending SYN+ACK"
+                                        .format(self.beetle_mac_addr))
+                            else:
+                                self.mPrint(bcolors.BRIGHT_YELLOW, "Duplicate handshake ACK from {}, resending SYN+ACK"
+                                        .format(self.beetle_mac_addr))
                             self.sendPacket(mLastPacketSent)
                             # Update mSynTime to wait for any potential NACK from Beetle again
                             mSynTime = time.time()
+                        elif packet_id != BlePacketType.NACK.value and packet_id != BlePacketType.ACK.value:
+                            # Beetle has started transmitting raw data, so it received SYN+ACK
+                            break
                 # No NACK during timeout period, Beetle is assumed to have received SYN+ACK
                 if self.start_transmit_time == 0:
                     # Set the time of 1st completion of 3-way handshake so we can compute transmission speed

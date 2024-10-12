@@ -124,6 +124,8 @@ class Beetle(threading.Thread):
                     # bytearray for 20-byte packet
                     packetBytes = self.get_packet_from(self.mDataBuffer)
                     if not self.isValidPacket(packetBytes):
+                        self.mPrint(bcolors.BRIGHT_YELLOW, 
+                                "Invalid packet received from {}, requesting retransmission".format(self.beetle_mac_addr))
                         self.num_invalid_packets_received += 1
                         if (self.num_invalid_packets_received == MAX_RETRANSMITS):
                             self.num_invalid_packets_received = 0
@@ -164,7 +166,7 @@ class Beetle(threading.Thread):
                 self.sendPacket(self.lastPacketSent)
         elif packet_id == BlePacketType.ACK.value:
             if not self.is_waiting_for_ack:
-                # ACK received but we're not waiting for ACK, likely a delayed packet so we ignore it
+                # ACK received but we're not waiting for ACK, so it's likely a delayed packet and we ignore it
                 return
             # We were waiting for an ACK, and now we received it. Process it
             if incoming_packet.seq_num > self.sender_seq_num:

@@ -163,6 +163,10 @@ class Beetle(threading.Thread):
                         .format(incoming_packet.seq_num, self.beetle_mac_addr))
                 self.sendPacket(self.lastPacketSent)
         elif packet_id == BlePacketType.ACK.value:
+            if not self.is_waiting_for_ack:
+                # ACK received but we're not waiting for ACK, likely a delayed packet so we ignore it
+                return
+            # We were waiting for an ACK, and now we received it. Process it
             if incoming_packet.seq_num > self.sender_seq_num:
                 # Inform Beetle that ACK seq num is invalid
                 self.sendNack(self.sender_seq_num)
@@ -170,6 +174,7 @@ class Beetle(threading.Thread):
             if incoming_packet.seq_num < self.sender_seq_num:
                 # ACK for earlier packet, likely a delayed packet so we ignore it
                 return
+            # incoming_packet.seq_num == self.sender_seq_num
             # Valid ACK received, stop waiting for ACK and increment sender seq_num
             self.sender_seq_num += 1
             self.is_waiting_for_ack = False

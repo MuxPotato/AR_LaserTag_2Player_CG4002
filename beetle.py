@@ -179,8 +179,8 @@ class Beetle(threading.Thread):
             if self.receiver_seq_num > incoming_packet.seq_num:
                 # ACK for earlier packet was lost
                 seq_num_to_ack = incoming_packet.seq_num
-                self.mPrint(bcolors.BRIGHT_YELLOW, "ACK for packet num {} lost, synchronising seq num with {}"
-                        .format(incoming_packet.seq_num, self.beetle_mac_addr))
+                self.mPrint(bcolors.BRIGHT_YELLOW, "ACK for packet num {} lost, expected seq num {}, synchronising seq num with {}"
+                        .format(incoming_packet.seq_num, self.receiver_seq_num, self.beetle_mac_addr))
                 # Don't handle raw data packet again since we've already done that
             elif self.receiver_seq_num < incoming_packet.seq_num:
                 # TODO: Remove line below and perform SYN of seq num(via handshake?) instead

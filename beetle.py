@@ -153,6 +153,9 @@ class Beetle(threading.Thread):
     def handle_beetle_packet(self, incoming_packet):
         packet_id = self.getPacketTypeOf(incoming_packet)
         if packet_id == BlePacketType.NACK.value:
+            if not self.is_waiting_for_ack:
+                # Didn't send any packet, so it's likely a delayed NACK. Drop it
+                return
             if self.sender_seq_num < incoming_packet.seq_num:
                 # TODO: Implement informing receiver to SYN seq num
                 pass

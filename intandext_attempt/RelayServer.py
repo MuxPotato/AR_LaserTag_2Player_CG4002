@@ -1,3 +1,4 @@
+import ast
 import socket
 from threading import Thread, Event
 import queue
@@ -82,24 +83,37 @@ class RelayServer(Thread):
                 print(f"Socket error during reconnection: {str(e)}")
                 time.sleep(1)  
     
-    def processMessage(self, msg):
-        # Check and parse the message (example of differentiating packet types)
+    def processMessage(self,msg):
+    # Check and parse the message
         try:
-            if 'accel' in msg and 'gyro' in msg:
-                print(f"Processing IMUPacket from player {msg['playerID']}")
-                self.IMU_queue.put(msg)  
-            # Check if it's a ShootPacket by the presence of 'isFired' or 'isHit'
-            elif 'isFired' in msg or 'isHit' in msg:
-                print(f"Processing ShootPacket from player {msg['playerID']}")
-                self.shoot_queue.put(msg)  # put in shoot _queue for both AI and game engine to get later 
+            # Split the packet type from the dictionary portion
+            if ": {" in msg:
+                packet_type, packet_data = msg.split(": ", 1)
+                packet_type = packet_type.strip("'")  # Remove surrounding quotes from the packet type
+
+                # Convert the remaining string to a Python dictionary
+                packet_data = eval(packet_data)  # Safe here since we're controlling the input
+
+                # Process based on packet type
+                if packet_type == 'IMUPacket' and 'accel' in packet_data and 'gyro' in packet_data:
+                    #print("Processing IMUPacket")
+                    self.IMU_queue.put(packet_data)
+                
+                elif packet_type == 'ShootPacket' and ('isFired' in packet_data or 'isHit' in packet_data):
+                    #print("Processing ShootPacket")
+                     self.shoot_queue.put(packet_data)
+                
+                else:
+                    print("Unknown packet type received")
             else:
-                print("Unknown packet type received")
-        
+                print("Invalid message format")
+
+        except SyntaxError as e:
+            print(f"Syntax error in message: {msg} -> {e}")
         except KeyError as e:
             print(f"Missing key in message: {e}")
         except Exception as e:
             print(f"Error processing message: {e}")
-        
         # Log the message to a file
         #with open("packets_from_beetles.log", "a") as log_file:
             #log_file.write(f"{time.ctime()}: {msg}\n")
@@ -124,6 +138,24 @@ class RelayServer(Thread):
             except queue.Empty:
                 continue  # No data from game engine yet
 
+    def simulateClientWithLogFile(self,log_file_path):
+        """Simulate receiving data from a client by reading from a log file."""
+        try:
+            with open(log_file_path, 'r') as log_file:
+                for line in log_file:
+                    line  = line.strip()
+                    if line: 
+                        self.processMessage(line)
+                    #time.sleep(0.1)  # Simulate 10 packets per second
+        except Exception as e:
+            print(f"Error reading log file: {e}")
+    
+    def run(self):
+        self.simulateClientWithLogFile('packets_from_beetles.log')
+
+
+
+    '''
     def run(self):
         self.server.listen(1)
         print(f'Listening on {self.host}:{self.port}')
@@ -134,6 +166,7 @@ class RelayServer(Thread):
                     self.handleClient(client, address) 
             except socket.timeout:
                 pass
+    '''
 
     def shutdown(self):
         self.stop_event.set()  # Set the stop event to stop the server loop

@@ -410,7 +410,11 @@ class Beetle(threading.Thread):
         return synack_packet
 
     def sendPacket(self, packet):
-        self.serial_char.write(packet)
+        if self.serial_char is not None:
+            self.serial_char.write(packet)
+        else:
+            self.mPrint(bcolors.BRIGHT_YELLOW, 
+                    f"""FATAL: Beetle {self.beetle_mac_addr} serial characteristic is None, cannot send packet""")
     
     def unpack_packet_bytes(self, packetBytes):
         metadata, seq_num, data, data_crc = struct.unpack(PACKET_FORMAT, packetBytes)

@@ -1,13 +1,13 @@
 import os
-from typing import NamedTuple
+from typing import MutableSequence, NamedTuple
 
 # Constants
 QUEUE_GET_TIMEOUT = 1
 
 class ImuPacket(NamedTuple):
     playerID: int
-    accel: float
-    gyro: float
+    accel: MutableSequence[float]
+    gyro: MutableSequence[float]
 class GameStatePacket(NamedTuple):
     playerID: int
     playerHP: int

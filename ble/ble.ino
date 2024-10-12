@@ -162,6 +162,11 @@ void processGivenPacket(const BlePacket &packet) {
       handshakeStatus = STAT_HELLO;
       break;
     case PacketType::ACK:
+      if (!isWaitingForAck) {
+        // Not expecting an ACK, so this ACK is likely delayed and we drop it
+        return;
+      }
+      // Have been waiting for an ACK and we received it
       if (packet.seqNum > senderSeqNum) {
         BlePacket nackPacket;
         createNackPacket(nackPacket, senderSeqNum);

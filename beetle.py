@@ -5,7 +5,7 @@ import time
 import traceback
 import anycrc
 from ble_delegate import BlePacketDelegate
-from internal_utils import BITS_PER_BYTE, BLE_TIMEOUT, ERROR_VALUE, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, GunPacket, ImuPacket, VestPacket, bcolors, get_player_id_for, metadata_to_packet_type
+from internal_utils import BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, GunPacket, ImuPacket, VestPacket, bcolors, get_player_id_for, metadata_to_packet_type
 import external_utils
 from bluepy.btle import BTLEException, Peripheral
 
@@ -117,7 +117,7 @@ class Beetle(threading.Thread):
                         self.sendPacket(self.lastPacketSent)
                         self.lastPacketSentTime = time.time()  
                         self.num_retransmits += 1  
-                elif self.mBeetle.waitForNotifications(BLE_TIMEOUT):
+                elif self.mBeetle.waitForNotifications(BLE_WAIT_TIMEOUT):
                     if len(self.mDataBuffer) < PACKET_SIZE:
                         continue
                     # bytearray for 20-byte packet
@@ -224,7 +224,7 @@ class Beetle(threading.Thread):
                         mLastPacketSent = self.sendHello(mSeqNum)
                         mSentHelloTime = time.time()
                     # Has not timed out yet, wait for ACK from Beetle
-                    if self.mBeetle.waitForNotifications(BLE_TIMEOUT):
+                    if self.mBeetle.waitForNotifications(BLE_WAIT_TIMEOUT):
                         if len(self.mDataBuffer) < PACKET_SIZE:
                             continue
                         # bytearray for 20-byte packet
@@ -254,7 +254,7 @@ class Beetle(threading.Thread):
                 # Just in case Beetle NACK the SYN+ACK, we want to retransmit
                 while (time.time() - mSynTime) < BLE_TIMEOUT:
                     # Wait for incoming packets
-                    if self.mBeetle.waitForNotifications(BLE_TIMEOUT):
+                    if self.mBeetle.waitForNotifications(BLE_WAIT_TIMEOUT):
                         if len(self.mDataBuffer) < PACKET_SIZE:
                             continue
                         # bytearray for 20-byte packet

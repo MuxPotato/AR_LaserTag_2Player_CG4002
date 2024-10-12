@@ -21,6 +21,7 @@ uint16_t senderSeqNum = INITIAL_SEQ_NUM;
 bool shouldResendAfterHandshake = false;
 bool isWaitingForAck = false;
 uint8_t numRetries = 0;
+uint8_t numInvalidPacketsReceived = 0;
 
 void setup() {
   Serial.begin(BAUDRATE);
@@ -42,6 +43,7 @@ void loop() {
       // Max retries reached, stop retransmitting
       isWaitingForAck = false;
       lastSentPacket.metadata = PLACEHOLDER_METADATA;
+      numRetries = 0;
     } */
   }
   if (Serial.available() > 0) {
@@ -174,11 +176,12 @@ void processGivenPacket(const BlePacket &packet) {
       isWaitingForAck = false;
       // Increment senderSeqNum upon every ACK
       senderSeqNum += 1;
+      // numRetries = 0;
       break;
     case PacketType::NACK:
       if (packet.seqNum == senderSeqNum) {
-        // Only retransmit if packet is valid
         if (isPacketValid(lastSentPacket) && getPacketTypeOf(lastSentPacket) != PacketType::NACK) {
+          // Only retransmit if packet is valid
           sendPacket(lastSentPacket);
         }
         // No else{}: Don't retransmit a corrupted packet or another NACK packet
@@ -206,6 +209,9 @@ void processGivenPacket(const BlePacket &packet) {
         BlePacket ackPacket;
         createAckPacket(ackPacket, seqNumToAck);
         sendPacket(ackPacket);
+        if (numInvalidPacketsReceived > 0) {
+          numInvalidPacketsReceived = 0;
+        }
         break;
       }
     case INVALID_PACKET_ID:
@@ -224,6 +230,16 @@ void processIncomingPacket() {
     // Complete 20-byte packet received, read 20 bytes from receive buffer as packet
     BlePacket receivedPacket = readPacketFrom(recvBuffer);
     if (!isPacketValid(receivedPacket)) {
+      numInvalidPacketsReceived += 1;
+      if (numInvalidPacketsReceived == MAX_INVALID_PACKETS_RECEIVED) {
+        recvBuffer.clear();
+        while (Serial.available() > 0) {
+          Serial.read();
+        }
+        delay(TRANSMIT_DELAY);
+        numInvalidPacketsReceived = 0;
+        return;
+      }
       BlePacket nackPacket;
       createNackPacket(nackPacket, receiverSeqNum);
       // Received invalid packet, request retransmit with NACK

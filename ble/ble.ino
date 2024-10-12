@@ -156,7 +156,6 @@ void processGivenPacket(const BlePacket &packet) {
   char givenPacketType = getPacketTypeOf(packet);
   switch (givenPacketType) {
     case PacketType::HELLO:
-      isWaitingForAck = true;
       hasHandshake = false;
       handshakeStatus = STAT_HELLO;
       break;

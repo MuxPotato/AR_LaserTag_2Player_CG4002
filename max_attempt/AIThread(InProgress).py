@@ -1,22 +1,20 @@
 from threading import Thread
 from queue import Queue
 import random
+from AI import AI
 from Color import print_message
 
 #ACTIONS = ["shoot", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"] 
 #TODO Figure out eval server for non AI actions 
 
+
+#format to send out = action + ":player_id" 
+
 ACTIONS = ["bomb", "reload", "basket", "soccer", "volley", "bowl"]
 UPPERTHRESHOLD = 2.2
 LOWERTHRESHOLD = 0.2
 
-player_data = {
-    'playerID': 1,
-    'accel': [0.1, 0.2, 0.3],
-    'gyro': [0.01, 0.02, 0.03],
-    'isFire': True,
-    'isHit': False
-}
+
 
 class AI(Thread):
     def __init__(self,IMU_queue,phone_action_queue):
@@ -30,19 +28,22 @@ class AI(Thread):
             return True
         return False
     
+    def sendData(self, messages):
+       return #AI call
+       
     def run(self):
       while True:
         message = self.IMU_queue.get() #detection of move start should be here, only send to AI if valid
+        if message['isFire'] and message['isHit']: #only care abt is fired and not is hit
+           self.phone_action_queue.put(combined_action) #
         print_message('AI Thread',f"Received '{message}' from RelayServer")
         print()
-        #action = "bomb"
-        action = self.random_action()
-        combined_action = action + ":1"
-        if #detection of move valid:
-          self.phone_action_queue.put(combined_action)
-        
+        if self.detectAction(message):
+           messages = []
+           while len(messages) < 30:
+              messages.append(message)
+           action = self.sendData(messages)
+           self.phone_action_queue.put(combined_action)
 
-    def random_action(self):
-      return random.choice(ACTIONS)
     
     

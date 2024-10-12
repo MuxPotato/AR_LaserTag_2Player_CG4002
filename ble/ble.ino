@@ -184,6 +184,12 @@ void processGivenPacket(const BlePacket &packet) {
       // numRetries = 0;
       break;
     case PacketType::NACK:
+      if (!isWaitingForAck) {
+        // Didn't send a packet, there's nothing to NACK
+        // Likely a delayed packet so we just drop it
+        return;
+      }
+      // Sent a packet but received a NACK, attempt to retransmit
       if (packet.seqNum == senderSeqNum) {
         if (isPacketValid(lastSentPacket) && getPacketTypeOf(lastSentPacket) != PacketType::NACK) {
           // Only retransmit if packet is valid

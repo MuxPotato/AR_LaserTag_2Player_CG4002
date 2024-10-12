@@ -151,8 +151,8 @@ class Beetle(threading.Thread):
             elif self.sender_seq_num > incoming_packet.seq_num:
                 # When sender_seq_num > incoming_packet.seq_num, NACK packet is likely delayed and we ignore it
                 return
-            elif (metadata_to_packet_type(self.lastPacketSent[0]) != BlePacketType.ACK.value and
-                   self.isValidPacket(self.lastPacketSent)):
+            elif (self.isValidPacket(self.lastPacketSent) and
+                   self.getPacketTypeOfBytes(self.lastPacketSent) != BlePacketType.ACK.value):
                 self.mPrint(bcolors.BRIGHT_YELLOW, "Received NACK with seq_num {} from {}, resending last packet"
                         .format(incoming_packet.seq_num, self.beetle_mac_addr))
                 self.sendPacket(self.lastPacketSent)
@@ -337,6 +337,11 @@ class Beetle(threading.Thread):
     def getPacketTypeOf(self, blePacket):
         return metadata_to_packet_type(blePacket.metadata)
     
+    def getPacketTypeOfBytes(self, packet_bytes):
+        if packet_bytes is None or len(packet_bytes) < PACKET_SIZE:
+            return ERROR_VALUE
+        return metadata_to_packet_type(packet_bytes[0])
+    
     def getSeqNumFrom(self, packetBytes):
         seq_num = packetBytes[1] + (packetBytes[2] << BITS_PER_BYTE)
         return seq_num
@@ -359,7 +364,7 @@ class Beetle(threading.Thread):
         # Invalid packet type received
         self.mPrint(bcolors.BRIGHT_YELLOW, 
                 inputString = "Invalid packet type ID received: {}".format(
-                    self.getPacketTypeIdOf(given_packet)))
+                    packet_type))
         return False
     
     def isValidPacketType(self, packet_type_id):

@@ -23,6 +23,7 @@ class Beetle(threading.Thread):
         self.mService = None
         self.serial_char = None
         self.start_transmit_time = 0
+        self.num_invalid_packets_received = 0
         ### Sequence number for packets created by Beetle to send to laptop
         self.receiver_seq_num = INITIAL_SEQ_NUM
         self.num_packets_received = 0
@@ -123,6 +124,11 @@ class Beetle(threading.Thread):
                     # bytearray for 20-byte packet
                     packetBytes = self.get_packet_from(self.mDataBuffer)
                     if not self.isValidPacket(packetBytes):
+                        self.num_invalid_packets_received += 1
+                        if (self.num_invalid_packets_received == MAX_RETRANSMITS):
+                            self.num_invalid_packets_received = 0
+                            self.reconnect()
+                            continue
                         self.sendNack(self.receiver_seq_num)
                         continue
                     # assert packetBytes is a valid 20-byte packet
@@ -194,6 +200,8 @@ class Beetle(threading.Thread):
                 else:
                     # Increment seq_num since received packet is valid
                     self.receiver_seq_num += 1
+                if self.num_invalid_packets_received > 0:
+                    self.num_invalid_packets_received = 0
             # ACK the received packet
             self.sendAck(seq_num_to_ack)
 

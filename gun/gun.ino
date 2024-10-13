@@ -220,9 +220,9 @@ void processGivenPacket(const BlePacket &packet) {
     case GAME_STAT:
       {
         uint16_t seqNumToAck = receiverSeqNum;
+        bool shouldHandlePacket = false;
         if (receiverSeqNum == packet.seqNum) {
-          // Process the packet to handle specific game logic(e.g. updating Beetle's internal game state)
-          handleGamePacket(packet);
+          shouldHandlePacket = true;
           receiverSeqNum += 1;
         } else if (receiverSeqNum > packet.seqNum) {
           /* If receiverSeqNum > packet.seqNum, I incremented receiverSeqNum after sending ACK 
@@ -238,6 +238,10 @@ void processGivenPacket(const BlePacket &packet) {
         sendPacket(ackPacket);
         if (numInvalidPacketsReceived > 0) {
           numInvalidPacketsReceived = 0;
+        }
+        if (shouldHandlePacket) {
+          // Process the packet to handle specific game logic(e.g. updating Beetle's internal game state)
+          handleGamePacket(packet);
         }
         break;
       }

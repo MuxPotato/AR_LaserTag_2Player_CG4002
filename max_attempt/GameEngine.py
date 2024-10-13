@@ -185,17 +185,22 @@ class GameEngine(Thread):
         return False
 
     def charge_shield(self, player_id):
-        if player_id == 1 and self.shieldCharges_p1 > 0:
-            self.shieldHp_p1 = 30
-            self.shieldCharges_p1 -= 1
-            self.update_both_players_game_state()
-            return True
-        elif player_id == 2 and self.shieldCharges_p2 > 0:
-            self.shieldHp_p2 = 30
-            self.shieldCharges_p2 -= 1
-            self.update_both_players_game_state()
-            return True
+        if player_id == 1:
+            # Check if there are charges left and if the shield is not already active
+            if self.shieldCharges_p1 > 0 and self.shieldHp_p1 <= 0:
+                self.shieldHp_p1 = 30
+                self.shieldCharges_p1 -= 1
+                self.update_both_players_game_state()
+                return True
+        elif player_id == 2:
+            # Check if there are charges left and if the shield is not already active
+            if self.shieldCharges_p2 > 0 and self.shieldHp_p2 <= 0:
+                self.shieldHp_p2 = 30
+                self.shieldCharges_p2 -= 1
+                self.update_both_players_game_state()
+                return True
         return False
+
 
 
 

@@ -161,6 +161,12 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
 /* Implement this function in actual Beetles(e.g. process game state packet) */
 void handleGamePacket(const BlePacket &gamePacket) {
   // TODO: Implement processing a given gamePacket
+  bulletCount = gamePacket.data[0];
+  if (bulletCount == 0) {
+    reload();
+    bulletCount = GUN_MAGAZINE_SIZE;
+    visualiseBulletCount();
+  }
 }
 
 void processGivenPacket(const BlePacket &packet) {

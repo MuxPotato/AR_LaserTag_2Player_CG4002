@@ -401,7 +401,7 @@ class GameEngine(Thread):
                     print_message('Game Engine', f"Player {player_id}'s AI action hit the opponent")
 
                     opponent_id = 2 if player_id == 1 else 1
-
+                    
                     # Check if the previous action was a bomb and apply the appropriate damage
                     if prev_action == "bomb":
                         print_message('Game Engine', f"Player {opponent_id} takes rain bomb damage")

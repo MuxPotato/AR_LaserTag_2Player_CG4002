@@ -9,15 +9,16 @@ from Color import print_message
 ACTIONS = ["bomb", "reload", "basket", "soccer", "volley", "bowl"]
 
 class AI(Thread):
-    def __init__(self,IMU_queue,phone_action_queue,action_queue):
+    def __init__(self,IMU_queue,phone_action_queue,shoot_queue):
         Thread.__init__(self)
         self.IMU_queue = IMU_queue
-        self.action_queue = action_queue 
+        self.shoot_queue = shoot_queue 
         self.phone_action_queue = phone_action_queue
     
     def run(self):
       while True:
         message = self.IMU_queue.get() #Check if the data is valid (sth to do with shoot), the start of move detection code should be here too. Only call to the AI if the detection of move is valid.
+        shoot_data = self.shoot_queue.get()
         print_message('AI Thread',f"Received '{message}' from RelayServer")
         print()
         #action = "bomb"

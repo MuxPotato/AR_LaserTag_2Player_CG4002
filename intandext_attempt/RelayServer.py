@@ -66,7 +66,7 @@ class RelayServer(Thread):
                 client.close()  # Ensure the connection is closed after handling
 
     def reconnectClient(self):
-        # Close the current client socket if it's open
+       
         if self.client:
             self.client.close()
             self.client = None 
@@ -84,7 +84,7 @@ class RelayServer(Thread):
                 time.sleep(1)  
     
     def processMessage(self,msg):
-    # Check and parse the message
+   
         try:
             # Split the packet type from the dictionary portion
             if ": {" in msg:
@@ -92,7 +92,7 @@ class RelayServer(Thread):
                 packet_type = packet_type.strip("'")  # Remove surrounding quotes from the packet type
 
                 # Convert the remaining string to a Python dictionary
-                packet_data = eval(packet_data)  # Safe here since we're controlling the input
+                packet_data = eval(packet_data)  
 
                 # Process based on packet type
                 if packet_type == 'IMUPacket' and 'accel' in packet_data and 'gyro' in packet_data:

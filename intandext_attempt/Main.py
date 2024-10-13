@@ -17,7 +17,7 @@ relayport = 6055
 evalhost = '127.0.0.1'
 evalport = 8888
 
-#game_engine_queue = queue.Queue()
+#TODO: add queue for game engine to return HP and ammo 
 action_queue = queue.Queue()
 viz_queue = queue.Queue()
 eval_queue = queue.Queue()
@@ -25,12 +25,13 @@ phone_action_queue = queue.Queue() # Added
 from_eval_queue = queue.Queue()
 shoot_queue = queue.Queue()
 IMU_queue = queue.Queue()
+phone_response_queue = queue.Queue()
 
 relay_server = RelayServer(host = relayhost,port = relayport,IMU_queue=IMU_queue,shoot_queue = shoot_queue)
-ai = AI(IMU_queue=IMU_queue,phone_action_queue=phone_action_queue,action_queue = action_queue,shoot_queue = shoot_queue)
-game_engine = GameEngine(phone_action_queue=phone_action_queue,viz_queue=viz_queue, eval_queue=eval_queue, from_eval_queue = from_eval_queue,action_queue = action_queue)
+ai = AI(IMU_queue=IMU_queue,phone_action_queue=phone_action_queue,shoot_queue = shoot_queue)
+game_engine = GameEngine(phone_action_queue=phone_action_queue,viz_queue=viz_queue, eval_queue=eval_queue, from_eval_queue = from_eval_queue,phone_response_queue = phone_response_queue)
 eval_client = EvalClient(eval_queue=eval_queue,server_ip=evalhost,server_port=evalport,from_eval_queue = from_eval_queue)
-visualizer = MQTT(viz_queue=viz_queue,phone_action_queue=phone_action_queue)
+visualizer = MQTT(viz_queue=viz_queue,phone_response_queue = phone_response_queue)
 
 threads = [relay_server, ai, game_engine, eval_client, visualizer]
 try:

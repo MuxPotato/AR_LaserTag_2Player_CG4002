@@ -22,10 +22,10 @@ player_data = {
 }
 
 class AI(Thread):
-    def __init__(self,IMU_queue,phone_action_queue):
+    def __init__(self,IMU_queue,shoot_queue,phone_action_queue):
         Thread.__init__(self)
         self.IMU_queue = IMU_queue
-
+        self.shoot_queue = shoot_queue 
         self.phone_action_queue = phone_action_queue
     
     def run(self):

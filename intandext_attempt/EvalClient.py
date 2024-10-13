@@ -15,13 +15,13 @@ from Color import print_message
 class EvalClient(Thread):
     def __init__(self,eval_queue,server_ip, server_port,from_eval_queue):
         Thread.__init__(self)
-        self.eval_queue = eval_queue
         self.secret_key = b'PLEASEMAYITWORKS'
         self.server_ip = server_ip
-        self.server_port = server_port  
+        self.server_port = server_port 
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+        self.eval_queue = eval_queue
         self.from_eval_queue = from_eval_queue
         self.timeout = 100  # The timeout for receiving any data
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.is_running = False 
         self.conn = None
        

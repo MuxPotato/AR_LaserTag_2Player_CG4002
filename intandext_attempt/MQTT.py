@@ -7,12 +7,11 @@ from Color import print_message
 import time 
 class MQTT(Thread):
 
-    def __init__(self,viz_queue,phone_action_queue):
+    def __init__(self,viz_queue,phone_response_queue):
         Thread.__init__(self)
-        self.viz_queue = viz_queue 
-        self.phone_action_queue = phone_action_queue 
+        self.viz_queue = viz_queue  
+        self.phone_response_queue = phone_response_queue
         self.gamestate_topic = "tovisualizer/gamestate"  # Topic for sending updates to Unity about gamestate 
-        self.fov_topic = "tovisualizer/field_of_view"  # Topic for asking Unity if player in field of view, only if action is bomb
         self.viz_response = "fromvisualizer/response" # topic to get response 
 
         #self.in_view = False 
@@ -33,6 +32,7 @@ class MQTT(Thread):
     # Callback when the client connects to the broker
     def on_connect(self, client, userdata, flags, rc):
         print_message('MQTT',"Connected")
+        self.connected = True 
         self.client.subscribe(self.viz_response)  # Subscribe to commands from Unity
 
     # Callback when a message is received
@@ -45,7 +45,7 @@ class MQTT(Thread):
     def on_disconnect(self,client,userdata,rc):
         self.connected = False 
         print_message('MQTT',f"Disconnected from MQTT broker. Reason:{rc}")
-        if rc!=0:
+        if rc != 0:
             self.reconnect()
 
     def reconnect(self):
@@ -54,9 +54,12 @@ class MQTT(Thread):
                 print_message('MQTT',f"Trying to reconnect in {self.reconnect_delay} seconds.. ")
                 time.sleep(self.reconnect_delay)
                 self.client.reconnect()
-                self.reconnect_delay = min(self.reconnect_delay * 2 ,60)
+                self.reconnect_delay = 1
+                self.connected = True 
+                print_message('MQTT', "Reconnected to MQTT broker.")
             except Exception as e:
                 print_message('MQTT',f"Reconnection failed:{e}")
+                self.reconnect_delay = min(self.reconnect_delay * 2 ,60)
 
 
 
@@ -64,11 +67,10 @@ class MQTT(Thread):
       # Function to process commands from Unity
     def process_command(self,command):   
         # ADDED
-        #Here we put the command received from the phone into the phone_action_queue
-        print_message('MQTT', f"Putting command '{command}' into phone_action_queue")
-        self.phone_action_queue.put(command)  # Put the command into the phone_action_queue for the Game Engine to process
+        #Here we put the command received from the phone into the phone_response_queue
+        print_message('MQTT', f"Putting command '{command}' into phone_response_queue")
+        self.phone_response_queue.put(command)  # Put the command into the phone_response_queue for the Game Engine to process
  
-
 
 
     def parse_message(self,message):
@@ -86,9 +88,15 @@ class MQTT(Thread):
     
     # Function to send the current game state to Unity
     def send_game_state(self,message):
-        self.client.publish(self.gamestate_topic, message)
-        print_message('MQTT',"Sent game state to phone")
-        print("_"*30)
+        try:
+            self.client.publish(self.gamestate_topic, message)
+            print_message('MQTT',"Sent game state to phone")
+            print("_"*30)
+        except Exception as e:
+            print_message('MQTT',f"Failed to send message:{e}")
+            self.connected = False 
+            self.reconnect()
+      
 
         # TODO : need to send game state to phone again after game engine receives updated game state from eval server. the actions will be updated to “none” before sending to visualizer.  
 

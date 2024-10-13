@@ -100,6 +100,7 @@ class MQTT(Thread):
         print_message('MQTT',"Sent game state to phone")
         print("_"*30)
 
+
         # TODO : need to send game state to phone again after game engine receives updated game state from eval server. the actions will be updated to “none” before sending to visualizer.  
 
 

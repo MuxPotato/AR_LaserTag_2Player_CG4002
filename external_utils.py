@@ -18,7 +18,7 @@ class GunPacket(NamedTuple):
     isFired: bool
 class VestPacket(NamedTuple):
     playerID: int
-    isHit: bool
+    isShot: bool
 class PlayerData(NamedTuple):
     playerID: int
     accel: float

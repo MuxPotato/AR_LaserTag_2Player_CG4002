@@ -4,9 +4,11 @@ from threading import Thread, Event
 import queue
 import time
 import traceback
+import json
+import re 
 
 class RelayServer(Thread):
-    def __init__(self, host,port,IMU_queue,shoot_queue):
+    def __init__(self, host,port,IMU_queue,shot_queue,fire_queue):
         Thread.__init__(self)
         self.host = host
         self.port = port
@@ -14,7 +16,8 @@ class RelayServer(Thread):
         self.server.bind((self.host, self.port))
         self.client = None
         self.IMU_queue = IMU_queue
-        self.shoot_queue = shoot_queue 
+        self.shot_queue = shot_queue 
+        self.fire_queue = fire_queue 
         #self.from_game_engine_queue = from_game_engine_queue  # hp and ammo to send back to beetles 
         self.server.settimeout(1.0)
         self.stop_event = Event()
@@ -84,36 +87,52 @@ class RelayServer(Thread):
                 time.sleep(1)  
     
     def processMessage(self,msg):
-   
         try:
-            # Split the packet type from the dictionary portion
-            if ": {" in msg:
-                packet_type, packet_data = msg.split(": ", 1)
-                packet_type = packet_type.strip("'")  # Remove surrounding quotes from the packet type
 
-                # Convert the remaining string to a Python dictionary
-                packet_data = eval(packet_data)  
+            # Use regex to capture packet type and packet data
+            match = re.match(r"'?(\w+)'?:\s*(\{.*\})", msg)
+            if not match:
+                raise ValueError("Message format is incorrect")
 
-                # Process based on packet type
-                if packet_type == 'IMUPacket' and 'accel' in packet_data and 'gyro' in packet_data:
-                    #print("Processing IMUPacket")
-                    self.IMU_queue.put(packet_data)
-                
-                elif packet_type == 'ShootPacket' and ('isFired' in packet_data or 'isHit' in packet_data):
-                    #print("Processing ShootPacket")
-                     self.shoot_queue.put(packet_data)
-                
-                else:
-                    print("Unknown packet type received")
+            packet_type = match.group(1)  
+            packet_data_str = match.group(2)  
+
+            print(f"Packet type: {packet_type}")
+            print(f"Packet data string: {packet_data_str}")
+
+            # Convert the packet data string to a dictionary using json.loads
+            # First, replace single quotes with double quotes in packet_data_str
+            packet_data_str = re.sub(r"(?<!\\)'", '"', packet_data_str)
+
+
+            packet_data_str = packet_data_str.replace("False", "false").replace("True", "true").replace("None", "null")
+
+            # parse the string as JSON
+            packet_data = json.loads(packet_data_str)
+
+            # Process based on packet type
+            if packet_type == 'IMUPacket' and 'accel' in packet_data and 'gyro' in packet_data:
+                print(f"Processing IMUPacket: {packet_data}")
+                # self.IMU_queue.put(packet_data)
+
+            elif packet_type == 'ShootPacket' and 'isFired' in packet_data:
+                #print(f"Send to AI: {packet_data}")
+                self.fire_queue.put(packet_data)
+
+            elif packet_type == 'ShootPacket' and 'isHit' in packet_data:
+                #print(f"Send to game engine: {packet_data}")
+                self.shot_queue.put(packet_data)
+
             else:
-                print("Invalid message format")
+                print("Unknown packet type received")
 
-        except SyntaxError as e:
-            print(f"Syntax error in message: {msg} -> {e}")
-        except KeyError as e:
-            print(f"Missing key in message: {e}")
+        except json.JSONDecodeError as e:
+            print(f"Error processing message: Invalid JSON -> {e}")
+        except ValueError as e:
+            print(f"Error processing message: {e}")
         except Exception as e:
             print(f"Error processing message: {e}")
+
         # Log the message to a file
         #with open("packets_from_beetles.log", "a") as log_file:
             #log_file.write(f"{time.ctime()}: {msg}\n")

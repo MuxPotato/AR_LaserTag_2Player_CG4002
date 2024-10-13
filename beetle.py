@@ -184,6 +184,7 @@ class Beetle(threading.Thread):
             self.sender_seq_num += 1
             self.is_waiting_for_ack = False
             self.lastPacketSent = None
+            self.num_retransmits = 0
         elif packet_id != BlePacketType.ACK.value:
             seq_num_to_ack = self.receiver_seq_num
             if self.receiver_seq_num > incoming_packet.seq_num:

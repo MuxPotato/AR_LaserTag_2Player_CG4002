@@ -16,7 +16,7 @@
 - Requires CRC, IRremote library
 ## `vest/`: Arduino code for vest Beetle that integrates IR receiver logic with internal comms logic to transmit IR data as vest packets
 - NOTE: UNTESTED and currently sends dummy packets immitating isHit
-- Requires CRC, IRremote and Adafruit NeoPixel library
+- Requires CRC, IRremote and Adafruit NeoPixel, TimerFreeTone library
 
 # Setup
 - Open any of the inos in the subfolders of this repository with `Arduino IDE`
@@ -36,4 +36,5 @@ Perform factory reset of your Beetle whenever you notice that it's transmitting 
 - CRC by Rob Tillaart: https://github.com/RobTillaart/CRC
 - IRremote by shirriff, z3t0, ArminJo: https://github.com/Arduino-IRremote/Arduino-IRremote
 - Adafruit NeoPixel: https://github.com/adafruit/Adafruit_NeoPixel
+- TimerFreeTone by Tim Eckel: https://bitbucket.org/teckel12/arduino-timer-free-tone/wiki/Home#!download-install
 

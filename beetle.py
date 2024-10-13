@@ -466,21 +466,27 @@ class GunBeetle(Beetle):
         super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
 
     def handle_raw_data_packet(self, raw_data_packet):
-        gun_boolean = raw_data_packet.data[0] == 1
-        internal_gun_packet = GunPacket(self.beetle_mac_addr, gun_boolean)
+        is_fired = self.get_gun_data_from(raw_data_packet)
+        internal_gun_packet = GunPacket(self.beetle_mac_addr, is_fired)
         player_id = get_player_id_for(self.beetle_mac_addr)
-        external_gun_packet = external_utils.GunPacket(player_id, gun_boolean)
+        external_gun_packet = external_utils.GunPacket(player_id, is_fired)
         self.outgoing_queue.put(external_gun_packet)
-        self.mPrint2("Received gun packet from {}: {}".format(self.beetle_mac_addr, internal_gun_packet))
+        self.mPrint2("Received gun data from {}: [isFired: {}]".format(self.beetle_mac_addr, is_fired))
+    
+    def get_gun_data_from(self, gun_packet):
+        return gun_packet.data[0] == 1
 
 class VestBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
         super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
 
     def handle_raw_data_packet(self, raw_data_packet):
-        vest_boolean = raw_data_packet.data[0] == 1
-        internal_vest_packet = VestPacket(self.beetle_mac_addr, vest_boolean)
+        is_shot = self.get_vest_data_from(raw_data_packet)
+        internal_vest_packet = VestPacket(self.beetle_mac_addr, is_shot)
         player_id = get_player_id_for(self.beetle_mac_addr)
-        external_vest_packet = external_utils.VestPacket(player_id, vest_boolean)
+        external_vest_packet = external_utils.VestPacket(player_id, is_shot)
         self.outgoing_queue.put(external_vest_packet)
-        self.mPrint2("Received vest packet from {}: {}".format(self.beetle_mac_addr, internal_vest_packet))
+        self.mPrint2("Received vest data from {}: [isShot: {}]".format(self.beetle_mac_addr, is_shot))
+
+    def get_vest_data_from(self, vest_packet):
+        return vest_packet.data[0] == 1

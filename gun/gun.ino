@@ -406,21 +406,19 @@ bool fireGun() {
 }
 
 void reload() {
-  tone(BUZZER_PIN, RELOAD_BUZZER_FREQ, RELOAD_BUZZER_DURATION);
+  TimerFreeTone(BUZZER_PIN, RELOAD_BUZZER_FREQ, RELOAD_BUZZER_DURATION);
   pixels.fill(pixels.Color(255, 0, 0), 0, 6);
   pixels.show();
   pixels.fill(pixels.Color(0, 0, 0), 0, 6);
   pixels.show();
-  tone(BUZZER_PIN, RELOAD_BUZZER_FREQ, RELOAD_BUZZER_DURATION);
+  TimerFreeTone(BUZZER_PIN, RELOAD_BUZZER_FREQ, RELOAD_BUZZER_DURATION);
   pixels.fill(pixels.Color(255, 0, 0), 0, 6);
   pixels.show();
   pixels.fill(pixels.Color(0, 0, 0), 0, 6);
   pixels.show();
-  delay(500);
-  tone(BUZZER_PIN, RELOAD_BUZZER_FREQ, RELOAD_BUZZER_DURATION);
+  TimerFreeTone(BUZZER_PIN, RELOAD_BUZZER_FREQ, RELOAD_BUZZER_DURATION);
   pixels.fill(pixels.Color(255, 0, 0), 0, 6);
   pixels.show();
   pixels.fill(pixels.Color(0, 0, 0), 0, 6);
   pixels.show();
-  delay(500);
 }

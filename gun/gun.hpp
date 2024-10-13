@@ -1,3 +1,4 @@
+#include <TimerFreeTone.h>
 #include <Adafruit_NeoPixel.h>
 #include <IRremote.hpp>
 #include <Wire.h>

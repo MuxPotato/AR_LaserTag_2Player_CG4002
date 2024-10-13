@@ -60,6 +60,18 @@ class GameEngine(Thread):
             self.update_both_players_game_state()
             return True
         return False
+    
+    def bomb(self, player_id):
+        if player_id == 1 and self.bomb_p1 > 0:
+            self.bomb_p1 -= 1
+            self.update_both_players_game_state()
+            return True
+        elif player_id == 2 and self.bomb_p1 > 0:
+            self.bomb_p1 -= 1
+            self.update_both_players_game_state()
+            return True
+        return False
+
 
     def reload(self, player_id):
         if player_id == 1:
@@ -220,20 +232,20 @@ class GameEngine(Thread):
             player_id = int(player_id)
 
             
-            if action_type == "shoot":
+            if action_type == "gun":
                 success = self.shoot(player_id)
                 if success:
                     if player_id == 1:
-                        action_p1 = "shoot"
+                        action_p1 = "gun"
                     else:
-                        action_p2 = "shoot"
+                        action_p2 = "gun"
                 else:
                     # Indicate failure directly by setting action_p1 or action_p2
                     if player_id == 1:
-                        action_p1 = "shoot_fail"
+                        action_p1 = "gun_fail"
                         action_p2 = "none"  # For clarity, explicitly set the other action to "none"
                     else:
-                        action_p2 = "shoot_fail"
+                        action_p2 = "gun_fail"
                         action_p1 = "none"
 
                 print_message('Game Engine', f"Player {player_id} attempted to shoot: {'Success' if success else 'Failed'}")
@@ -258,7 +270,7 @@ class GameEngine(Thread):
 
 
 
-            elif action_type in ["basket", "soccer", "volley", "bowl", "bomb"]:
+            elif action_type in ["basket", "soccer", "volley", "bowl"]:
                 # Handle the AI actions for sports or bomb
                 print_message('Game Engine', f"Player {player_id} performed AI action: {action_type}")
                 if player_id == 1:
@@ -266,6 +278,22 @@ class GameEngine(Thread):
                 else:
                     action_p2 = action_type
                 print_message('Game Engine', f"Player {player_id} performed {action_type}")
+            
+            elif action_type == "bomb":
+                success = self.bomb(player_id)
+                if success:
+                    if player_id == 1:
+                        action_p1 = "bomb"
+                    else:
+                        action_p2 = "bomb"
+                else:
+                    # Indicate failure directly by setting action_p1 or action_p2
+                    if player_id == 1:
+                        action_p1 = "bomb_fail"
+                        action_p2 = "none"  # For clarity, explicitly set the other action to "none"
+                    else:
+                        action_p2 = "bomb_fail"
+                        action_p1 = "none"
 
             elif action_type == "ai_damage":
                 self.take_ai_damage(player_id)
@@ -354,7 +382,7 @@ class GameEngine(Thread):
 
 
             # Check if the previous action is not an AI action (e.g., "shoot", "reload", "charge_shield")
-            if prev_action in ["shoot", "reload", "charge_shield"]:
+            if prev_action in ["gun", "reload", "charge_shield"]:
                 # Ignore is_ai_action and is_hit for these actions
                 is_ai_action = 0
                 is_hit = 0
@@ -380,11 +408,14 @@ class GameEngine(Thread):
                     print_message('Game Engine', f"Player {player_id}'s AI action missed the opponent")
 
 
-            # Check if a rain bomb hit is indicated
-            if is_rain_bomb_hit == 1:
-                print_message('Game Engine', f"Player {player_id}'s rain bomb hit the opponent")
+            # Check if any rain bomb hit is indicated
+            if is_rain_bomb_hit > 0:
+                print_message('Game Engine', f"Player {player_id}'s rain bomb hit the opponent {is_rain_bomb_hit} time(s)")
                 opponent_id = 2 if player_id == 1 else 1
-                self.take_rain_bomb_damage(opponent_id)
+
+                # Loop to apply damage based on the number of hits
+                for _ in range(is_rain_bomb_hit):
+                    self.take_rain_bomb_damage(opponent_id)
 
             # Update game state after processing the response
             self.update_both_players_game_state()

@@ -25,9 +25,10 @@ eval_queue = queue.Queue()
 phone_action_queue = queue.Queue() # Added
 from_eval_queue = queue.Queue()
 phone_response_queue = queue.Queue()
+shoot_queue = queue.Queue()
 
 relay_server = RelayServer(host = relayhost,port = relayport,IMU_queue=IMU_queue)
-ai = AI(IMU_queue=IMU_queue,phone_action_queue=phone_action_queue)
+ai = AI(IMU_queue=IMU_queue,phone_action_queue=phone_action_queue, shoot_queue=shoot_queue)
 #game_engine = GameEngine(action_queue=action_queue, game_engine_queue = game_engine_queue,viz_queue=viz_queue, eval_queue=eval_queue)
 game_engine = GameEngine(phone_action_queue=phone_action_queue,viz_queue=viz_queue, eval_queue=eval_queue, from_eval_queue = from_eval_queue, phone_response_queue=phone_response_queue)
 eval_client = EvalClient(eval_queue=eval_queue,server_ip=evalhost,server_port=evalport,from_eval_queue = from_eval_queue)

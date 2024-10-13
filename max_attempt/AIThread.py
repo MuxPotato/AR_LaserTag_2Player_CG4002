@@ -10,7 +10,7 @@ from Color import print_message
 #ACTIONS = ["shoot", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"] 
 
 
-ACTIONS = ["bomb", "reload", "basket", "soccer", "volley", "bowl", "shield", "shoot"]
+ACTIONS = ["bomb", "reload", "basket", "soccer", "volley", "bowl", "shield", "gun"]
 
 
 player_data = {

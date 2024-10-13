@@ -25,6 +25,8 @@ uint8_t numInvalidPacketsReceived = 0;
 
 // Vest game state
 bool isShot = false;
+int health = 100;
+Adafruit_NeoPixel pixels(PIXEL_COUNT, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
 void setup() {
   Serial.begin(BAUDRATE);
@@ -298,10 +300,8 @@ void sendPacket(BlePacket &packetToSend) {
   Serial.write((byte *) &packetToSend, sizeof(packetToSend));
 }
 
-void createVestPacketData(bool isShot, byte packetData[PACKET_DATA_SIZE]) {
-  if (isShot) {
-    packetData[0] = true;
-  }
+void createVestPacketData(bool mIsShot, byte packetData[PACKET_DATA_SIZE]) {
+  packetData[0] = mIsShot ? 1 : 0;
 }
 
 BlePacket sendVestPacket() {
@@ -314,6 +314,15 @@ BlePacket sendVestPacket() {
 }
 
 /* IR Code */
+void irReceiverSetup() {
+  pinMode(BUZZER_PIN, INPUT);
+  pinMode(LED_PIN, OUTPUT);
+  IrReceiver.begin(IR_RECV_PIN);  // Start IR receiver on pin 5
+  pixels.begin();
+  pixels.setBrightness(60);
+  giveLife();
+}
+
 bool checkIrReceiver() {
   bool mIsShot = false;
   if (IrReceiver.decode()) {  // Check if an IR signal is received
@@ -326,8 +335,119 @@ bool checkIrReceiver() {
   return mIsShot;
 }
 
-void irReceiverSetup() {
-  pinMode(BUTTON_PIN, INPUT);
-  pinMode(LED_PIN, OUTPUT);
-  IrReceiver.begin(IR_RECV_PIN);  // Start IR receiver on pin 5
+void checkHealth() {
+  if (IrReceiver.isIdle()) {
+    switch (health) {
+      case 100:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.fill(pixels.Color(0, 255, 0), 0, 10);
+        break;
+      case 95:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.setPixelColor(9,pixels.Color(255,0,0));
+        pixels.fill(pixels.Color(0, 255, 0), 0, 9);
+        break;
+      case 90:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.fill(pixels.Color(0, 255, 0), 0, 9);
+        break;
+      case 85:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.setPixelColor(8,pixels.Color(255,0,0));
+        pixels.fill(pixels.Color(0, 255, 0), 0, 8);
+        break;
+      case 80:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.fill(pixels.Color(0, 255, 0), 0, 8);
+        break;
+      case 75:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.setPixelColor(7,pixels.Color(255,0,0));
+        pixels.fill(pixels.Color(0, 255, 0), 0, 7);
+        break;
+      case 70:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.fill(pixels.Color(0, 255, 0), 0, 7);
+        break;
+      case 65:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.setPixelColor(6,pixels.Color(255,0,0));
+        pixels.fill(pixels.Color(0, 255, 0), 0, 6);
+        break;
+      case 60:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.fill(pixels.Color(0, 255, 0), 0, 6);
+        break;
+      case 55:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.setPixelColor(5,pixels.Color(255,0,0));
+        pixels.fill(pixels.Color(0, 255, 0), 0, 5);
+        break;
+      case 50:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.fill(pixels.Color(0, 255, 0), 0, 5);
+        break;
+      case 45:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.setPixelColor(4,pixels.Color(255,0,0));
+        pixels.fill(pixels.Color(0, 255, 0), 0, 4);
+        break;
+      case 40:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.fill(pixels.Color(0, 255, 0), 0, 4);
+        break;
+      case 35:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.setPixelColor(3,pixels.Color(255,0,0));
+        pixels.fill(pixels.Color(0, 255, 0), 0, 3);
+        break;
+      case 30:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.fill(pixels.Color(0, 255, 0), 0, 3);
+        break;
+      case 25:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.setPixelColor(2,pixels.Color(255,0,0));
+        pixels.fill(pixels.Color(0, 255, 0), 0, 2);
+        break;
+      case 20:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.fill(pixels.Color(0, 255, 0), 0, 2);
+        break;
+      case 15:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.setPixelColor(1,pixels.Color(255,0,0));
+        pixels.fill(pixels.Color(0, 255, 0), 0, 1);
+        break;
+      case 10:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.fill(pixels.Color(0, 255, 0), 0, 1);
+        break;
+      case 5:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        pixels.setPixelColor(0,pixels.Color(255,0,0));
+        break;
+      case 0:
+        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+        break;
+    }
+    pixels.show();
+  }
+}
+
+void giveLife() {
+  health = 100;
+  if (IrReceiver.isIdle()) {
+    for (int i = 0; i <= 10; i++) {
+      pixels.fill(pixels.Color(0, 255, 0), 0, i);
+      pixels.show();
+      TimerFreeTone(BUZZER_PIN, 400, 500);
+      delay(500);
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.show();
+      delay(500);
+    }
+    pixels.fill(pixels.Color(0, 255, 0), 0, 10);
+    pixels.show();
+  }
 }

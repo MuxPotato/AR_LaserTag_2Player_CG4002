@@ -9,158 +9,64 @@ enum HandshakeStatus {
 };
 
 /* Internal comms */
+void processIncomingPacket();
+void retransmitLastPacket();
+
 bool hasHandshake = false;
 HandshakeStatus handshakeStatus = STAT_NONE;
 MyQueue<byte> recvBuffer{};
-// Zero-initialise sentPacket
-BlePacket sentPacket = {};
-unsigned long sentPacketTime = 0;
-uint16_t seqNum = INITIAL_SEQ_NUM;
-bool shouldResendAfterHandshake = false;
+// Zero-initialise lastSentPacket
+BlePacket lastSentPacket = {};
+unsigned long lastSentPacketTime = 0;
+uint16_t receiverSeqNum = INITIAL_SEQ_NUM;
+uint16_t senderSeqNum = INITIAL_SEQ_NUM;
+bool isWaitingForAck = false;
+uint8_t numRetries = 0;
+uint8_t numInvalidPacketsReceived = 0;
 
 /* IR Transmitter */
-int buttonState = 0;  // Current state of the button
 /* Gun state */
 int bulletCount = 6;
 unsigned long lastGunfireTime = 0;
 bool isReloading = false;
 bool isFiring = false;
+bool isFired = false;
 
 void setup() {
   Serial.begin(BAUDRATE);
   /* Initialise sentPacket with invalid metadata
     to ensure it's detected as corrupted if ever
     sent without assigning actual (valid) packet */
-  sentPacket.metadata = PLACEHOLDER_METADATA;
+  lastSentPacket.metadata = PLACEHOLDER_METADATA;
   // TODO: Uncomment line below
-  // irTransSetup();
+  gunSetup();
 }
 
 void loop() {
   if (!hasHandshake) {
     hasHandshake = doHandshake();
   }
-  if (Serial.available() > 0) {
-    readIntoRecvBuffer(recvBuffer);
-    if (recvBuffer.size() >= PACKET_SIZE) {
-      BlePacket receivedPacket = readPacketFrom(recvBuffer);
-      if (!isPacketValid(receivedPacket)) {
-        BlePacket nackPacket;
-        createNackPacket(nackPacket, seqNum);
-        sendPacket(nackPacket);
-        // TODO: Consider if we want to update sentPacket so that even corrupted NACK packets are retransmitted to laptop?
-        return;
-      }
-      // assert isPacketValid(newPacket) = true
-      char receivedPacketType = getPacketTypeOf(receivedPacket);
-      switch (receivedPacketType) {
-        case PacketType::HELLO:
-          hasHandshake = false;
-          handshakeStatus = STAT_HELLO;
-          break;
-        case PacketType::ACK:
-          // TODO: Plan how to handle retransmission
-          break;
-        case PacketType::NACK:
-          // Update packet CRC just in case it got corrupted like it sometimes happens on the Beetle
-          fixPacketCrc(sentPacket);
-          // Only retransmit if packet is valid
-          if (isPacketValid(sentPacket) && getPacketTypeOf(sentPacket) != PacketType::NACK) {
-            sendPacket(sentPacket);
-          }
-          break;
-        case INVALID_PACKET_ID:
-          BlePacket nackPacket;
-          createNackPacket(nackPacket, seqNum);
-          sendPacket(nackPacket);
-          break;
-        default:
-          BlePacket ackPacket;
-          createAckPacket(ackPacket, seqNum);
-          sendPacket(ackPacket);
-          sentPacket = ackPacket;
-      } // switch (receivedPacketType)
-    } // if (recvBuffer.size() >= PACKET_SIZE)
-  } else {
-    // TODO: Send sensor data
-    if (shouldResendAfterHandshake && isPacketValid(sentPacket)) {
-      sendPacket(sentPacket);
-      if (getPacketTypeOf(sentPacket) == PacketType::NACK) {
-        // Don't wait for ACK when we retransmit a NACK
-        return;
-      }
-    } else {
-      // TODO: Uncomment lines below
-      /* // Read the state of the gun trigger
-      buttonState = digitalRead(buttonPin);
-      visualiseBulletCount();
-      bool isFired = false;
-      if (buttonState == HIGH && bulletCount > 0 && !isReloading) {
-        isFired = fireGun();
-      }
-      if (isFired) {
-        sentPacket = sendIsFiredPacket();
-      } */
-      sentPacket = sendDummyPacket();
+  if (getIsFired()) {
+    isFired = fireGun();
+    if (!isWaitingForAck) {
+      lastSentPacket = sendGunPacket(isFired);
+      lastSentPacketTime = millis();
+      isWaitingForAck = true;
     }
-    sentPacketTime = millis();
-    bool mHasAck = false;
-    while (!mHasAck) {
-      if ((millis() - sentPacketTime) < BLE_TIMEOUT) {
-        // Read incoming bytes
-        readIntoRecvBuffer(recvBuffer);
-        if (recvBuffer.size() >= PACKET_SIZE) {
-          // Read incoming bytes as packet
-          BlePacket receivedPacket = readPacketFrom(recvBuffer);
-          if (!isPacketValid(receivedPacket)) {
-            BlePacket nackPacket;
-            createNackPacket(nackPacket, seqNum);
-            // Received invalid packet, request retransmit with NACK
-            sendPacket(nackPacket);
-          } else {
-            char receivedPacketType = getPacketTypeOf(receivedPacket);
-            if (receivedPacketType == PacketType::ACK) {
-              if (receivedPacket.seqNum > seqNum) {
-                BlePacket nackPacket;
-                createNackPacket(nackPacket, seqNum);
-                // Received invalid packet, request retransmit with NACK
-                sendPacket(nackPacket);
-                continue;
-              }
-              // If receivedPacket.seqNum < seqNum, it's (likely) a delayed ACK packet and we ignore it
-              // ACK received, so stop waiting for incoming ACK
-              mHasAck = true;
-              // Increment seqNum upon every ACK
-              seqNum += 1;
-              if (shouldResendAfterHandshake) {
-                // Interrupted packet has been resent and ACK, stop trying to resend anymore
-                shouldResendAfterHandshake = false;
-              }
-            } else if (receivedPacketType == PacketType::NACK && receivedPacket.seqNum == seqNum) {
-              // Update packet CRC just in case it got corrupted like it sometimes happens on the Beetle
-              fixPacketCrc(sentPacket);
-              // Only retransmit if packet is valid
-              if (isPacketValid(sentPacket)) {
-                // Received NACK, retransmit now
-                sendPacket(sentPacket);
-              }
-            } else if (receivedPacketType == PacketType::HELLO) {
-              shouldResendAfterHandshake = true;
-              hasHandshake = false;
-              handshakeStatus = STAT_HELLO;
-              // Break while loop and perform doHandshake() again
-              break;
-            }
-          }
-        } // if (recvBuffer.size() >= PACKET_SIZE)
-      } else {
-        /* BUG: Somehow the Beetle gets stuck here trying to retransmit when the laptop gets disconnected */
-        // Packet has timed out, retransmit
-        sendPacket(sentPacket);
-        // Update sent time and wait for ACK again
-        sentPacketTime = millis();
-      }
-    } // while (!mHasAck)
+  } else if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
+    //if (numRetries < MAX_RETRANSMITS) {
+      retransmitLastPacket();
+      /* numRetries += 1;
+    } else {
+      // Max retries reached, stop retransmitting
+      isWaitingForAck = false;
+      lastSentPacket.metadata = PLACEHOLDER_METADATA;
+      numRetries = 0;
+    } */
+  }
+  if (Serial.available() > 0) {
+    // Received some bytes from laptop, process them
+    processIncomingPacket();
   }
 }
 
@@ -243,13 +149,126 @@ bool doHandshake() {
 
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   byte packetData[PACKET_DATA_SIZE] = {};
-  uint16_t seqNumToSyn = seqNum;
-  if (shouldResendAfterHandshake && isPacketValid(sentPacket)) {
-    seqNumToSyn = sentPacket.seqNum;
+  uint16_t seqNumToSyn = senderSeqNum;
+  if (isWaitingForAck && isPacketValid(lastSentPacket)) {
+    seqNumToSyn = lastSentPacket.seqNum;
   }
   packetData[0] = (byte) seqNumToSyn;
-  packetData[1] = (byte) seqNumToSyn >> BITS_PER_BYTE;
+  packetData[1] = (byte) (seqNumToSyn >> BITS_PER_BYTE);
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
+}
+
+/* Implement this function in actual Beetles(e.g. process game state packet) */
+void handleGamePacket(const BlePacket &gamePacket) {
+  // TODO: Implement processing a given gamePacket
+}
+
+void processGivenPacket(const BlePacket &packet) {
+  char givenPacketType = getPacketTypeOf(packet);
+  switch (givenPacketType) {
+    case PacketType::HELLO:
+      hasHandshake = false;
+      handshakeStatus = STAT_HELLO;
+      break;
+    case PacketType::ACK:
+      if (!isWaitingForAck) {
+        // Not expecting an ACK, so this ACK is likely delayed and we drop it
+        return;
+      }
+      // Have been waiting for an ACK and we received it
+      if (packet.seqNum > senderSeqNum) {
+        BlePacket nackPacket;
+        createNackPacket(nackPacket, senderSeqNum);
+        // Inform laptop about seq num mismatch by sending a NACK with our current seq num
+        sendPacket(nackPacket);
+        return;
+      } else if (packet.seqNum < senderSeqNum) {
+        // If packet.seqNum < senderSeqNum, it's (likely) a delayed ACK packet and we ignore it
+        return;
+      }
+      // Valid ACK received, so stop waiting for incoming ACK
+      isWaitingForAck = false;
+      // Increment senderSeqNum upon every ACK
+      senderSeqNum += 1;
+      isFired = false;
+      // numRetries = 0;
+      break;
+    case PacketType::NACK:
+      if (!isWaitingForAck) {
+        // Didn't send a packet, there's nothing to NACK
+        // Likely a delayed packet so we just drop it
+        return;
+      }
+      // Sent a packet but received a NACK, attempt to retransmit
+      if (packet.seqNum == senderSeqNum) {
+        if (isPacketValid(lastSentPacket) && getPacketTypeOf(lastSentPacket) != PacketType::NACK) {
+          // Only retransmit if packet is valid
+          sendPacket(lastSentPacket);
+        }
+        // No else{}: Don't retransmit a corrupted packet or another NACK packet
+      }/*  else if (packet.seqNum > senderSeqNum) {
+        // TODO: Enter 3-way handshake again to synchronise seq nums
+      } */
+      // If packet.seqNum < senderSeqNum, NACK packet is likely delayed and we drop it
+      break;
+    case GAME_STAT:
+      {
+        uint16_t seqNumToAck = receiverSeqNum;
+        if (receiverSeqNum == packet.seqNum) {
+          // Process the packet to handle specific game logic(e.g. updating Beetle's internal game state)
+          handleGamePacket(packet);
+          receiverSeqNum += 1;
+        } else if (receiverSeqNum > packet.seqNum) {
+          /* If receiverSeqNum > packet.seqNum, I incremented receiverSeqNum after sending ACK 
+              but sender did not receive ACK and thus retransmitted packet
+            */
+          // ACK the packet but don't decrement my sequence number
+          seqNumToAck = packet.seqNum;
+          // Don't process the same packet again
+        }
+        // TODO: Consider what to do if receiverSeqNum < packet.seqNum?
+        BlePacket ackPacket;
+        createAckPacket(ackPacket, seqNumToAck);
+        sendPacket(ackPacket);
+        if (numInvalidPacketsReceived > 0) {
+          numInvalidPacketsReceived = 0;
+        }
+        break;
+      }
+    case INVALID_PACKET_ID:
+    default:
+      // All other packet types are unsupported, inform sender that packet is rejected
+      BlePacket nackPacket;
+      createNackPacket(nackPacket, receiverSeqNum);
+      sendPacket(nackPacket);
+  } // switch (receivedPacketType)
+}
+
+void processIncomingPacket() {
+  // Read incoming bytes into receive buffer
+  readIntoRecvBuffer(recvBuffer);
+  if (recvBuffer.size() >= PACKET_SIZE) {
+    // Complete 20-byte packet received, read 20 bytes from receive buffer as packet
+    BlePacket receivedPacket = readPacketFrom(recvBuffer);
+    if (!isPacketValid(receivedPacket)) {
+      numInvalidPacketsReceived += 1;
+      if (numInvalidPacketsReceived == MAX_INVALID_PACKETS_RECEIVED) {
+        recvBuffer.clear();
+        while (Serial.available() > 0) {
+          Serial.read();
+        }
+        delay(TRANSMIT_DELAY);
+        numInvalidPacketsReceived = 0;
+        return;
+      }
+      BlePacket nackPacket;
+      createNackPacket(nackPacket, receiverSeqNum);
+      // Received invalid packet, request retransmit with NACK
+      sendPacket(nackPacket);
+    } else {
+      processGivenPacket(receivedPacket);
+    }
+  } // if (recvBuffer.size() >= PACKET_SIZE)
 }
 
 int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer) {
@@ -264,42 +283,60 @@ int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer) {
   return numOfBytesRead;
 }
 
+void retransmitLastPacket() {
+  if (isPacketValid(lastSentPacket)) {
+    sendPacket(lastSentPacket);
+    // Update sent time and wait for ACK again
+    lastSentPacketTime = millis();
+  } else {
+    isWaitingForAck = false;
+  }
+}
+
 BlePacket sendDummyPacket() {
-  BlePacket dummyPacket = {};
-  dummyPacket.metadata = PacketType::P1_IR_TRANS;
-  dummyPacket.seqNum = seqNum;
-  // Random value(either 0 or 1) to indicate isFired = false or true, respectively
-  dummyPacket.data[0] = random(2);
+  BlePacket dummyPacket;
+  dummyPacket.metadata = PacketType::P1_IMU;
+  dummyPacket.seqNum = senderSeqNum;
+  float x1 = random(0, 100);
+  float y1 = random(0, 100);
+  float z1 = random(0, 100);
+  float x2 = random(0, 100);
+  float y2 = random(0, 100);
+  float z2 = random(0, 100);
+  floatToData(dummyPacket.data, x1, y1, z1, x2, y2, z2);
   dummyPacket.crc = getCrcOf(dummyPacket);
   sendPacket(dummyPacket);
   return dummyPacket;
 }
 
-BlePacket sendIsFiredPacket() {
-  BlePacket isFiredPacket = {};
-  isFiredPacket.metadata = PacketType::P1_IR_TRANS;
-  isFiredPacket.seqNum = seqNum;
-  // Set to 1 to indicate isFired = true
-  isFiredPacket.data[0] = 1;
-  isFiredPacket.crc = getCrcOf(isFiredPacket);
-  sendPacket(isFiredPacket);
-  return isFiredPacket;
-}
-
 void sendPacket(BlePacket &packetToSend) {
-  if ((millis() - sentPacketTime) < TRANSMIT_DELAY) {
+  if ((millis() - lastSentPacketTime) < TRANSMIT_DELAY) {
     delay(TRANSMIT_DELAY);
   }
   Serial.write((byte *) &packetToSend, sizeof(packetToSend));
 }
 
+void getPacketDataFor(bool mIsFired, byte packetData[PACKET_DATA_SIZE]) {
+  packetData[0] = mIsFired ? 1 : 0;
+}
+
+BlePacket sendGunPacket(bool mIsFired) {
+  BlePacket gunPacket = {};
+  byte packetData[PACKET_DATA_SIZE] = {};
+  getPacketDataFor(mIsFired, packetData);
+  createPacket(gunPacket, PacketType::P1_IR_TRANS, senderSeqNum, packetData);
+  sendPacket(gunPacket);
+  return gunPacket;
+}
+
 /* IR Transmitter */
-void irTransSetup() {
+void gunSetup() {
   pinMode(BUTTON_PIN, INPUT);
   pinMode(LED_PIN, OUTPUT);
   IrSender.begin(IR_TRN_PIN);
   pixels.begin();
   pixels.setBrightness(PIXEL_BRIGHTNESS);
+  visualiseBulletCount();
 }
 
 // Checks bulletCount and then displays the corresponding number of LEDs
@@ -338,31 +375,32 @@ void visualiseBulletCount() {
   isReloading = false;
 }
 
+byte getButtonState() {
+  byte newButtonState = (byte) digitalRead(BUTTON_PIN);
+  return newButtonState;
+}
+
+bool getIsFired() {
+  byte befButtonState = getButtonState();
+  delay(BUTTON_DEBOUNCE_DELAY);
+  byte aftButtonState = getButtonState();
+  return befButtonState == LOW && aftButtonState == HIGH && !isReloading;
+}
+
 /*
  * Attempts to trigger a gun fire.
  * @returns boolean indicating whether or not gun is successfully fired
  */
 bool fireGun() {
-  // Check if the button is pressed
-  if (buttonState == HIGH && bulletCount > 0 && !isReloading) {
-    unsigned long currentTime = millis();
-    if (currentTime - lastGunfireTime > ACTION_INTERVAL) {
-      digitalWrite(LED_PIN, HIGH);
-      IrSender.sendNEC(IR_ADDRESS, IR_COMMAND, 0);  // the address 0x0102 with the command 0x34 is sent
-      bulletCount--;
-      visualiseBulletCount();
-      tone(BUZZER_PIN, BUZZER_FREQ, BUZZER_DURATION);
-      lastGunfireTime = currentTime;
-      return true;
-    }
-  } 
-  // assert buttonState == HIGH || bulletCount == 0 || isReloading
-  if (bulletCount == 0) {
-    reload();
+  unsigned long currentTime = millis();
+  if (currentTime - lastGunfireTime > ACTION_INTERVAL) {
+    digitalWrite(LED_PIN, HIGH);
+    IrSender.sendNEC(IR_ADDRESS, IR_COMMAND, 0);  // the address 0x0102 with the command 0x34 is sent
+    bulletCount--;
     visualiseBulletCount();
-    bulletCount = GUN_MAGAZINE_SIZE;
-  } else {
-    digitalWrite(LED_PIN, LOW);
+    tone(BUZZER_PIN, BUZZER_FREQ, BUZZER_DURATION);
+    lastGunfireTime = currentTime;
+    return true;
   }
   return false;
 }

@@ -2,8 +2,9 @@
 #include <IRremote.hpp>
 #include <Wire.h>
 
-#define ACTION_INTERVAL 500
+#define ACTION_INTERVAL 600
 #define BUTTON_PIN 4
+#define BUTTON_DEBOUNCE_DELAY 5
 #define LED_PIN LED_BUILTIN
 #define IR_ADDRESS 0x0102
 #define IR_COMMAND 0x34
@@ -18,16 +19,11 @@
 #define RELOAD_BUZZER_FREQ 3000
 #define RELOAD_BUZZER_DURATION 500
 
-// Define pin numbers
-const int buttonPin = 4;         // Pin connected to the button
-const int ledPin = LED_BUILTIN;  // Pin connected to the built-in LED
-const int irPin = 5;             // Pin connected to the IR transmitter
-const int ledStripPin = 3;       //Pin connected to LED strip
-const int pixelCount = 8;
-const int buzzerPin = 2;
+IRsend irsend(IR_TRN_PIN);
+Adafruit_NeoPixel pixels(PIXEL_COUNT, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
-IRsend irsend(irPin);
-Adafruit_NeoPixel pixels(pixelCount, ledStripPin, NEO_GRB + NEO_KHZ800);
-
+void gunSetup();
+byte getButtonState();
+bool getIsFired();
 void reload();
 void visualiseBulletCount();

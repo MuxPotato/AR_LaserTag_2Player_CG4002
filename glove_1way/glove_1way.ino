@@ -26,6 +26,7 @@ uint16_t seqNum = INITIAL_SEQ_NUM;
 bool isWaitingForAck = false;
 bool hasReceivedAck = false;
 uint8_t numRetries = 0;
+uint8_t numInvalidPacketsReceived = 0;
 
 /* IMU variables */
 float RateRoll, RatePitch, RateYaw;

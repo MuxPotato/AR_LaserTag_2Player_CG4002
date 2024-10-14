@@ -22,12 +22,19 @@ class MQTT(Thread):
 
         self.connected = False 
         self.reconnect_delay = 1 
+    
+    def connect_to_broker(self):
+        while not self.connected:
+            try:
+                self.client.connect("localhost", 1883, 60)  # Adjust IP if HiveMQ is running elsewhere than u96
+                # Start the MQTT client loop
+                self.client.loop_start()
+                self.reconnect_delay = 1  # Reset the reconnect delay after a successful connection
+            except Exception as e:
+                print_message('MQTT', f"Connection failed: {e}. Retrying in {self.reconnect_delay} seconds...")
+                time.sleep(self.reconnect_delay)
+                self.reconnect_delay = min(self.reconnect_delay * 2, 60)  # Exponential backoff up to 60s
 
-        # Connect to the HiveMQ broker running on the Ultra96
-        self.client.connect("localhost", 1883, 60)  # Adjust IP if HiveMQ is running elsewhere
-
-        # Start the MQTT client loop
-        self.client.loop_start()
 
     # Callback when the client connects to the broker
     def on_connect(self, client, userdata, flags, rc):
@@ -103,6 +110,8 @@ class MQTT(Thread):
 
 
     def run(self):
+      self.connect_to_broker()
+      
       while True:
         # Receive message from GameEngine
         message = self.viz_queue.get()

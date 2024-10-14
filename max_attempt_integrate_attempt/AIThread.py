@@ -32,6 +32,7 @@ class AI(Thread):
     def run(self):
       while True:
         message = self.IMU_queue.get()
+        # get from fire_queue.get()
         print_message('AI Thread',f"Received '{message}' from RelayServer")
         print()
         #action = "bomb"

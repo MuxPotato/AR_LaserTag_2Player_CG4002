@@ -38,7 +38,8 @@ enum PacketType {
   IR_RECV = 4,
   IR_TRANS = 5,
   GAME_STAT = 6,
-  GAME_ACTION = 7
+  GAME_ACTION = 7,
+  INFO = 8
 };
 
 template <typename T> class MyQueue {
@@ -218,7 +219,7 @@ char getPacketTypeOf(const BlePacket &packet) {
 
 bool isHeadByte(byte currByte) {
   byte packetId = parsePacketTypeFrom(currByte);
-  return packetId >= PacketType::HELLO && packetId <= PacketType::GAME_STAT;
+  return packetId >= PacketType::HELLO && packetId <= PacketType::INFO;
 }
 
 // TODO: Do we want to take seqNum as parameter and check whether current seqNum makes sense vs packet's seqNum?

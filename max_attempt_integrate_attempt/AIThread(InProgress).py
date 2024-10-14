@@ -1,7 +1,7 @@
 from threading import Thread
 from queue import Queue
 import random
-from AI import AI
+from AI_fpga import get_action
 from Color import print_message
 
 #ACTIONS = ["shoot", "shield", "bomb", "reload", "basket", "soccer", "volley", "bowl"] 
@@ -10,17 +10,15 @@ from Color import print_message
 
 #format to send out = action + ":player_id" 
 
-ACTIONS = ["bomb", "reload", "basket", "soccer", "volley", "bowl"]
+ACTIONS = ["shield", "bomb", "reload", "basket", "soccer", "volley", "bowl", "logout"]
 UPPERTHRESHOLD = 2.2
 LOWERTHRESHOLD = 0.2
 
-
-
 class AI(Thread):
-    def __init__(self,IMU_queue,phone_action_queue):
+    def __init__(self,IMU_queue,phone_action_queue,fire_queue):
         Thread.__init__(self)
         self.IMU_queue = IMU_queue
-
+        self.fire_queue = fire_queue  
         self.phone_action_queue = phone_action_queue
     
     def detectAction(self, message):
@@ -29,21 +27,28 @@ class AI(Thread):
         return False
     
     def sendData(self, messages):
-       return #AI call
+       return get_action(messages)
        
     def run(self):
       while True:
-        message = self.IMU_queue.get() #detection of move start should be here, only send to AI if valid
-        if message['isFire'] and message['isHit']: #only care abt is fired and not is hit
-           self.phone_action_queue.put(combined_action) #
-        print_message('AI Thread',f"Received '{message}' from RelayServer")
-        print()
-        if self.detectAction(message):
-           messages = []
-           while len(messages) < 30:
-              messages.append(message)
-           action = self.sendData(messages)
-           self.phone_action_queue.put(combined_action)
+        message_IMU = self.IMU_queue.get() #get from IMU
+        message_Shoot = self.fire_queue.get() #get from Shoot_queue
+        if message_Shoot['isFire']: #only care abt is fired and not is hit
+           action = 'Gun'
+           number = 1
+           combined_action = f"{{'playerID': '{number}', 'action': {action}}}"
+           self.phone_action_queue.put(combined_action) 
+        
+        messages_IMU = []
+        while len(messages_IMU) < 60:
+            messages_IMU.append(message_IMU)
+            if ~message_Shoot['isFire']:
+                action = self.sendData(messages_IMU)
+                number = 1 #Check again for this part
+                combined_action = f"{{'playerID': '{number}', 'action': {action}}}"
+                self.phone_action_queue.put(combined_action)
+                message_Shoot['isFire'] = False
+
 
     
     

@@ -7,6 +7,7 @@ import traceback
 import json
 import re 
 
+
 class RelayServer(Thread):
     def __init__(self, host,port,IMU_queue,shot_queue,fire_queue):
         Thread.__init__(self)
@@ -21,6 +22,11 @@ class RelayServer(Thread):
         #self.from_game_engine_queue = from_game_engine_queue  # hp and ammo to send back to beetles 
         self.server.settimeout(1.0)
         self.stop_event = Event()
+        self.process_next_packets = Event()
+        self.threshold =  10 
+        self.packet_count =  30 
+
+
 
     def handleClient(self, client, address):
         self.client = client
@@ -111,9 +117,23 @@ class RelayServer(Thread):
             packet_data = json.loads(packet_data_str)
 
             # Process based on packet type
-            if packet_type == 'IMUPacket' and 'accel' in packet_data and 'gyro' in packet_data:
-                print(f"Processing IMUPacket: {packet_data}")
-                # self.IMU_queue.put(packet_data)
+            if packet_type == 'IMUPacket' and 'accel' in packet_data and 'gyro' in packet_data: 
+                #check if accel for either x y z is beyond a certain threshold -> send the next x number of packets
+                if any(abs(val) > self.threshold for val in packet_data['accel']): #clarify this value with andrew 
+                    print(f"Threshold exceeded! Processing next {self.x_packets} packets.")
+                    self.process_next_packets.set()  # Set the flag to true
+
+                # If the flag is set, process the next `x` packets
+                if self.process_next_packets.is_set():
+                    print(f"Processing IMUPacket: {packet_data}")
+                    self.IMU_queue.put(packet_data)
+                    
+                    # Decrement the packet count and stop after `x` packets
+                    self.x_packets -= 1
+                    if self.x_packets <= 0:
+                        self.process_next_packets.clear()  # Reset the flag
+                        self.x_packets = 5  # clarify this number with andrew  
+                    
 
             elif packet_type == 'ShootPacket' and 'isFired' in packet_data:
                 #print(f"Send to AI: {packet_data}")
@@ -169,12 +189,14 @@ class RelayServer(Thread):
                     line  = line.strip()
                     if line: 
                         self.processMessage(line)
-                    #time.sleep(0.1)  # Simulate 10 packets per second
+                    time.sleep(0.1)  # Simulate 10 packets per second
         except Exception as e:
             print(f"Error reading log file: {e}")
     
     def run(self):
-        self.simulateClientWithLogFile('packets_from_beetles.log')
+        while True:
+            self.simulateClientWithLogFile('packets_from_beetles.log')
+            time.sleep(1)
 
 
 

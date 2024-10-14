@@ -36,6 +36,9 @@ class AI(Thread):
         print_message('AI Thread',f"Received '{message}' from RelayServer")
         print()
         #action = "bomb"
+
+        # TO ADD
+
         action = self.random_action()
         combined_action = action + ":1"
         self.phone_action_queue.put(combined_action)

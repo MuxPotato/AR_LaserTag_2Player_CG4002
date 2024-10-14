@@ -11,7 +11,7 @@
 #define PACKET_SIZE 20
 #define PACKET_DATA_SIZE 16
 #define PLACEHOLDER_METADATA 0x0F
-#define TRANSMIT_DELAY 10
+#define TRANSMIT_DELAY 5
 
 struct BlePacket {
 	/* Start packet header */

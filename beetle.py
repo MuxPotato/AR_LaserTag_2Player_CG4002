@@ -414,8 +414,6 @@ class Beetle(threading.Thread):
         if packetBytes is None or len(packetBytes) < PACKET_SIZE:
             return BlePacket(ERROR_VALUE, ERROR_VALUE, bytearray(), ERROR_VALUE)
         metadata, seq_num, data, dataCrc = self.unpack_packet_bytes(packetBytes)
-        # TODO: Improve how we get packet data bytes(bytes 3-18)
-        data = packetBytes[3:19]
         packet = BlePacket(metadata, seq_num, data, dataCrc)
         return packet
 

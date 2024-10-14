@@ -1,3 +1,5 @@
 #include <Wire.h>
 
-void gyro_signals(void);
+#define NUM_CALIBRATION_ROUNDS 2000
+
+void update_imu_data(void);

@@ -29,12 +29,25 @@ uint8_t numRetries = 0;
 uint8_t numInvalidPacketsReceived = 0;
 
 /* IMU variables */
-float RateRoll, RatePitch, RateYaw;
-float RateCalibrationRoll, RateCalibrationPitch, RateCalibrationYaw;
-int RateCalibrationNumber;
+/*float RateCalibrationGyroX, RateCalibrationGyroY, RateCalibrationGyroZ;
 float AccX, AccY, AccZ;
-float AngleRoll, AnglePitch;
-float LoopTimer;
+float RateRoll, RatePitch, RateYaw; */
+// Accelerometer data in LSB per degree
+int16_t AccX = 0;
+int16_t AccY = 0;
+int16_t AccZ = 0;
+// Offset error value for accelerometer data
+int16_t AccErrorX = 0;
+int16_t AccErrorY = 0;
+int16_t AccErrorZ = 0;
+// Accelerometer data in LSB per degrees/s
+int16_t GyroX = 0;
+int16_t GyroY = 0;
+int16_t GyroZ = 0;
+// Offset error value for gyroscope data
+int16_t GyroErrorX = 0;
+int16_t GyroErrorY = 0;
+int16_t GyroErrorZ = 0;
 
 void setup() {
   Serial.begin(BAUDRATE);
@@ -269,7 +282,7 @@ void sendPacket(BlePacket &packetToSend) {
 }
 
 /* IMU */
-void gyro_signals(void) {
+void update_imu_data(void) {
   // Set low pass filter bandwidth to 10Hz
   // Consider 5Hz for filter bandwidth, given by value "6"
   Wire.beginTransmission(0x68); //default value of MPU register
@@ -305,11 +318,11 @@ void gyro_signals(void) {
   Wire.endTransmission();
 
   Wire.requestFrom(0x68, 6);
-  int16_t GyroX = Wire.read() << 8 | Wire.read();
-  int16_t GyroY = Wire.read() << 8 | Wire.read();
-  int16_t GyroZ = Wire.read() << 8 | Wire.read();
+  int16_t GyroXLSB = Wire.read() << 8 | Wire.read();
+  int16_t GyroYLSB = Wire.read() << 8 | Wire.read();
+  int16_t GyroZLSB = Wire.read() << 8 | Wire.read();
 
-  //Convert the gyroscope and acclerometer readings to physical units 
+  /* //Convert the gyroscope and acclerometer readings to physical units 
   //Convert the LSB scale to physical units by dividing by 16384
   AccX = (float)AccXLSB / 16384;
   AccY = (float)AccYLSB / 16384;
@@ -318,54 +331,134 @@ void gyro_signals(void) {
   //Convert the LSB scale to physical units by dividing by 131 
   RateRoll = (float)GyroX / 131; 
   RatePitch = (float)GyroY / 131;
-  RateYaw = (float)GyroZ / 131;
+  RateYaw = (float)GyroZ / 131; */
+  // Update accelerometer data
+  AccX = AccXLSB;
+  AccY = AccYLSB;
+  AccZ = AccZLSB;
+
+  // Update gyroscope data
+  GyroX = GyroXLSB;
+  GyroY = GyroYLSB;
+  GyroZ = GyroZLSB;
 }
 
 BlePacket sendImuPacket() {
-  gyro_signals();
-  RateRoll -= RateCalibrationRoll;
-  RatePitch -= RateCalibrationPitch;
-  RateYaw -= RateCalibrationYaw;
+  update_acc_data();
+  update_gyro_data();
+  AccX -= AccErrorX;
+  AccY -= AccErrorY;
+  AccZ -= AccErrorZ;
+  GyroX -= GyroErrorX;
+  GyroY -= GyroErrorY;
+  GyroZ -= GyroErrorZ;
 
   BlePacket imuPacket;
   byte imuData[PACKET_DATA_SIZE] = {};
-  floatToData(imuData, AccX, AccY, AccZ, RatePitch, RateRoll, RateYaw);
+  floatToData(imuData, AccX, AccY, AccZ, GyroX, GyroY, GyroZ);
   createPacket(imuPacket, PacketType::IMU, seqNum, imuData);
   sendPacket(imuPacket);
   return imuPacket;
+}
+
+void update_acc_data() {
+  // Set low pass filter bandwidth to 10Hz
+  // Consider 5Hz for filter bandwidth, given by value "6"
+  Wire.beginTransmission(0x68); //default value of MPU register
+  Wire.write(0x1A); //writing to the low pass filter register
+  Wire.write(0x05); //value of "5" turns on 10Hz
+  Wire.endTransmission();
+
+  // Prepare to get accelerometer readings from accelerometer register
+  Wire.beginTransmission(0x68);
+  Wire.write(0x3B); //register to access accelerometer readings
+  Wire.endTransmission();
+
+  Wire.requestFrom(0x68, 6); //request 6 bytes from the MPU (each measurement takes 2 bytes)
+  AccX = Wire.read() << 8 | Wire.read();
+  AccY = Wire.read() << 8 | Wire.read();
+  AccZ = Wire.read() << 8 | Wire.read();
+}
+
+void update_gyro_data() {
+  // Set low pass filter bandwidth to 10Hz
+  // Consider 5Hz for filter bandwidth, given by value "6"
+  Wire.beginTransmission(0x68); //default value of MPU register
+  Wire.write(0x1A); //writing to the low pass filter register
+  Wire.write(0x05); //value of "5" turns on 10Hz
+  Wire.endTransmission();
+
+  // Prepare to get gyroscope readings from gyroscope register
+  Wire.beginTransmission(0x68);
+  Wire.write(0x43); //register to access gyroscope readings
+  Wire.endTransmission();
+
+  Wire.requestFrom(0x68, 6);
+  GyroX = Wire.read() << 8 | Wire.read();
+  GyroY = Wire.read() << 8 | Wire.read();
+  GyroZ = Wire.read() << 8 | Wire.read();
 }
 
 void setupImu() {
   BlePacket infoPacket;
   byte infoData[PACKET_DATA_SIZE] = {};
   createDataFrom("CALIBRATING", infoData);
-  createPacket(infoPacket, PacketType::GAME_STAT, INITIAL_SEQ_NUM, infoData);
+  createPacket(infoPacket, PacketType::INFO, INITIAL_SEQ_NUM, infoData);
   sendPacket(infoPacket);
 
-  Wire.setClock(400000);
-  
-  Wire.begin();
   delay(250);
   
+  // Initialise IMU
+  Wire.begin();
+  Wire.setClock(400000);
+
+  // Reset IMU
   Wire.beginTransmission(0x68);
   Wire.write(0x6B);
   Wire.write(0x00);
   Wire.endTransmission();
 
-  //Hold steady to calibrate IMU 
-  for (RateCalibrationNumber = 0; RateCalibrationNumber < 2000; RateCalibrationNumber ++) {
-    gyro_signals();
-    RateCalibrationRoll += RateRoll;
-    RateCalibrationPitch += RatePitch;
-    RateCalibrationYaw += RateYaw;
+  // Configure accelerometer of IMU to use sensitivity range of +-2 degrees
+  Wire.beginTransmission(0x68); 
+  Wire.write(0x1C); // write to accelerometer configuration register
+  Wire.write(0x0); // value of "0" gives +-2g
+  Wire.endTransmission();
+
+  // Configure gyroscope of IMU to set sensitivity range to +-250 degrees/s
+  Wire.beginTransmission(0x68);
+  Wire.write(0x1B); //write to gyroscope configuration register
+  Wire.write(0x0); //value of "0" gives +- 250 deg
+  Wire.endTransmission();
+  delay(20);
+
+  // Hold steady to calibrate accelerometer of IMU 
+  for (size_t accCalibrationRound = 0; accCalibrationRound < NUM_CALIBRATION_ROUNDS; ++accCalibrationRound) {
+    update_acc_data();
+    AccErrorX += AccX;
+    AccErrorY += AccY;
+    AccErrorZ += (AccZ - 1.0);
     delay(1);
   }
-  RateCalibrationRoll /= 2000;
-  RateCalibrationPitch /= 2000;
-  RateCalibrationYaw /= 2000;
+  AccErrorX /= NUM_CALIBRATION_ROUNDS;
+  AccErrorY /= NUM_CALIBRATION_ROUNDS;
+  AccErrorZ /= NUM_CALIBRATION_ROUNDS;
+
+  // Hold steady to calibrate gyroscope of IMU 
+  for (size_t gyroCalibrationNumber = 0; gyroCalibrationNumber < NUM_CALIBRATION_ROUNDS; ++gyroCalibrationNumber) {
+    update_gyro_data();
+    GyroErrorX += GyroX;
+    GyroErrorY += GyroY;
+    GyroErrorZ += GyroZ;
+    delay(1);
+  }
+  GyroErrorX /= NUM_CALIBRATION_ROUNDS;
+  GyroErrorY /= NUM_CALIBRATION_ROUNDS;
+  GyroErrorZ /= NUM_CALIBRATION_ROUNDS;
+
+  delay(20);
 
   byte completeData[PACKET_DATA_SIZE] = {};
   createDataFrom("CALIBRATED", completeData);
-  createPacket(infoPacket, PacketType::GAME_STAT, INITIAL_SEQ_NUM, completeData);
+  createPacket(infoPacket, PacketType::INFO, INITIAL_SEQ_NUM, completeData);
   sendPacket(infoPacket);
 }

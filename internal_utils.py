@@ -93,6 +93,7 @@ class BlePacketType(Enum):
     IR_TRANS = 5
     GAME_STAT = 6
     GAME_ACTION = 7
+    INFO = 8
 
 class GunPacket(NamedTuple):
     beetle_mac: str

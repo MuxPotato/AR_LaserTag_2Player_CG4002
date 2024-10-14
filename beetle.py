@@ -396,7 +396,7 @@ class Beetle(threading.Thread):
         return False
     
     def isValidPacketType(self, packet_type_id):
-        return packet_type_id <= BlePacketType.GAME_ACTION.value and packet_type_id >= BlePacketType.HELLO.value
+        return packet_type_id <= BlePacketType.INFO.value and packet_type_id >= BlePacketType.HELLO.value
     
     def parseData(self, byte1, byte2):
         return (byte1 + (byte2 << BITS_PER_BYTE)) / 100.0

@@ -31,16 +31,14 @@ struct BlePacket {
 };
 
 enum PacketType {
-	HELLO = 0,
-	ACK = 1,
+  HELLO = 0,
+  ACK = 1,
   NACK = 2,
-	P1_IMU = 3,
-	P1_IR_RECV = 4,
-	P1_IR_TRANS = 5,
-	P2_IMU = 6,
-	P2_IR_RECV = 7,
-	P2_IR_TRANS = 8,
-	GAME_STAT = 9
+  IMU = 3,
+  IR_RECV = 4,
+  IR_TRANS = 5,
+  GAME_STAT = 6,
+  GAME_ACTION = 7
 };
 
 template <typename T> class MyQueue {

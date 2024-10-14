@@ -13,12 +13,13 @@ def dump_imu_data_to_csv(imu_queue):
     filename = input("Enter the filename to dump IMU data to: ")
     target_file_path = f"""imu_data/{filename}.csv"""
     os.makedirs(os.path.dirname(target_file_path), exist_ok=True)
+    label = input("Enter the label for the current data: ")
     with open(target_file_path, 'w') as output_csv:
         csv_writer = csv.writer(output_csv)
         csv_writer.writerow(["Accel X", "Accel Y", "Accel Z", "Gyro X", "Gyro Y", "Gyro Z", "Label"])
         for imu_data in imu_queue.queue:
             # Expand accel and gyro arrays before writing all 6 floats into 1 row
-            csv_writer.writerow([*imu_data.accel, *imu_data.gyro, filename])
+            csv_writer.writerow([*imu_data.accel, *imu_data.gyro, label])
 
 if __name__=="__main__":
     imu_beetle = None

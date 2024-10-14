@@ -308,7 +308,7 @@ BlePacket sendVestPacket() {
   BlePacket vestPacket = {};
   byte packetData[PACKET_DATA_SIZE] = {};
   createVestPacketData(isShot, packetData);
-  createPacket(vestPacket, PacketType::P1_IR_RECV, senderSeqNum, packetData);
+  createPacket(vestPacket, PacketType::IR_RECV, senderSeqNum, packetData);
   sendPacket(vestPacket);
   return vestPacket;
 }

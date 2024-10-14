@@ -303,22 +303,6 @@ void retransmitLastPacket() {
   }
 }
 
-BlePacket sendDummyPacket() {
-  BlePacket dummyPacket;
-  dummyPacket.metadata = PacketType::P1_IMU;
-  dummyPacket.seqNum = senderSeqNum;
-  float x1 = random(0, 100);
-  float y1 = random(0, 100);
-  float z1 = random(0, 100);
-  float x2 = random(0, 100);
-  float y2 = random(0, 100);
-  float z2 = random(0, 100);
-  floatToData(dummyPacket.data, x1, y1, z1, x2, y2, z2);
-  dummyPacket.crc = getCrcOf(dummyPacket);
-  sendPacket(dummyPacket);
-  return dummyPacket;
-}
-
 void sendPacket(BlePacket &packetToSend) {
   if ((millis() - lastSentPacketTime) < TRANSMIT_DELAY) {
     delay(TRANSMIT_DELAY);
@@ -334,7 +318,7 @@ BlePacket sendGunPacket(bool mIsFired) {
   BlePacket gunPacket = {};
   byte packetData[PACKET_DATA_SIZE] = {};
   getPacketDataFor(mIsFired, packetData);
-  createPacket(gunPacket, PacketType::P1_IR_TRANS, senderSeqNum, packetData);
+  createPacket(gunPacket, PacketType::IR_TRANS, senderSeqNum, packetData);
   sendPacket(gunPacket);
   return gunPacket;
 }

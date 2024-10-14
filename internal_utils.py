@@ -40,7 +40,7 @@ BEETLE_MAC_ADDR_MAP = {
     # Below must be player 1 vest Beetle
     "F4:B8:5E:42:6D:75": 1,
     # Below must be player 1 gun Beetle
-    "F4:B8:5E:42:67:6E": 1,
+    "F4:B8:5E:42:67:2B": 1,
 
     # Below must be player 2 IMU(glove) Beetle
     "B4:99:4C:89:1B:FD": 2,

@@ -155,41 +155,6 @@ void createDataFrom(String givenStr, byte packetData[PACKET_DATA_SIZE]) {
   }
 }
 
-bool fixPacketCrc(BlePacket &givenPacket) {
-  uint8_t computedCrc = getCrcOf(givenPacket);
-  if (computedCrc != givenPacket.crc) {
-    givenPacket.crc = computedCrc;
-    // Return true to indicate that crc value was corrupted and is now fixed
-    return true;
-  }
-  return false;
-}
-
-void floatToData(byte packetData[PACKET_DATA_SIZE], float x1, float y1, float z1, float x2, float y2, float z2) {
-  uint16_t x1s = (uint16_t) (x1 * 100);
-  packetData[0] = (byte) x1s;
-  packetData[1] = (byte) (x1s >> BITS_PER_BYTE);
-  uint16_t y1s = (uint16_t) (y1 * 100);
-  packetData[2] = (byte) y1s;
-  packetData[3] = (byte) (y1s >> BITS_PER_BYTE);
-  uint16_t z1s = (uint16_t) (z1 * 100);
-  packetData[4] = (byte) z1s;
-  packetData[5] = (byte) (z1s >> BITS_PER_BYTE);
-  uint16_t x2s = (uint16_t) (x2 * 100);
-  packetData[6] = (byte) x2s;
-  packetData[7] = (byte) (x2s >> BITS_PER_BYTE);
-  uint16_t y2s = (uint16_t) (y2 * 100);
-  packetData[8] = (byte) y2s;
-  packetData[9] = (byte) (y2s >> BITS_PER_BYTE);
-  uint16_t z2s = (uint16_t) (z2 * 100);
-  packetData[10] = (byte) z2s;
-  packetData[11] = (byte) (z2s >> BITS_PER_BYTE);
-  // Padding bytes
-  for (size_t i = 12; i < PACKET_DATA_SIZE; i += 1) {
-    packetData[i] = 0;
-  }
-}
-
 void getBytesFrom(byte imuData[PACKET_DATA_SIZE], int16_t accX, int16_t accY, int16_t accZ, 
       int16_t gyroX, int16_t gyroY, int16_t gyroZ) {
   serialiseImuData(accX, imuData, 0);

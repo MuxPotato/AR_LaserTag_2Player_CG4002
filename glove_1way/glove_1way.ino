@@ -29,9 +29,6 @@ uint8_t numRetries = 0;
 uint8_t numInvalidPacketsReceived = 0;
 
 /* IMU variables */
-/*float RateCalibrationGyroX, RateCalibrationGyroY, RateCalibrationGyroZ;
-float AccX, AccY, AccZ;
-float RateRoll, RatePitch, RateYaw; */
 // Accelerometer data in LSB per degree
 int16_t AccX = 0;
 int16_t AccY = 0;
@@ -282,67 +279,6 @@ void sendPacket(BlePacket &packetToSend) {
 }
 
 /* IMU */
-void update_imu_data(void) {
-  // Set low pass filter bandwidth to 10Hz
-  // Consider 5Hz for filter bandwidth, given by value "6"
-  Wire.beginTransmission(0x68); //default value of MPU register
-  Wire.write(0x1A); //writing to the low pass filter register
-  Wire.write(0x05); //value of "5" turns on 10Hz
-  Wire.endTransmission();
-
-  // Set accelerometer range to +-2g
-  Wire.beginTransmission(0x68); 
-  Wire.write(0x1C); // write to accelerometer configuration register
-  Wire.write(0x0); // value of "0" gives +-2g
-  Wire.endTransmission();
-
-  // Prepare to get accelerometer readings from accelerometer register
-  Wire.beginTransmission(0x68);
-  Wire.write(0x3B); //register to access accelerometer readings
-  Wire.endTransmission();
-
-  Wire.requestFrom(0x68, 6); //request 6 bytes from the MPU (each measurement takes 2 bytes)
-  int16_t AccXLSB = Wire.read() << 8 | Wire.read();
-  int16_t AccYLSB = Wire.read() << 8 | Wire.read();
-  int16_t AccZLSB = Wire.read() << 8 | Wire.read();
-
-  // Set gyroscope range to +-250 degs
-  Wire.beginTransmission(0x68);
-  Wire.write(0x1B); //write to gyroscope configuration register
-  Wire.write(0x0); //value of "0" gives +- 250 deg
-  Wire.endTransmission();
-
-  // Prepare to get gyroscope readings from gyroscope register
-  Wire.beginTransmission(0x68);
-  Wire.write(0x43); //register to access gyroscope readings
-  Wire.endTransmission();
-
-  Wire.requestFrom(0x68, 6);
-  int16_t GyroXLSB = Wire.read() << 8 | Wire.read();
-  int16_t GyroYLSB = Wire.read() << 8 | Wire.read();
-  int16_t GyroZLSB = Wire.read() << 8 | Wire.read();
-
-  /* //Convert the gyroscope and acclerometer readings to physical units 
-  //Convert the LSB scale to physical units by dividing by 16384
-  AccX = (float)AccXLSB / 16384;
-  AccY = (float)AccYLSB / 16384;
-  AccZ = (float)AccZLSB / 16384;
-
-  //Convert the LSB scale to physical units by dividing by 131 
-  RateRoll = (float)GyroX / 131; 
-  RatePitch = (float)GyroY / 131;
-  RateYaw = (float)GyroZ / 131; */
-  // Update accelerometer data
-  AccX = AccXLSB;
-  AccY = AccYLSB;
-  AccZ = AccZLSB;
-
-  // Update gyroscope data
-  GyroX = GyroXLSB;
-  GyroY = GyroYLSB;
-  GyroZ = GyroZLSB;
-}
-
 BlePacket sendImuPacket() {
   update_acc_data();
   update_gyro_data();

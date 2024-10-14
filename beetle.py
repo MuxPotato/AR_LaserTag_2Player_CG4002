@@ -461,6 +461,52 @@ class GloveBeetle(Beetle):
         # TODO: Stop printing debug line below
         self.mPrint2("Received IMU data from {}: [{}, {}, {}, {}, {}, {}]"
                 .format(self.beetle_mac_addr, x1, y1, z1, x2, y2, z2))
+        
+class GloveBeetle1Way(Beetle):
+    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
+        super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
+
+    def main(self):
+        while not self.terminateEvent.is_set():
+            try:
+                if not self.hasHandshake:
+                    # Perform 3-way handshake
+                    self.doHandshake()
+                # Handshake already completed
+                elif self.mBeetle.waitForNotifications(BLE_TIMEOUT):
+                    if len(self.mDataBuffer) < PACKET_SIZE:
+                        continue
+                    # bytearray for 20-byte packet
+                    packetBytes = self.get_packet_from(self.mDataBuffer)
+                    if not self.isValidPacket(packetBytes):
+                        self.sendNack(self.receiver_seq_num)
+                        continue
+                    # assert packetBytes is a valid 20-byte packet
+                    # Keep track of packets received
+                    self.num_packets_received += 1
+                    # Parse packet from 20-byte
+                    receivedPacket = self.parsePacket(packetBytes)
+                    self.handle_beetle_packet(receivedPacket)
+            except BTLEException as ble_exc:
+                self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in connect() for Beetle: {self.beetle_mac_addr}""")
+                stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(ble_exc))
+                self.mPrint2(stacktrace_str)
+                self.reconnect()
+            except Exception as exc:
+                self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in main() of {self.beetle_mac_addr}""")
+                stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(exc))
+                self.mPrint2(stacktrace_str)
+        self.disconnect()
+
+    def handle_raw_data_packet(self, raw_data_packet):
+        x1, y1, z1, x2, y2, z2 = self.getDataFrom(raw_data_packet.data)
+        internal_imu_packet = ImuPacket(self.beetle_mac_addr, [x1, y1, z1], [x2, y2, z2])
+        player_id = get_player_id_for(self.beetle_mac_addr)
+        external_imu_packet = external_utils.ImuPacket(player_id, [x1, y1, z1], [x2, y2, z2])
+        self.outgoing_queue.put(external_imu_packet)
+        # TODO: Stop printing debug line below
+        self.mPrint2("Received IMU data from {}: [{}, {}, {}, {}, {}, {}]"
+                .format(self.beetle_mac_addr, x1, y1, z1, x2, y2, z2))
 
 class GunBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):

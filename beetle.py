@@ -5,7 +5,7 @@ import time
 import traceback
 import anycrc
 from ble_delegate import BlePacketDelegate
-from internal_utils import BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, GunPacket, ImuPacket, VestPacket, bcolors, get_player_id_for, metadata_to_packet_type
+from internal_utils import ACC_LSB_SCALE, BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, GYRO_LSB_SCALE, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, GunPacket, ImuPacket, VestPacket, bcolors, get_player_id_for, metadata_to_packet_type
 import external_utils
 from bluepy.btle import BTLEException, Peripheral
 
@@ -354,12 +354,14 @@ class Beetle(threading.Thread):
         return dataCrc
 
     def getDataFrom(self, dataBytes):
-        x1 = self.parseData(dataBytes[0], dataBytes[1])
-        y1 = self.parseData(dataBytes[2], dataBytes[3])
-        z1 = self.parseData(dataBytes[4], dataBytes[5])
-        x2 = self.parseData(dataBytes[6], dataBytes[7])
-        y2 = self.parseData(dataBytes[8], dataBytes[9])
-        z2 = self.parseData(dataBytes[10], dataBytes[11])
+        # Accelerometer data
+        x1 = self.parseImuData(dataBytes, 0) / ACC_LSB_SCALE
+        y1 = self.parseImuData(dataBytes, 2) / ACC_LSB_SCALE
+        z1 = self.parseImuData(dataBytes, 4) / ACC_LSB_SCALE
+        # Gyroscope data
+        x2 = self.parseImuData(dataBytes, 6) / GYRO_LSB_SCALE
+        y2 = self.parseImuData(dataBytes, 8) / GYRO_LSB_SCALE
+        z2 = self.parseImuData(dataBytes, 10) / GYRO_LSB_SCALE
         return x1, y1, z1, x2, y2, z2
     
     def getPacketTypeOf(self, blePacket):
@@ -398,9 +400,12 @@ class Beetle(threading.Thread):
     def isValidPacketType(self, packet_type_id):
         return packet_type_id <= BlePacketType.INFO.value and packet_type_id >= BlePacketType.HELLO.value
     
-    def parseData(self, byte1, byte2):
-        return (byte1 + (byte2 << BITS_PER_BYTE)) / 100.0
-        
+    def parseImuData(self, packetBytes, offset):
+        # Get 2-byte signed integer containing 1 IMU data value from packetBytes
+        ## Get only the first index since unpack_from() always returns a tuple
+        imu_data_value = struct.unpack_from('<h', packetBytes, offset)[0]
+        return imu_data_value
+
     """
         packetBytes assumed to be a valid 20-byte packet
     """
@@ -409,6 +414,8 @@ class Beetle(threading.Thread):
         if packetBytes is None or len(packetBytes) < PACKET_SIZE:
             return BlePacket(ERROR_VALUE, ERROR_VALUE, bytearray(), ERROR_VALUE)
         metadata, seq_num, data, dataCrc = self.unpack_packet_bytes(packetBytes)
+        # TODO: Improve how we get packet data bytes(bytes 3-18)
+        data = packetBytes[3:19]
         packet = BlePacket(metadata, seq_num, data, dataCrc)
         return packet
 

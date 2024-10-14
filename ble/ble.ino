@@ -220,9 +220,6 @@ void processGivenPacket(const BlePacket &packet) {
         BlePacket ackPacket;
         createAckPacket(ackPacket, seqNumToAck);
         sendPacket(ackPacket);
-        if (numInvalidPacketsReceived > 0) {
-          numInvalidPacketsReceived = 0;
-        }
         if (shouldHandlePacket) {
           // Process the packet to handle specific game logic(e.g. updating Beetle's internal game state)
           handleGamePacket(packet);
@@ -260,6 +257,9 @@ void processIncomingPacket() {
       // Received invalid packet, request retransmit with NACK
       sendPacket(nackPacket);
     } else {
+      if (numInvalidPacketsReceived > 0) {
+        numInvalidPacketsReceived = 0;
+      }
       processGivenPacket(receivedPacket);
     }
   } // if (recvBuffer.size() >= PACKET_SIZE)

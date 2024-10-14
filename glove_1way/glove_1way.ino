@@ -355,7 +355,7 @@ BlePacket sendImuPacket() {
 
   BlePacket imuPacket;
   byte imuData[PACKET_DATA_SIZE] = {};
-  floatToData(imuData, AccX, AccY, AccZ, GyroX, GyroY, GyroZ);
+  getBytesFrom(imuData, AccX, AccY, AccZ, GyroX, GyroY, GyroZ);
   createPacket(imuPacket, PacketType::IMU, seqNum, imuData);
   sendPacket(imuPacket);
   return imuPacket;

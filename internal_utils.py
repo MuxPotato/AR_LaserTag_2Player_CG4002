@@ -19,6 +19,7 @@ MAX_SEQ_NUM = 65535
 MAX_RETRANSMITS = 5
 ACC_LSB_SCALE = 16384.0
 GYRO_LSB_SCALE = 131.0
+GAME_STATE_QUEUE_TIMEOUT = 1
 
 BLUNO_MAC_ADDR_LIST = [
     "f4:b8:5e:42:67:2b",
@@ -40,14 +41,14 @@ BEETLE_MAC_ADDR_MAP = {
     # Below must be player 1 IMU(glove) Beetle
     "F4:B8:5E:42:61:62": 1,
     # Below must be player 1 vest Beetle
-    "F4:B8:5E:42:6D:75": 1,
+    "D0:39:72:DF:CA:F2": 2,
     # Below must be player 1 gun Beetle
     "F4:B8:5E:42:67:2B": 1,
 
     # Below must be player 2 IMU(glove) Beetle
     "B4:99:4C:89:1B:FD": 2,
     # Below must be player 2 vest Beetle
-    "D0:39:72:DF:CA:F2": 2,
+    "F4:B8:5E:42:6D:75": 1,
     # Below must be player 2 gun Beetle
     "F4:B8:5E:42:6D:0E": 2,
 
@@ -109,6 +110,15 @@ class ImuPacket(NamedTuple):
 class VestPacket(NamedTuple):
     beetle_mac: str
     vestBoolean: bool
+
+class GunUpdatePacket(NamedTuple):
+    player_id: int
+    bullets: int
+
+class VestUpdatePacket(NamedTuple):
+    player_id: int
+    is_shot: bool
+    player_hp: int
 
 # Public functions
 def get_player_id_for(beetle_mac_addr):

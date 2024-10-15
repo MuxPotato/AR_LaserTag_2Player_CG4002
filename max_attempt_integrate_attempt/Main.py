@@ -25,14 +25,14 @@ eval_queue = queue.Queue()
 phone_action_queue = queue.Queue() # Added
 from_eval_queue = queue.Queue()
 phone_response_queue = queue.Queue()
-
+to_rs_queue = queue.Queue()
 shot_queue = queue.Queue()
 fire_queue = queue.Queue()
 
-relay_server = RelayServer(host = relayhost,port = relayport,IMU_queue=IMU_queue,shot_queue = shot_queue,fire_queue = fire_queue)
+relay_server = RelayServer(host = relayhost,port = relayport,IMU_queue=IMU_queue,shot_queue = shot_queue,fire_queue = fire_queue,to_rs_queue = to_rs_queue)
 ai = AI(IMU_queue=IMU_queue,phone_action_queue=phone_action_queue, fire_queue = fire_queue)
 #game_engine = GameEngine(action_queue=action_queue, game_engine_queue = game_engine_queue,viz_queue=viz_queue, eval_queue=eval_queue)
-game_engine = GameEngine(phone_action_queue=phone_action_queue,viz_queue=viz_queue, eval_queue=eval_queue, from_eval_queue = from_eval_queue, phone_response_queue=phone_response_queue,shot_queue = shot_queue)
+game_engine = GameEngine(phone_action_queue=phone_action_queue,viz_queue=viz_queue, eval_queue=eval_queue, from_eval_queue = from_eval_queue, phone_response_queue=phone_response_queue,shot_queue = shot_queue,to_rs_queue = to_rs_queue)
 eval_client = EvalClient(eval_queue=eval_queue,server_ip=evalhost,server_port=evalport,from_eval_queue = from_eval_queue)
 visualizer_mqtt = MQTT(viz_queue=viz_queue,phone_action_queue=phone_action_queue,phone_response_queue=phone_response_queue)
 

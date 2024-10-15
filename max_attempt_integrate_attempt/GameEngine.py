@@ -6,7 +6,7 @@ import json
 from Color import print_message
 
 class GameEngine(Thread):
-    def __init__(self, eval_queue, viz_queue,shot_queue,phone_action_queue,from_eval_queue,phone_response_queue):
+    def __init__(self, eval_queue, viz_queue,shot_queue,phone_action_queue,from_eval_queue,phone_response_queue,to_rs_queue):
         Thread.__init__(self)
         
         self.eval_queue = eval_queue 
@@ -15,7 +15,7 @@ class GameEngine(Thread):
         self.from_eval_queue = from_eval_queue
         self.phone_response_queue = phone_response_queue
         self.shot_queue = shot_queue
-        # self.to_rs_queue = to_rs_queue (new queue for sending back hp and ammo to relay server)
+        self.to_rs_queue = to_rs_queue #(new queue for sending back hp and ammo to relay server)
 
 
 

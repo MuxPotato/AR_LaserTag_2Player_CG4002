@@ -9,7 +9,7 @@ import re
 
 
 class RelayServer(Thread):
-    def __init__(self, host,port,IMU_queue,shot_queue,fire_queue):
+    def __init__(self, host,port,IMU_queue,shot_queue,fire_queue,to_rs_queue):
         Thread.__init__(self)
         self.host = host
         self.port = port
@@ -19,7 +19,7 @@ class RelayServer(Thread):
         self.IMU_queue = IMU_queue
         self.shot_queue = shot_queue 
         self.fire_queue = fire_queue 
-        #self.from_game_engine_queue = from_game_engine_queue  # hp and ammo to send back to beetles 
+        self.to_rs_queue = to_rs_queue  # hp and ammo to send back to beetles 
         self.server.settimeout(1.0)
         self.stop_event = Event()
         self.process_next_packets = Event()
@@ -142,7 +142,7 @@ class RelayServer(Thread):
             elif packet_type == 'ShootPacket' and 'isHit' in packet_data:
                 #print(f"Send to game engine: {packet_data}")
                 self.shot_queue.put(packet_data)
-
+           
             else:
                 print("Unknown packet type received")
 
@@ -164,7 +164,7 @@ class RelayServer(Thread):
         while not self.stop_event.is_set():
             try:
                 # Try to get data from the game engine queue with a timeout to avoid blocking
-                game_engine_data = self.from_game_engine_queue.get(timeout=1)
+                game_engine_data = self.to_rs_queue.get(timeout=1)
                 message = json.dumps(game_engine_data)
                 length = str(len(message))
                 first = length + "_"
@@ -180,9 +180,31 @@ class RelayServer(Thread):
                     
             except queue.Empty:
                 continue  # No data from game engine yet
-            
+
+    
+    def run(self):
+        self.server.listen(1)
+        print(f'Listening on {self.host}:{self.port}')
+        while not self.stop_event.is_set():
+            try:
+                    client, address = self.server.accept()
+                    print(f"Relay Client connected from {address}")
+                    self.handleClient(client, address) 
+                    self.sendToRelayClient()
+            except socket.timeout:
+                pass
+    
+
+    def shutdown(self):
+        self.stop_event.set()  # Set the stop event to stop the server loop
+        self.server.close()  # Close the server socket
+        print("Relay server shutdown initiated")
+
+
+
+    """       
     def simulateClientWithLogFile(self,log_file_path):
-        """Simulate receiving data from a client by reading from a log file."""
+        Simulate receiving data from a client by reading from a log file.
         try:
             with open(log_file_path, 'r') as log_file:
                 for line in log_file:
@@ -198,24 +220,5 @@ class RelayServer(Thread):
             self.simulateClientWithLogFile('packets_from_beetles.log')
             time.sleep(1)
 
-
-
-    '''
-    def run(self):
-        self.server.listen(1)
-        print(f'Listening on {self.host}:{self.port}')
-        while not self.stop_event.is_set():
-            try:
-                    client, address = self.server.accept()
-                    print(f"Relay Client connected from {address}")
-                    self.handleClient(client, address) 
-            except socket.timeout:
-                pass
-    '''
-
-    def shutdown(self):
-        self.stop_event.set()  # Set the stop event to stop the server loop
-        self.server.close()  # Close the server socket
-        print("Relay server shutdown initiated")
-
+    """
 

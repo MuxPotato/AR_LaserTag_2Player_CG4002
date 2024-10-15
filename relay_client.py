@@ -10,6 +10,7 @@ from external_utils import QUEUE_GET_TIMEOUT
 
 class ReceiverThread(threading.Thread):
     def __init__(self, my_socket: socket.SocketType, server_ip: str, stop_event: threading.Event, to_ble_game_state_queue: queue.Queue):
+        super().__init__()
         self.my_socket = my_socket
         self.server_ip = server_ip
         self.stop_event = stop_event

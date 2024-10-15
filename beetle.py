@@ -5,7 +5,7 @@ import time
 import traceback
 import anycrc
 from ble_delegate import BlePacketDelegate
-from internal_utils import ACC_LSB_SCALE, BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, GYRO_LSB_SCALE, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, GunPacket, ImuPacket, VestPacket, bcolors, get_player_id_for, metadata_to_packet_type
+from internal_utils import ACC_LSB_SCALE, BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, GYRO_LSB_SCALE, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, GunPacket, GunUpdatePacket, ImuPacket, VestPacket, VestUpdatePacket, bcolors, get_player_id_for, metadata_to_packet_type
 import external_utils
 from bluepy.btle import BTLEException, Peripheral
 
@@ -527,6 +527,20 @@ class GunBeetle(Beetle):
     
     def get_gun_data_from(self, gun_packet):
         return gun_packet.data[0] == 1
+    
+    def handle_ext_packet(self, ext_packet): # type: ignore
+        if isinstance(ext_packet, GunUpdatePacket):
+            gun_packet_to_send = self.create_gun_packet(ext_packet.bullets)
+            self.mPrint2(f"""Updating gun state with: {gun_packet_to_send}""")
+            return gun_packet_to_send
+        return None
+    
+    def create_gun_packet(self, bullets: int):
+        gun_packet_to_send = self.createPacket(BlePacketType.GAME_STAT, self.sender_seq_num, bytearray([bullets]))
+        return gun_packet_to_send
+    
+    def create_gun_packet_data(self, bullets: int):
+        pass
 
 class VestBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
@@ -542,3 +556,15 @@ class VestBeetle(Beetle):
 
     def get_vest_data_from(self, vest_packet):
         return vest_packet.data[0] == 1
+
+    def handle_ext_packet(self, ext_packet): # type: ignore
+        if isinstance(ext_packet, VestUpdatePacket):
+            vest_packet_to_send = self.create_vest_packet(ext_packet.is_shot, ext_packet.player_hp)
+            self.mPrint2(f"""Updating vest state with: {vest_packet_to_send}""")
+            return vest_packet_to_send
+        return None
+    
+    def create_vest_packet(self, is_shot: bool, player_hp: int):
+        vest_packet_to_send = self.createPacket(BlePacketType.GAME_STAT, self.sender_seq_num, bytearray([is_shot, player_hp]))
+        return vest_packet_to_send
+    

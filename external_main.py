@@ -10,7 +10,7 @@ from relay_client import RelayClient
 
 # Constants
 SERVER_IP = "172.26.191.210"
-SERVER_PORT = 6055
+SERVER_PORT = 5055
 
 if __name__=="__main__":
     outgoing_glove_queue = queue.Queue()

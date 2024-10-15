@@ -93,8 +93,47 @@ class RelayClient(threading.Thread):
         self.socket.sendall(message.encode("utf-8"))
         print(f'Sent {message} to relay server')
 
-    def receive(self,message):
-        pass
+    def receive(self):
+        try:
+            # Receive length followed by '_' followed by message
+            data = b''
+            while not data.endswith(b'_'):
+                _d = self.socket.recv(1)
+                if not _d:  
+                    print(f"Server {self.server_ip} disconnected")
+                    raise ConnectionResetError("Server disconnected")
+                data += _d
+            
+            if len(data) == 0:
+                print("No data received")
+                return None
+
+            data = data.decode("utf-8")
+            length = int(data[:-1])
+
+            data = b''
+            while len(data) < length:
+                _d = self.socket.recv(length - len(data))
+                if not _d: 
+                    print(f"Server {self.server_ip} disconnected")
+                    raise ConnectionResetError("Server disconnected")
+                data += _d
+
+            if len(data) == 0:
+                print("No data received")
+                return None
+
+            msg = data.decode("utf-8")
+            if length != len(data):
+                print("Packet length does not match, packet dropped")
+                return None
+            else:
+                print(f"Received message from server: {msg}")
+                return msg 
+
+        except (ConnectionResetError, socket.error) as e:
+            print(f"Error: {str(e)}. Connection might be lost.")
+            return None
 
     def run(self):
         self.connect(self.server_ip,self.server_port)

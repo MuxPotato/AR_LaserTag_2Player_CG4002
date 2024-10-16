@@ -126,7 +126,7 @@ def get_player_id_for(beetle_mac_addr):
 
 def is_metadata_byte(given_byte):
     packet_type = metadata_to_packet_type(given_byte)
-    return packet_type <= BlePacketType.GAME_STAT.value and packet_type >= BlePacketType.HELLO.value
+    return packet_type <= BlePacketType.INFO.value and packet_type >= BlePacketType.HELLO.value
 
 def metadata_to_packet_type(metadata):
     return metadata & LOWER_4BITS_MASK

@@ -109,7 +109,7 @@ class AI(Thread):
         if message_Shoot is not None and message_Shoot['isFired']: #only care abt isHit and not isFired 
            action = 'gun'
            number = 1
-           combined_action = f"{{'playerID': '{number}', 'action': {action}}}"
+           combined_action = action+ ":1"
            self.phone_action_queue.put(combined_action) 
         
         if len(messages_IMU) < packet_number and message_IMU is not None:

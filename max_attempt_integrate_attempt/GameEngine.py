@@ -294,7 +294,7 @@ class GameEngine(Thread):
                         if shot_result:
                             print_message('Game Engine', "Player 1's shot hit Player 2!")
                             self.take_bullet_damage(2)
-                            #self.format_relayclient_packet_isHit(2) # player 2 got shot
+                            self.format_relayclient_packet_isHit(2) # player 2 got shot
                         else:
                             print_message('Game Engine', "Player 1's shot missed Player 2!")
                     else: # player_id = 2
@@ -304,7 +304,7 @@ class GameEngine(Thread):
                         if shot_result:
                             print_message('Game Engine', "Player 2's shot hit Player 1!")
                             self.take_bullet_damage(1)
-                            #self.format_relayclient_packet_isHit(1) # player 1 got shot
+                            self.format_relayclient_packet_isHit(1) # player 1 got shot
                         else:
                             print_message('Game Engine', "Player 2's shot missed Player 1!")
                 else:
@@ -694,8 +694,8 @@ class GameEngine(Thread):
 
 
                 # Sending packets back to vest and gun
-                # self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))
-                # self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
+                self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))
+                self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
 
                 
                 

@@ -199,7 +199,7 @@ class RelayServer(Thread):
             try:
                 # Try to get data from the game engine queue with a timeout to avoid blocking
                 game_engine_data = self.to_rs_queue.get(timeout=1)
-                message = game_engine_data
+                message = message = json.dumps(game_engine_data)
                 length = str(len(message))
                 first = length + "_"
                 if game_engine_data:
@@ -221,10 +221,10 @@ class RelayServer(Thread):
         print(f'Listening on {self.host}:{self.port}')
         while not self.stop_event.is_set():
             try:
-                    client, address = self.server.accept()
-                    print(f"Relay Client connected from {address}")
-                    self.handleClient(client, address) 
-                    #self.sendToRelayClient()
+                client, address = self.server.accept()
+                print(f"Relay Client connected from {address}")
+                self.handleClient(client, address) 
+                self.sendToRelayClient()
             except socket.timeout:
                 pass
     

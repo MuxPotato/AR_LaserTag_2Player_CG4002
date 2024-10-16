@@ -203,6 +203,48 @@ class GameEngine(Thread):
                 return True
         return False
 
+    def format_relayclient_packet_isShot(self, id, isShot):
+        # Note here isShot is just 0 or 1, but 0 never happens bcs we will never need to send a packet to 
+        # the vest if we do not need to ring the buzzere
+
+        # Retrieve hp and bullets based on the player ID
+        if id == 1:
+            hp = self.hp_p1
+            bullets = self.bullets_p1
+        elif id == 2:
+            hp = self.hp_p2
+            bullets = self.bullets_p2
+        else:
+            raise ValueError(f"Invalid player ID: {id}")
+
+        # Format the packet as requested
+        packet = {
+            'id': id,
+            'isShot': isShot
+        }
+
+        return packet
+    
+    def format_relayclient_packet_hp_bullets(self,id):
+        # Retrieve hp and bullets based on the player ID
+        if id == 1:
+            hp = self.hp_p1
+            bullets = self.bullets_p1
+        elif id == 2:
+            hp = self.hp_p2
+            bullets = self.bullets_p2
+        else:
+            raise ValueError(f"Invalid player ID: {id}")
+
+        # Format the packet as requested
+        packet = {
+            'id': id,
+            'hp' : hp,
+            'bullets' : bullets
+        }
+
+        return packet
+
 
 
 
@@ -244,18 +286,25 @@ class GameEngine(Thread):
                 if success:
                     if player_id == 1:
                         action_p1 = "gun"
+
+
+
                         # Now check the shot_queue for Player 2 (opponent)
-                        shot_result = self.check_shot_queue_for_hit(1)
+                        shot_result = self.check_shot_queue_for_hit(1) # func takes in shooting player's id
                         if shot_result:
                             print_message('Game Engine', "Player 1's shot hit Player 2!")
+                            self.take_bullet_damage(2)
+                            #self.format_relayclient_packet_isShot(2) # player 2 got shot
                         else:
                             print_message('Game Engine', "Player 1's shot missed Player 2!")
                     else: # player_id = 2
                         action_p2 = "gun"
                         # Now check the shot_queue for Player 1 (opponent)
-                        shot_result = self.check_shot_queue_for_hit(2)
+                        shot_result = self.check_shot_queue_for_hit(2) # func takes in shooting player's id
                         if shot_result:
                             print_message('Game Engine', "Player 2's shot hit Player 1!")
+                            self.take_bullet_damage(1)
+                            #self.format_relayclient_packet_isShot(1) # player 1 got shot
                         else:
                             print_message('Game Engine', "Player 2's shot missed Player 1!")
                 else:
@@ -381,6 +430,11 @@ class GameEngine(Thread):
 
         return viz_format
 
+    def format_relayclient_packet(self, shooting_player_id):
+        
+        pass
+
+
 
     def check_shot_queue_for_hit(self, shooting_player_id):
         """Check the shot queue to see if the opponent was hit within a 0.5-second timeout."""
@@ -393,9 +447,9 @@ class GameEngine(Thread):
             if not self.shot_queue.empty():
                 shot = self.shot_queue.get()
                 # Check if the shot belongs to the opponent and meets the criteria
-                if shot["player_id"] == opponent_id and shot["isshot"] == 1:
+                if shot["player_id"] == opponent_id and shot["isHit"] == True:
                     # Opponent was shot
-                    self.take_bullet_damage(opponent_id)
+                    
                     return True  # Shot hit the opponent
             else:
                 # If queue is empty, wait briefly before checking again
@@ -638,8 +692,12 @@ class GameEngine(Thread):
                     viz_format = self.process_phone_action("update_ui")
                     self.viz_queue.put(viz_format)
 
-            
 
+                # Sending packets back to vest and gun
+                # self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))
+                # self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
+
+                
                 
 
                 

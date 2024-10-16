@@ -6,7 +6,13 @@ import time
 import traceback
 import json
 import re 
-
+AI_PACKET_COUNT = 20 # vary this to adjust number of packets to go AI
+UPPERTHRESHOLD_X = -0.5 #
+LOWERTHRESHOLD_X = -1.4
+UPPERTHRESHOLD_Y = 0.0
+LOWERTHRESHOLD_Y = -0.9
+UPPERTHRESHOLD_Z = 0.5
+LOWERTHRESHOLD_Z = -0.5
 
 class RelayServer(Thread):
     def __init__(self, host,port,IMU_queue,shot_queue,fire_queue,to_rs_queue):
@@ -25,7 +31,9 @@ class RelayServer(Thread):
         self.process_next_packets = Event()
         self.threshold =  10 
         self.packet_count =  30 
+        self.x_packets = AI_PACKET_COUNT
 
+        
 
 
     def handleClient(self, client, address):
@@ -42,7 +50,7 @@ class RelayServer(Thread):
                     data += _d
                 if len(data) == 0:
                     print("No data")
-                    continue
+                    break
 
                 data = data.decode("utf-8")
                 length = int(data[:-1])
@@ -57,25 +65,29 @@ class RelayServer(Thread):
                     data += _d
                 if len(data) == 0:
                     print("No data")
-                    continue
+                    break
 
                 msg = data.decode("utf-8")
                 if length != len(data):
                     print("Packet length does not match, packet dropped")
                 else:
-                    #print(f"Received '{msg}' from Relay Client")
+                    
                     self.processMessage(msg)
-
+          
             except (ConnectionResetError, socket.error) as e:
                     print(f"Error: {str(e)}. Attempting to reconnect...")
 
                     # Reattempt to accept the client connection
                     self.reconnectClient()
-            finally:
-                client.close()  # Ensure the connection is closed after handling
 
+            except Exception as e:
+                print(f"Unhandled exception in handleClient: {e}")
+                traceback.print_exc()
+                self.reconnectClient()
+                break
+
+            
     def reconnectClient(self):
-       
         if self.client:
             self.client.close()
             self.client = None 
@@ -92,64 +104,85 @@ class RelayServer(Thread):
                 print(f"Socket error during reconnection: {str(e)}")
                 time.sleep(1)  
     
-    def processMessage(self,msg):
+    def processMessage(self, msg):
         try:
+            # Manually clean up any unwanted quotes or spaces
+            msg = msg.strip('"').strip()
 
-            # Use regex to capture packet type and packet data
-            match = re.match(r"'?(\w+)'?:\s*(\{.*\})", msg)
-            if not match:
-                raise ValueError("Message format is incorrect")
+            # Check for IMUPacket
+            if "IMUPacket" in msg:
+                imu_match = re.search(r"IMUPacket':\s*{.*?playerID':\s*(\d+).*?accel':\s*(\[.*?\]).*?gyro':\s*(\[.*?\])", msg)
+                if imu_match:
+                    player_id = int(imu_match.group(1))  
+                    accel_data = eval(imu_match.group(2))  # Use eval carefully
+                    gyro_data = eval(imu_match.group(3))
+        
+                    # Create the packet data dictionary
+                    packet_data = {
+                        'playerID': player_id,
+                        'accel': accel_data,
+                        'gyro': gyro_data
+                    }
 
-            packet_type = match.group(1)  
-            packet_data_str = match.group(2)  
+                    # Check if accel for either x, y, z is beyond certain thresholds
+                    if not (LOWERTHRESHOLD_X < packet_data['accel'][0] < UPPERTHRESHOLD_X and 
+                            LOWERTHRESHOLD_Y < packet_data['accel'][1] < UPPERTHRESHOLD_Y and 
+                            LOWERTHRESHOLD_Z < packet_data['accel'][2] < UPPERTHRESHOLD_Z):
+                        #print(packet_data['accel'][0])
+                        print(f"Threshold exceeded! Processing next {self.x_packets} packets.")
+                        self.process_next_packets.set()  # Set the flag to true
 
-            print(f"Packet type: {packet_type}")
-            print(f"Packet data string: {packet_data_str}")
+                    # If the flag is set, process the next `x` packets
+                    if self.process_next_packets.is_set():
+                        print(f"Processing IMUPacket: {packet_data}")
+                        self.IMU_queue.put(packet_data)
+                        # Decrement the packet count and stop after `x` packets
+                        self.x_packets -= 1
+                        if self.x_packets <= 0:
+                            self.process_next_packets.clear()  # Reset the flag
+                            self.x_packets = AI_PACKET_COUNT  # Reset to the default count
 
-            # Convert the packet data string to a dictionary using json.loads
-            # First, replace single quotes with double quotes in packet_data_str
-            packet_data_str = re.sub(r"(?<!\\)'", '"', packet_data_str)
+                else:
+                    print("Error: Could not parse IMUPacket")
 
-
-            packet_data_str = packet_data_str.replace("False", "false").replace("True", "true").replace("None", "null")
-
-            # parse the string as JSON
-            packet_data = json.loads(packet_data_str)
-
-            # Process based on packet type
-            if packet_type == 'IMUPacket' and 'accel' in packet_data and 'gyro' in packet_data: 
-                #check if accel for either x y z is beyond a certain threshold -> send the next x number of packets
-                if any(abs(val) > self.threshold for val in packet_data['accel']): #clarify this value with andrew 
-                    print(f"Threshold exceeded! Processing next {self.x_packets} packets.")
-                    self.process_next_packets.set()  # Set the flag to true
-
-                # If the flag is set, process the next `x` packets
-                if self.process_next_packets.is_set():
-                    print(f"Processing IMUPacket: {packet_data}")
-                    self.IMU_queue.put(packet_data)
+            # Check for ShootPacket with either isFired or isHit
+            elif "ShootPacket" in msg:
+                shoot_match = re.search(r"ShootPacket':\s*{.*?playerID':\s*(\d+).*?(isFired|isHit)':\s*(True|False)", msg)
+                if shoot_match:
+                    player_id = int(shoot_match.group(1))  # Get playerID
+                    action_type = shoot_match.group(2)  # Get either 'isFired' or 'isHit'
+                    action_value = shoot_match.group(3)  # Keep the original case (True/False)
+                
+                    # Convert the string to a boolean
+                    if action_value == 'True':
+                        action_value = True
+                    elif action_value == 'False':
+                        action_value = False
+                    else:
+                        # Handle the case where action_value is neither 'True' nor 'False'
+                        raise ValueError(f"Unexpected value for action_value: {action_value}")
                     
-                    # Decrement the packet count and stop after `x` packets
-                    self.x_packets -= 1
-                    if self.x_packets <= 0:
-                        self.process_next_packets.clear()  # Reset the flag
-                        self.x_packets = 5  # clarify this number with andrew  
+                    # Process ShootPacket
+                    print(f"ShootPacket -> playerID: {player_id}, {action_type}: {action_value}")
+                    if action_type == 'isFired':
+                        self.fire_queue.put({
+                            'playerID': player_id,
+                            'isFired': action_value  # Keep original case
+                        })
                     
+                    elif action_type == 'isHit':
+                        self.shot_queue.put({
+                            'playerID': player_id,
+                            'isHit': action_value  # Keep original case
+                        })
+                        
+                    
+                else:
+                    print("Error: Could not parse ShootPacket")
 
-            elif packet_type == 'ShootPacket' and 'isFired' in packet_data:
-                #print(f"Send to AI: {packet_data}")
-                self.fire_queue.put(packet_data)
-
-            elif packet_type == 'ShootPacket' and 'isHit' in packet_data:
-                #print(f"Send to game engine: {packet_data}")
-                self.shot_queue.put(packet_data)
-           
             else:
                 print("Unknown packet type received")
 
-        except json.JSONDecodeError as e:
-            print(f"Error processing message: Invalid JSON -> {e}")
-        except ValueError as e:
-            print(f"Error processing message: {e}")
         except Exception as e:
             print(f"Error processing message: {e}")
 
@@ -157,6 +190,7 @@ class RelayServer(Thread):
         #with open("packets_from_beetles.log", "a") as log_file:
             #log_file.write(f"{time.ctime()}: {msg}\n")
 
+    
 
     
     def sendToRelayClient(self):
@@ -165,7 +199,7 @@ class RelayServer(Thread):
             try:
                 # Try to get data from the game engine queue with a timeout to avoid blocking
                 game_engine_data = self.to_rs_queue.get(timeout=1)
-                message = json.dumps(game_engine_data)
+                message = game_engine_data
                 length = str(len(message))
                 first = length + "_"
                 if game_engine_data:
@@ -190,7 +224,7 @@ class RelayServer(Thread):
                     client, address = self.server.accept()
                     print(f"Relay Client connected from {address}")
                     self.handleClient(client, address) 
-                    self.sendToRelayClient()
+                    #self.sendToRelayClient()
             except socket.timeout:
                 pass
     

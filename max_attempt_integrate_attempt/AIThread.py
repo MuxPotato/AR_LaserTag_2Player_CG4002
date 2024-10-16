@@ -49,9 +49,9 @@
   
 from threading import Thread
 import queue
-from pynq import Overlay
+from pynq import Overlay, PL
 import pandas as pd
-from AIPredictor import predict_model
+from AIPredictor import Predictor
 import random 
 
 #from Color import print_message
@@ -62,13 +62,15 @@ import random
 
 #format to send out = action + ":player_id" 
 
-ACTIONS = ["basket", "soccer", "volley", "bowl", "bomb", "shield", "reload"]
+#ACTIONS = ["basket", "soccer", "volley", "bowl", "bomb", "shield", "reload", "logout"]
+ACTIONS = ["basket", "soccer", "volley", "bowl", "bomb", "shield", "reload", "basket"] #Since logout is not handled yet
 
 class AI(Thread):
     
+    PL.reset()
     bitstream_path = "/home/xilinx/BITSTREAM/design_1.bit"
     overlay = Overlay(bitstream_path)
-    predictor = predict_model(overlay)
+    predictor = Predictor(overlay)
 
     def __init__(self,IMU_queue,phone_action_queue,fire_queue):
         Thread.__init__(self)
@@ -85,7 +87,8 @@ class AI(Thread):
      
     def run(self):
       messages_IMU = []
-      bitstream_path = "/home/xilinx/BITSTREAM/design_1.bit"
+      packet_number = 20
+      #bitstream_path = "/home/xilinx/BITSTREAM/design_1.bit"
       #overlay = Overlay(bitstream_path)
       #model = predict_model(overlay)
       while True:
@@ -109,10 +112,11 @@ class AI(Thread):
            combined_action = f"{{'playerID': '{number}', 'action': {action}}}"
            self.phone_action_queue.put(combined_action) 
         
-        if len(messages_IMU) < 20 and message_IMU is not None:
+        if len(messages_IMU) < packet_number and message_IMU is not None:
             messages_IMU.append(message_IMU)
-            if len(messages_IMU) == 20: #and ~message_Shoot['isFire']:
-                data_IMU = {
+            if len(messages_IMU) == packet_number: #and ~message_Shoot['isFire']:
+                print("Sending data for prediction")
+                data = {
                     'Accel X': [message['accel'][0] for message in messages_IMU],
                     'Accel Y': [message['accel'][1] for message in messages_IMU],
                     'Accel Z': [message['accel'][2] for message in messages_IMU],
@@ -120,9 +124,13 @@ class AI(Thread):
                     'Gyro Y': [message['gyro'][1] for message in messages_IMU],
                     'Gyro Z': [message['gyro'][2] for message in messages_IMU],
                 }
-                df = pd.DataFrame(data_IMU)
-                action = self.random_action()
-                #action = ACTIONS[model.get_action(df) - 1]
+                print(data)
+                df = pd.DataFrame(data)
+                #action = self.random_action()
+                action_number = self.predictor.get_action(df)
+                print(f"ACTION NUMBER IS: {action_number}")
+                action = ACTIONS[action_number]
+                print(f"Predicted action is: {action}")
                 number = 1 #Check again for this part
                 combined_action = action + ":1"
                 self.phone_action_queue.put(combined_action)

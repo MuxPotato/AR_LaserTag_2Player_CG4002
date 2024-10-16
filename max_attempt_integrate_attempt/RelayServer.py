@@ -111,7 +111,7 @@ class RelayServer(Thread):
 
             # Check for IMUPacket
             if "IMUPacket" in msg:
-                imu_match = re.search(r"IMUPacket':\s*{.*?playerID':\s*(\d+).*?accel':\s*(\[.*?\]).*?gyro':\s*(\[.*?\])", msg)
+                imu_match = re.search(r"'IMUPacket':\s*{.*?playerID':\s*(\d+).*?accel':\s*(\[.*?\]).*?gyro':\s*(\[.*?\])}", msg)
                 if imu_match:
                     player_id = int(imu_match.group(1))  
                     accel_data = eval(imu_match.group(2))  # Use eval carefully
@@ -147,7 +147,7 @@ class RelayServer(Thread):
 
             # Check for ShootPacket with either isFired or isHit
             elif "ShootPacket" in msg:
-                shoot_match = re.search(r"ShootPacket':\s*{.*?playerID':\s*(\d+).*?(isFired|isHit)':\s*(True|False)", msg)
+                shoot_match = re.search(r"'ShootPacket':\s*{.*?playerID':\s*(\d+).*?(isFired|isHit)':\s*(True|False)}", msg)
                 if shoot_match:
                     player_id = int(shoot_match.group(1))  # Get playerID
                     action_type = shoot_match.group(2)  # Get either 'isFired' or 'isHit'

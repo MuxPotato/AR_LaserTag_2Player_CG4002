@@ -203,8 +203,8 @@ class GameEngine(Thread):
                 return True
         return False
 
-    def format_relayclient_packet_isShot(self, id, isShot):
-        # Note here isShot is just 0 or 1, but 0 never happens bcs we will never need to send a packet to 
+    def format_relayclient_packet_isHit(self, id, isHit):
+        # Note here isHit is just 0 or 1, but 0 never happens bcs we will never need to send a packet to 
         # the vest if we do not need to ring the buzzere
 
         # Retrieve hp and bullets based on the player ID
@@ -220,7 +220,7 @@ class GameEngine(Thread):
         # Format the packet as requested
         packet = {
             'id': id,
-            'isShot': isShot
+            'isHit': isHit
         }
 
         return packet
@@ -294,7 +294,7 @@ class GameEngine(Thread):
                         if shot_result:
                             print_message('Game Engine', "Player 1's shot hit Player 2!")
                             self.take_bullet_damage(2)
-                            #self.format_relayclient_packet_isShot(2) # player 2 got shot
+                            #self.format_relayclient_packet_isHit(2) # player 2 got shot
                         else:
                             print_message('Game Engine', "Player 1's shot missed Player 2!")
                     else: # player_id = 2
@@ -304,7 +304,7 @@ class GameEngine(Thread):
                         if shot_result:
                             print_message('Game Engine', "Player 2's shot hit Player 1!")
                             self.take_bullet_damage(1)
-                            #self.format_relayclient_packet_isShot(1) # player 1 got shot
+                            #self.format_relayclient_packet_isHit(1) # player 1 got shot
                         else:
                             print_message('Game Engine', "Player 2's shot missed Player 1!")
                 else:

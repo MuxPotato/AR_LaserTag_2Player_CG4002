@@ -75,7 +75,7 @@ def handle_IMU_data(terminate_event, from_ble_IMU_queue, send_func):
         try:
             IMU_data = from_ble_IMU_queue.get(timeout = QUEUE_GET_TIMEOUT)  
             print(f'IMU data received from int comms: {IMU_data}')
-            serialized_imu_data = f"""{{'IMUPacket': {IMU_data._asdict()}}}"""
+            serialized_imu_data = f"""'IMUPacket': {IMU_data._asdict()}"""
             # Here, you would parse the data and send it to the server
             send_func(serialized_imu_data)
 
@@ -90,7 +90,7 @@ def handle_shoot_data(terminate_event, from_ble_shoot_queue, send_func):
         try:
             shoot_data = from_ble_shoot_queue.get(timeout = QUEUE_GET_TIMEOUT)  
             print(f'Shoot data received from int comms: {shoot_data}')
-            serialized_shoot_data = f"""{{'ShootPacket': {shoot_data._asdict()}}}"""
+            serialized_shoot_data = f"""'ShootPacket': {shoot_data._asdict()}"""
             send_func(serialized_shoot_data)
 
         except queue.Empty:
@@ -100,12 +100,12 @@ def handle_shoot_data(terminate_event, from_ble_shoot_queue, send_func):
 
 def get_send_func(socket):
     def send_func(given_msg):
-        message = json.dumps(given_msg)
-        length = str(len(message))
+        #message = json.dumps(given_msg)
+        length = str(len(given_msg))
         first = length + "_"
         socket.sendall(first.encode("utf-8"))
-        socket.sendall(message.encode("utf-8"))
-        print(f'Sent {message} to relay server')
+        socket.sendall(given_msg.encode("utf-8"))
+        print(f'Sent {given_msg} to relay server')
     
     return send_func
 
@@ -116,7 +116,7 @@ def parse_packets(imu_packet, Shootpacket):
         'playerID': imu_packet.playerID,
         'accel': imu_packet.accel,
         'gyro': imu_packet.gyro,
-        'isFire': Shootpacket.isFire,
+        'isFired': Shootpacket.isFire,
         'isHit': Shootpacket.isHit
     }
     
@@ -148,14 +148,6 @@ class RelayClient(threading.Thread):
         except Exception as e:
             print(f'Could not connect:{e}')
             sys.exit(1)
-    
-    def send(self,message):
-        message = json.dumps(message)
-        length = str(len(message))
-        first = length + "_"
-        self.socket.sendall(first.encode("utf-8"))
-        self.socket.sendall(message.encode("utf-8"))
-        print(f'Sent {message} to relay server')
 
     def receive(self):
         try:

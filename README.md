@@ -11,6 +11,10 @@
 ## `glove/`: Arduino code for glove Beetle that integrates MPU6050 logic with internal comms logic to transmit accelerometer and gyroscope code to the relay node
 - NOTE: Tested and verified to be working
 - Requires CRC library
+## `glove_1way/`: Variant of Arduino code above that doesn't parse packets from laptop other than ACK, NACK and HELLO
+- NOTE: Tested and verified to be working
+## `glove_unreliable/`: Variant of Arduino code from `glove/` that removes all ACK logic(other than for 3-way handshake) and thus transmits IMU packets without waiting for ACK packets
+- NOTE: Tested and verified to be working
 ## `gun/`: Arduino code for gun Beetle that integrates IR transmitter logic with internal comms logic to transmit IR data as gun packets
 - NOTE: UNTESTED and currently sends dummy packets immitating isFired
 - Requires CRC, IRremote library

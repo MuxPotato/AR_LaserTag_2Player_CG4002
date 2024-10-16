@@ -117,7 +117,7 @@ class GunUpdatePacket(NamedTuple):
 
 class VestUpdatePacket(NamedTuple):
     player_id: int
-    is_shot: bool
+    is_hit: bool
     player_hp: int
 
 # Public functions

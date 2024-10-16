@@ -4,7 +4,7 @@ import os
 import queue
 import sys
 import time
-from beetle import GloveBeetle
+from beetle import GloveBeetle, GloveUnreliableBeetle
 from internal_utils import bcolors
 
 IMU_BEETLE = "F4:B8:5E:42:61:62"
@@ -27,7 +27,7 @@ if __name__=="__main__":
     dummy_incoming_queue = queue.Queue()
     imu_collector_queue = queue.Queue()
     try:
-        imu_beetle = GloveBeetle(IMU_BEETLE, imu_collector_queue, dummy_incoming_queue, color)
+        imu_beetle = GloveUnreliableBeetle(IMU_BEETLE, imu_collector_queue, dummy_incoming_queue, color)
         imu_beetle.start()
         while True:
             pass

@@ -512,6 +512,69 @@ class GloveBeetle1Way(Beetle):
         # TODO: Stop printing debug line below
         self.mPrint2("Received IMU data from {}: [{}, {}, {}, {}, {}, {}]"
                 .format(self.beetle_mac_addr, x1, y1, z1, x2, y2, z2))
+        
+class GloveUnreliableBeetle(Beetle):
+    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
+        super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
+
+    def main(self):
+        while not self.terminateEvent.is_set():
+            try:
+                if not self.hasHandshake:
+                    # Perform 3-way handshake
+                    self.doHandshake()
+                # Handshake already completed
+                elif self.mBeetle.waitForNotifications(BLE_TIMEOUT):
+                    if len(self.mDataBuffer) < PACKET_SIZE:
+                        continue
+                    # bytearray for 20-byte packet
+                    packetBytes = self.get_packet_from(self.mDataBuffer)
+                    if not self.isValidPacket(packetBytes):
+                        # Just drop the packet, unreliable transmission here
+                        continue
+                    # assert packetBytes is a valid 20-byte packet
+                    # Keep track of packets received
+                    self.num_packets_received += 1
+                    # Parse packet from 20-byte
+                    receivedPacket = self.parsePacket(packetBytes)
+                    self.handle_beetle_packet(receivedPacket)
+            except BTLEException as ble_exc:
+                self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in connect() for Beetle: {self.beetle_mac_addr}""")
+                stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(ble_exc))
+                self.mPrint2(stacktrace_str)
+                self.reconnect()
+            except Exception as exc:
+                self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in main() of {self.beetle_mac_addr}""")
+                stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(exc))
+                self.mPrint2(stacktrace_str)
+        self.disconnect()
+
+    def handle_beetle_packet(self, incoming_packet):
+        packet_id = self.getPacketTypeOf(incoming_packet)
+        if packet_id == BlePacketType.IMU.value:
+            self.handle_raw_data_packet(incoming_packet)
+            if self.receiver_seq_num != incoming_packet.seq_num:
+                self.mPrint(bcolors.BRIGHT_YELLOW, 
+                        f"""Packet received has seq num {incoming_packet.seq_num} but expected {self.receiver_seq_num}""")
+                self.receiver_seq_num = incoming_packet.seq_num
+            # Increment receiver seq num
+            if self.receiver_seq_num == MAX_SEQ_NUM:
+                # On the Beetle, seq num is 16-bit and overflows. So we 'overflow' by
+                #   resetting to 0 to synchronise with the Beetle
+                self.receiver_seq_num = 0
+            else:
+                # Increment seq_num since received packet is valid
+                self.receiver_seq_num += 1
+
+    def handle_raw_data_packet(self, raw_data_packet):
+        x1, y1, z1, x2, y2, z2 = self.getDataFrom(raw_data_packet.data)
+        internal_imu_packet = ImuPacket(self.beetle_mac_addr, [x1, y1, z1], [x2, y2, z2])
+        player_id = get_player_id_for(self.beetle_mac_addr)
+        external_imu_packet = external_utils.ImuPacket(player_id, [x1, y1, z1], [x2, y2, z2])
+        self.outgoing_queue.put(external_imu_packet)
+        # TODO: Stop printing debug line below
+        self.mPrint2("Received IMU data from {}: [{}, {}, {}, {}, {}, {}]"
+                .format(self.beetle_mac_addr, x1, y1, z1, x2, y2, z2))
 
 class GunBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):

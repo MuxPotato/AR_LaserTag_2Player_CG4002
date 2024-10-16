@@ -106,7 +106,7 @@ class AI(Thread):
             message_Shoot = None
             print("NO item received as fire queue is empty")
         
-        if message_Shoot is not None and message_Shoot['isShot']: #only care abt is fired and not is hit
+        if message_Shoot is not None and message_Shoot['isFired']: #only care abt isHit and not isFired 
            action = 'gun'
            number = 1
            combined_action = f"{{'playerID': '{number}', 'action': {action}}}"

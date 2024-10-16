@@ -12,16 +12,11 @@ class Predictor():
             aggregatedData[f'{col}Mean'] = [segmentedDataDf[col].mean()]
             aggregatedData[f'{col}Std'] = [segmentedDataDf[col].std()]
         aggregatedDataDf = pd.DataFrame(aggregatedData)
-        print(aggregatedDataDf)
         return aggregatedDataDf
     
     def __init__(self, overlay):
         self.overlay = overlay  
         self.dma = self.overlay.axi_dma_0
-        self.N_FEATURES = 24
-        self.N_ACTIONS = 8
-        self.input_buffer = allocate(shape=(self.N_FEATURES,), dtype=np.float32)
-        self.output_buffer = allocate(shape=(self.N_ACTIONS,), dtype=np.float32)
 
     def send(self, input_data):
         self.N_FEATURES = 24
@@ -50,11 +45,17 @@ class Predictor():
         #bitstream_path = "/home/xilinx/BITSTREAM/design_1.bit"
         #overlay = Overlay(bitstream_path)
         #predictor = predict_model(overlay)
-        print(data)
+        print("Allocating buffers")
+        self.N_FEATURES = 24
+        self.N_ACTIONS = 8
+        self.input_buffer = allocate(shape=(self.N_FEATURES,), dtype=np.float32)
+        self.output_buffer = allocate(shape=(self.N_ACTIONS,), dtype=np.int)
         data = self.dataAggregator(data) #this would already have flattened it out
+        print("AI is predicting now")
         predict_results = self.predict(data)
+        print("AI finished predicting")
         prediction = np.argmax(predict_results) 
-        self.free_buffer()
+        print("AI is freeing buffer")
         return prediction
 
 #def main():

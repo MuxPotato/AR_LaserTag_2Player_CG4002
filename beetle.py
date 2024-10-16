@@ -59,6 +59,8 @@ class Beetle(threading.Thread):
         self.mBeetle.disconnect()
         self.mDataBuffer.clear()
         self.hasHandshake = False
+        self.num_retransmits = 0
+        self.num_invalid_packets_received = 0
 
     def reconnect(self):
         self.mPrint(bcolors.BRIGHT_YELLOW, "Performing reconnect of {}".format(self.beetle_mac_addr))
@@ -530,6 +532,11 @@ class GloveUnreliableBeetle(Beetle):
                     # bytearray for 20-byte packet
                     packetBytes = self.get_packet_from(self.mDataBuffer)
                     if not self.isValidPacket(packetBytes):
+                        self.num_invalid_packets_received += 1
+                        if (self.num_invalid_packets_received == MAX_RETRANSMITS):
+                            self.num_invalid_packets_received = 0
+                            self.reconnect()
+                            continue
                         # Just drop the packet, unreliable transmission here
                         continue
                     # assert packetBytes is a valid 20-byte packet
@@ -550,6 +557,8 @@ class GloveUnreliableBeetle(Beetle):
         self.disconnect()
 
     def handle_beetle_packet(self, incoming_packet):
+        # Given packet is assumed valid, so reset number of invalid packets
+        self.num_invalid_packets_received = 0
         packet_id = self.getPacketTypeOf(incoming_packet)
         if packet_id == BlePacketType.IMU.value:
             self.handle_raw_data_packet(incoming_packet)

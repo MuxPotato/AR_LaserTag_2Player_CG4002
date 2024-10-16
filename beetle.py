@@ -536,35 +536,41 @@ class GunBeetle(Beetle):
         return None
     
     def create_gun_packet(self, bullets: int):
-        gun_packet_to_send = self.createPacket(BlePacketType.GAME_STAT, self.sender_seq_num, bytearray([bullets]))
+        gun_packet_to_send = self.createPacket(BlePacketType.GAME_STAT, 
+                self.sender_seq_num, self.get_gun_data_from(bullets))
         return gun_packet_to_send
     
     def create_gun_packet_data(self, bullets: int):
-        pass
+        return bytearray([bullets])
 
 class VestBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
         super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
 
     def handle_raw_data_packet(self, raw_data_packet):
-        is_shot = self.get_vest_data_from(raw_data_packet)
-        internal_vest_packet = VestPacket(self.beetle_mac_addr, is_shot)
+        is_hit = self.get_vest_data_from(raw_data_packet)
+        internal_vest_packet = VestPacket(self.beetle_mac_addr, is_hit)
         player_id = get_player_id_for(self.beetle_mac_addr)
-        external_vest_packet = external_utils.VestPacket(player_id, is_shot)
+        external_vest_packet = external_utils.VestPacket(player_id, is_hit)
         self.outgoing_queue.put(external_vest_packet)
-        self.mPrint2("Received vest data from {}: [isShot: {}]".format(self.beetle_mac_addr, is_shot))
+        self.mPrint2("Received vest data from {}: [isHit: {}]".format(self.beetle_mac_addr, is_hit))
 
     def get_vest_data_from(self, vest_packet):
         return vest_packet.data[0] == 1
 
     def handle_ext_packet(self, ext_packet): # type: ignore
         if isinstance(ext_packet, VestUpdatePacket):
-            vest_packet_to_send = self.create_vest_packet(ext_packet.is_shot, ext_packet.player_hp)
+            vest_packet_to_send = self.create_vest_packet(ext_packet.is_hit, ext_packet.player_hp)
             self.mPrint2(f"""Updating vest state with: {vest_packet_to_send}""")
             return vest_packet_to_send
         return None
     
-    def create_vest_packet(self, is_shot: bool, player_hp: int):
-        vest_packet_to_send = self.createPacket(BlePacketType.GAME_STAT, self.sender_seq_num, bytearray([is_shot, player_hp]))
+    def create_vest_packet(self, is_hit: bool, player_hp: int):
+        vest_packet_to_send = self.createPacket(BlePacketType.GAME_STAT, self.sender_seq_num, 
+                self.create_vest_data_from(is_hit, player_hp))
         return vest_packet_to_send
+    
+    def create_vest_data_from(self, is_hit: bool, player_hp: int):
+        is_hit_int = 1 if is_hit else 0
+        return bytearray([is_hit_int, player_hp])
     

@@ -372,7 +372,7 @@ void setupImu() {
     update_acc_data();
     AccErrorX += AccX;
     AccErrorY += AccY;
-    AccErrorZ += (AccZ - 1.0);
+    AccErrorZ += (AccZ - 1);
     delay(1);
   }
   AccErrorX /= NUM_CALIBRATION_ROUNDS;

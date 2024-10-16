@@ -25,7 +25,7 @@ uint8_t numInvalidPacketsReceived = 0;
 
 // Vest game state
 bool isShot = false;
-int health = 100;
+size_t health = 100;
 Adafruit_NeoPixel pixels(PIXEL_COUNT, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
 void setup() {
@@ -160,6 +160,7 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
 /* Implement this function in actual Beetles(e.g. process game state packet) */
 void handleGamePacket(const BlePacket &gamePacket) {
   // TODO: Implement processing a given gamePacket
+  
 }
 
 void processGivenPacket(const BlePacket &packet) {

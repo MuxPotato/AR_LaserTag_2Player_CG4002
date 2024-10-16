@@ -14,9 +14,9 @@
 
 void irReceiverSetup();
 void checkHealth();
-bool checkIrReceiver();
 void doDamage();
 void doGunshotHit();
 void doRespawn();
+bool getIsShotFromIr();
 void giveLife();
 void updateHpLed(uint8_t givenPlayerHp);

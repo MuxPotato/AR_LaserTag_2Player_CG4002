@@ -8,6 +8,8 @@ enum HandshakeStatus {
   STAT_SYN = 3
 };
 
+/* Internal comms */
+void handleGamePacket(const BlePacket &gamePacket);
 void processIncomingPacket();
 void retransmitLastPacket();
 
@@ -42,7 +44,7 @@ void loop() {
   if (!hasHandshake) {
     hasHandshake = doHandshake();
   }
-  if (checkIrReceiver()) {
+  if (getIsShotFromIr()) {
     // Gunshot detected
     isShot = true;
     if (!isWaitingForAck) {
@@ -344,10 +346,11 @@ void irReceiverSetup() {
   IrReceiver.begin(IR_RECV_PIN);  // Start IR receiver on pin 5
   pixels.begin();
   pixels.setBrightness(60);
-  giveLife();
+  updateHpLed(PLAYER_FULL_HP);
+  TimerFreeTone(BUZZER_PIN, 400, 500);
 }
 
-bool checkIrReceiver() {
+bool getIsShotFromIr() {
   bool mIsShot = false;
   if (IrReceiver.decode()) {  // Check if an IR signal is received
     if (IrReceiver.decodedIRData.protocol == NEC && 
@@ -358,106 +361,6 @@ bool checkIrReceiver() {
     IrReceiver.resume();  // Clear the buffer for the next IR signal
   }
   return mIsShot;
-}
-
-void checkHealth() {
-  if (IrReceiver.isIdle()) {
-    switch (playerHp) {
-      case 100:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.fill(pixels.Color(0, 255, 0), 0, 10);
-        break;
-      case 95:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.setPixelColor(9,pixels.Color(255,0,0));
-        pixels.fill(pixels.Color(0, 255, 0), 0, 9);
-        break;
-      case 90:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.fill(pixels.Color(0, 255, 0), 0, 9);
-        break;
-      case 85:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.setPixelColor(8,pixels.Color(255,0,0));
-        pixels.fill(pixels.Color(0, 255, 0), 0, 8);
-        break;
-      case 80:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.fill(pixels.Color(0, 255, 0), 0, 8);
-        break;
-      case 75:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.setPixelColor(7,pixels.Color(255,0,0));
-        pixels.fill(pixels.Color(0, 255, 0), 0, 7);
-        break;
-      case 70:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.fill(pixels.Color(0, 255, 0), 0, 7);
-        break;
-      case 65:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.setPixelColor(6,pixels.Color(255,0,0));
-        pixels.fill(pixels.Color(0, 255, 0), 0, 6);
-        break;
-      case 60:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.fill(pixels.Color(0, 255, 0), 0, 6);
-        break;
-      case 55:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.setPixelColor(5,pixels.Color(255,0,0));
-        pixels.fill(pixels.Color(0, 255, 0), 0, 5);
-        break;
-      case 50:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.fill(pixels.Color(0, 255, 0), 0, 5);
-        break;
-      case 45:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.setPixelColor(4,pixels.Color(255,0,0));
-        pixels.fill(pixels.Color(0, 255, 0), 0, 4);
-        break;
-      case 40:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.fill(pixels.Color(0, 255, 0), 0, 4);
-        break;
-      case 35:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.setPixelColor(3,pixels.Color(255,0,0));
-        pixels.fill(pixels.Color(0, 255, 0), 0, 3);
-        break;
-      case 30:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.fill(pixels.Color(0, 255, 0), 0, 3);
-        break;
-      case 25:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.setPixelColor(2,pixels.Color(255,0,0));
-        pixels.fill(pixels.Color(0, 255, 0), 0, 2);
-        break;
-      case 20:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.fill(pixels.Color(0, 255, 0), 0, 2);
-        break;
-      case 15:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.setPixelColor(1,pixels.Color(255,0,0));
-        pixels.fill(pixels.Color(0, 255, 0), 0, 1);
-        break;
-      case 10:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.fill(pixels.Color(0, 255, 0), 0, 1);
-        break;
-      case 5:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        pixels.setPixelColor(0,pixels.Color(255,0,0));
-        break;
-      case 0:
-        pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-        break;
-    }
-    pixels.show();
-  }
 }
 
 void doDamage() {
@@ -474,24 +377,100 @@ void doRespawn() {
   // TODO: Implement visualisation/feedback when player respawns
 }
 
-void giveLife() {
-  if (IrReceiver.isIdle()) {
-    for (int i = 0; i <= NUM_HP_LED; i++) {
-      pixels.fill(pixels.Color(0, 255, 0), 0, i);
-      pixels.show();
-      TimerFreeTone(BUZZER_PIN, 400, 500);
-      delay(500);
-      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
-      pixels.show();
-      delay(500);
-    }
-    pixels.fill(pixels.Color(0, 255, 0), 0, 10);
-    pixels.show();
-  }
-}
-
 void updateHpLed(uint8_t givenPlayerHp) {
-  uint8_t numHpLeds = givenPlayerHp / PLAYER_FULL_HP;
-  pixels.fill(pixels.Color(0, 255, 0), 0, numHpLeds);
+  switch (givenPlayerHp) {
+    case 100:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.fill(pixels.Color(0, 255, 0), 0, 10);
+      break;
+    case 95:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.setPixelColor(9,pixels.Color(255,0,0));
+      pixels.fill(pixels.Color(0, 255, 0), 0, 9);
+      break;
+    case 90:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.fill(pixels.Color(0, 255, 0), 0, 9);
+      break;
+    case 85:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.setPixelColor(8,pixels.Color(255,0,0));
+      pixels.fill(pixels.Color(0, 255, 0), 0, 8);
+      break;
+    case 80:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.fill(pixels.Color(0, 255, 0), 0, 8);
+      break;
+    case 75:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.setPixelColor(7,pixels.Color(255,0,0));
+      pixels.fill(pixels.Color(0, 255, 0), 0, 7);
+      break;
+    case 70:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.fill(pixels.Color(0, 255, 0), 0, 7);
+      break;
+    case 65:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.setPixelColor(6,pixels.Color(255,0,0));
+      pixels.fill(pixels.Color(0, 255, 0), 0, 6);
+      break;
+    case 60:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.fill(pixels.Color(0, 255, 0), 0, 6);
+      break;
+    case 55:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.setPixelColor(5,pixels.Color(255,0,0));
+      pixels.fill(pixels.Color(0, 255, 0), 0, 5);
+      break;
+    case 50:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.fill(pixels.Color(0, 255, 0), 0, 5);
+      break;
+    case 45:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.setPixelColor(4,pixels.Color(255,0,0));
+      pixels.fill(pixels.Color(0, 255, 0), 0, 4);
+      break;
+    case 40:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.fill(pixels.Color(0, 255, 0), 0, 4);
+      break;
+    case 35:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.setPixelColor(3,pixels.Color(255,0,0));
+      pixels.fill(pixels.Color(0, 255, 0), 0, 3);
+      break;
+    case 30:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.fill(pixels.Color(0, 255, 0), 0, 3);
+      break;
+    case 25:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.setPixelColor(2,pixels.Color(255,0,0));
+      pixels.fill(pixels.Color(0, 255, 0), 0, 2);
+      break;
+    case 20:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.fill(pixels.Color(0, 255, 0), 0, 2);
+      break;
+    case 15:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.setPixelColor(1,pixels.Color(255,0,0));
+      pixels.fill(pixels.Color(0, 255, 0), 0, 1);
+      break;
+    case 10:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.fill(pixels.Color(0, 255, 0), 0, 1);
+      break;
+    case 5:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      pixels.setPixelColor(0,pixels.Color(255,0,0));
+      break;
+    case 0:
+      pixels.fill(pixels.Color(0, 0, 0), 0, 10);
+      break;
+  }
   pixels.show();
 }

@@ -73,13 +73,15 @@ class Beetle(threading.Thread):
 
     def quit(self):
         end_transmission_time = time.time()
-        transmission_speed = self.num_packets_received / end_transmission_time
+        total_transmission_time = end_transmission_time - self.start_transmit_time
+        transmission_speed = self.num_packets_received / total_transmission_time
         self.terminateEvent.set()
         fragmented_packet_count = self.ble_delegate.get_fragmented_packet_count()
         self.mPrint(bcolors.BRIGHT_YELLOW, "{}: {} fragmented packets"
                 .format(self.beetle_mac_addr, fragmented_packet_count))
         self.mPrint(bcolors.BRIGHT_YELLOW, 
                 f"""{self.beetle_mac_addr}: Transmission speed {transmission_speed} packets/s""")
+        self.mPrint(bcolors.BRIGHT_YELLOW, f"""{self.beetle_mac_addr}: {total_transmission_time}s of duration""")
 
     def mPrint2(self, inputString):
         self.mPrint(self.color, inputString)

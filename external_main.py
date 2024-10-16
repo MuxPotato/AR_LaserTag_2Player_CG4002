@@ -17,9 +17,10 @@ if __name__=="__main__":
     outgoing_game_state_queue = queue.Queue()
     incoming_game_state_queue = queue.Queue()
     int_main = InternalMainThread(outgoing_glove_queue,outgoing_game_state_queue,incoming_game_state_queue)
+    # TODO: Remove 2 lines below
 #    output_dir = "output/"
-    glove_output_filename = read_user_input("Enter the filename to dump glove data to: ")
-    game_state_output_filename = read_user_input("Enter the filename to dump game state data to: ")
+    #glove_output_filename = read_user_input("Enter the filename to dump glove data to: ")
+    #game_state_output_filename = read_user_input("Enter the filename to dump game state data to: ")
     relay_client = RelayClient(SERVER_IP, SERVER_PORT, outgoing_glove_queue, outgoing_game_state_queue, incoming_game_state_queue)
     # TODO: Remove 2 lines below
 #    relay_client = RelayClient(outgoing_glove_queue, outgoing_game_state_queue,

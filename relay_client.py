@@ -98,13 +98,17 @@ def handle_shoot_data(terminate_event, from_ble_shoot_queue, send_func):
         except Exception as exc:
             traceback.print_exception(exc)
 
-def get_send_func(socket):
+def get_send_func(socket, mutex):
     def send_func(given_msg):
         #message = json.dumps(given_msg)
         length = str(len(given_msg))
         first = length + "_"
+        # Ensure that only one thread sends data at a time
+        mutex.acquire()
         socket.sendall(first.encode("utf-8"))
         socket.sendall(given_msg.encode("utf-8"))
+        # Allow the other thread to send data now that we're done
+        mutex.release()
         print(f'Sent {given_msg} to relay server')
     
     return send_func
@@ -135,10 +139,11 @@ class RelayClient(threading.Thread):
         self.from_ble_shoot_queue = from_ble_shoot_queue 
         self.to_ble_game_state_queue = to_ble_game_state_queue
         self.stop_event = threading.Event()
+        self.socket_mutex = threading.Lock()
         self.imu_thread = threading.Thread(target=handle_IMU_data,
-                args = (self.stop_event, from_ble_IMU_queue, get_send_func(self.socket),))
+                args = (self.stop_event, from_ble_IMU_queue, get_send_func(self.socket, self.socket_mutex),))
         self.shoot_thread = threading.Thread(target=handle_shoot_data, 
-                args = (self.stop_event, from_ble_shoot_queue, get_send_func(self.socket),))
+                args = (self.stop_event, from_ble_shoot_queue, get_send_func(self.socket, self.socket_mutex),))
         self.receive_handler = ReceiverThread(self.socket, self.server_ip, self.stop_event, 
                 self.to_ble_game_state_queue)
 

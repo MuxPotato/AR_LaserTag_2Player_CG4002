@@ -393,6 +393,14 @@ class GameEngine(Thread):
                 is_hit = 0
                 print_message('Game Engine', f"Non-AI action detected ('{prev_action}'), ignoring is_ai_action and is_hit fields.")
 
+            # Check if any rain bomb hit is indicated
+            if is_rain_bomb_hit > 0:
+                print_message('Game Engine', f"Player {player_id}'s rain bomb hit the opponent {is_rain_bomb_hit} time(s)")
+                opponent_id = 2 if player_id == 1 else 1
+
+                # Loop to apply damage based on the number of hits
+                for _ in range(is_rain_bomb_hit):
+                    self.take_rain_bomb_damage(opponent_id)
 
 
             # Check if the previous action was an AI action and if it hit the opponent
@@ -413,15 +421,7 @@ class GameEngine(Thread):
                     print_message('Game Engine', f"Player {player_id}'s AI action missed the opponent")
 
 
-            # Check if any rain bomb hit is indicated
-            if is_rain_bomb_hit > 0:
-                print_message('Game Engine', f"Player {player_id}'s rain bomb hit the opponent {is_rain_bomb_hit} time(s)")
-                opponent_id = 2 if player_id == 1 else 1
-
-                # Loop to apply damage based on the number of hits
-                for _ in range(is_rain_bomb_hit):
-                    self.take_rain_bomb_damage(opponent_id)
-
+            
             # Update game state after processing the response
             self.update_both_players_game_state()
 

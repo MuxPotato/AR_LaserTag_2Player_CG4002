@@ -2,7 +2,7 @@ import queue
 import sys
 import threading
 import traceback
-from beetle import GunBeetle, GloveBeetle, VestBeetle
+from beetle import GloveUnreliableBeetle, GunBeetle, GloveBeetle, VestBeetle
 from internal_utils import GAME_STATE_QUEUE_TIMEOUT, GunUpdatePacket, VestUpdatePacket, bcolors
 
 class GameStateHandler(threading.Thread):
@@ -104,7 +104,7 @@ class InternalMainThread(threading.Thread):
             index = 0
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
-            glove1Beetle = GloveBeetle(beetle_addr, self.outgoing_glove_queue, self.incoming_glove_queue, colors[index])
+            glove1Beetle = GloveUnreliableBeetle(beetle_addr, self.outgoing_glove_queue, self.incoming_glove_queue, colors[index])
             self.beetles.append(glove1Beetle)
             glove1Beetle.start()
             index += 1

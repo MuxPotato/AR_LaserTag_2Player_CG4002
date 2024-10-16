@@ -25,8 +25,8 @@ uint8_t numInvalidPacketsReceived = 0;
 
 // Vest game state
 bool isShot = false;
-size_t health = 100;
-Adafruit_NeoPixel pixels(PIXEL_COUNT, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
+uint8_t playerHp = 100;
+Adafruit_NeoPixel pixels(NUM_HP_LED, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
 void setup() {
   Serial.begin(BAUDRATE);
@@ -157,10 +157,33 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
 }
 
-/* Implement this function in actual Beetles(e.g. process game state packet) */
+bool getIsShotFrom(const BlePacket &gamePacket) {
+  return gamePacket.data[0] == 1;
+}
+
+uint8_t getPlayerHpFrom(const BlePacket &gamePacket) {
+  return gamePacket.data[1];
+}
+
+/* 
+ * Update internal variables based on the new game state received
+ */
 void handleGamePacket(const BlePacket &gamePacket) {
-  // TODO: Implement processing a given gamePacket
-  
+  bool newIsShot = getIsShotFrom(gamePacket);
+  uint8_t newPlayerHp = getPlayerHpFrom(gamePacket);
+  if (newIsShot) {
+    doGunshotHit();
+  }
+  if (newPlayerHp != playerHp) {
+    updateHpLed(newPlayerHp);
+    if (newPlayerHp > playerHp) {
+      doRespawn();
+    } else if (newPlayerHp < playerHp) {
+      doDamage();
+    }
+  }
+  isShot = newIsShot;
+  playerHp = newPlayerHp;
 }
 
 void processGivenPacket(const BlePacket &packet) {
@@ -327,7 +350,8 @@ void irReceiverSetup() {
 bool checkIrReceiver() {
   bool mIsShot = false;
   if (IrReceiver.decode()) {  // Check if an IR signal is received
-    if (IrReceiver.decodedIRData.address == EXPECTED_IR_ADDRESS) {  // Compare with expected address
+    if (IrReceiver.decodedIRData.protocol == NEC && 
+        IrReceiver.decodedIRData.address == EXPECTED_IR_ADDRESS) {  // Compare with expected address
       digitalWrite(LED_PIN, HIGH);  // Turn on the LED if address matches
       mIsShot = true;
     }
@@ -338,7 +362,7 @@ bool checkIrReceiver() {
 
 void checkHealth() {
   if (IrReceiver.isIdle()) {
-    switch (health) {
+    switch (playerHp) {
       case 100:
         pixels.fill(pixels.Color(0, 0, 0), 0, 10);
         pixels.fill(pixels.Color(0, 255, 0), 0, 10);
@@ -436,10 +460,23 @@ void checkHealth() {
   }
 }
 
+void doDamage() {
+  // TODO: Implement visualisation/feedback when actions are triggered
+  TimerFreeTone(BUZZER_PIN, GUNSHOT_HIT_BUZZER_FREQ, 200);
+}
+
+void doGunshotHit() {
+  // TODO: Implement visualisation/feedback when vest is shot
+  TimerFreeTone(BUZZER_PIN, GUNSHOT_HIT_BUZZER_FREQ, 200);
+}
+
+void doRespawn() {
+  // TODO: Implement visualisation/feedback when player respawns
+}
+
 void giveLife() {
-  health = 100;
   if (IrReceiver.isIdle()) {
-    for (int i = 0; i <= 10; i++) {
+    for (int i = 0; i <= NUM_HP_LED; i++) {
       pixels.fill(pixels.Color(0, 255, 0), 0, i);
       pixels.show();
       TimerFreeTone(BUZZER_PIN, 400, 500);
@@ -451,4 +488,10 @@ void giveLife() {
     pixels.fill(pixels.Color(0, 255, 0), 0, 10);
     pixels.show();
   }
+}
+
+void updateHpLed(uint8_t givenPlayerHp) {
+  uint8_t numHpLeds = givenPlayerHp / PLAYER_FULL_HP;
+  pixels.fill(pixels.Color(0, 255, 0), 0, numHpLeds);
+  pixels.show();
 }

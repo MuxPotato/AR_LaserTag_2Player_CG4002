@@ -26,7 +26,7 @@ uint8_t numInvalidPacketsReceived = 0;
 
 /* IR Transmitter */
 /* Gun state */
-int bulletCount = 6;
+uint8_t bulletCount = 6;
 unsigned long lastGunfireTime = 0;
 bool isReloading = false;
 bool isFiring = false;
@@ -158,15 +158,20 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
 }
 
-/* Implement this function in actual Beetles(e.g. process game state packet) */
+uint8_t getBulletCountFrom(const BlePacket &gamePacket) {
+  return gamePacket.data[0];
+}
+
+/*
+ * Update internal variables based on the new game state received
+ */
 void handleGamePacket(const BlePacket &gamePacket) {
-  // TODO: Implement processing a given gamePacket
-  bulletCount = gamePacket.data[0];
-  if (bulletCount == 0) {
+  uint8_t newBulletCount = getBulletCountFrom(gamePacket);
+  if (newBulletCount > bulletCount) {
     reload();
-    bulletCount = GUN_MAGAZINE_SIZE;
-    visualiseBulletCount();
   }
+  bulletCount = GUN_MAGAZINE_SIZE;
+  visualiseBulletCount();
 }
 
 void processGivenPacket(const BlePacket &packet) {
@@ -387,10 +392,10 @@ bool getIsFired() {
  */
 bool fireGun() {
   unsigned long currentTime = millis();
-  if (currentTime - lastGunfireTime > ACTION_INTERVAL) {
+  if (currentTime - lastGunfireTime > ACTION_INTERVAL && bulletCount > 0) {
     digitalWrite(LED_PIN, HIGH);
     IrSender.sendNEC(IR_ADDRESS, IR_COMMAND, 0);  // the address 0x0102 with the command 0x34 is sent
-    bulletCount--;
+    bulletCount -= 1;
     visualiseBulletCount();
     tone(BUZZER_PIN, BUZZER_FREQ, BUZZER_DURATION);
     lastGunfireTime = currentTime;

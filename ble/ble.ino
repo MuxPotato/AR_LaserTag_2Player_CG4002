@@ -62,6 +62,92 @@ void loop() {
 }
 
 bool doHandshake() {
+  unsigned long mLastPacketSentTime = millis();
+  BlePacket mLastSentPacket;
+  byte mSeqNum = INITIAL_SEQ_NUM;
+  bool mIsWaitingForAck = false;
+  while (handshakeStatus != STAT_SYN) {
+    if (mIsWaitingForAck && (millis() - mLastPacketSentTime) >= BLE_TIMEOUT && isPacketValid(mLastSentPacket)) {
+      sendPacket(mLastSentPacket);
+      mLastPacketSentTime = millis();
+      continue;
+    }
+    // No packet sent yet or not yet timed out or last packet sent is invalid
+    switch (handshakeStatus) {
+      case HandshakeStatus::STAT_NONE:
+        {
+          if (Serial.available() <= 0) {
+            continue;
+          }
+          // At least 1 byte in serial input buffer
+          readIntoRecvBuffer(recvBuffer);
+          if (recvBuffer.size() < PACKET_SIZE) {
+            continue;
+          }
+          // At least 1 20-byte packet in receive buffer
+          BlePacket receivedPacket = readPacketFrom(recvBuffer);
+          if (!isPacketValid(receivedPacket) || receivedPacket.seqNum != mSeqNum) {
+            BlePacket nackPacket;
+            createNackPacket(nackPacket, mSeqNum);
+            sendPacket(nackPacket);
+          } else if (getPacketTypeOf(receivedPacket) == PacketType::HELLO) {
+            handshakeStatus = STAT_HELLO;
+          }
+          break;
+        }
+      case HandshakeStatus::STAT_HELLO:
+        {
+          BlePacket ackPacket;
+          createHandshakeAckPacket(ackPacket, mSeqNum);  
+          sendPacket(ackPacket);
+          mLastSentPacket = ackPacket;
+          mLastPacketSentTime = millis();
+          mSeqNum += 1;
+          handshakeStatus = STAT_ACK;
+          mIsWaitingForAck = true;
+          break;
+        }
+      case HandshakeStatus::STAT_ACK:
+        {
+          BlePacket receivedPacket = readPacketFrom(recvBuffer);
+          if (!isPacketValid(receivedPacket) || receivedPacket.seqNum != mSeqNum) {
+            BlePacket nackPacket;
+            createNackPacket(nackPacket, mSeqNum);
+            sendPacket(nackPacket);
+          } else if (getPacketTypeOf(receivedPacket) == PacketType::ACK) {
+            if (receivedPacket.seqNum > mSeqNum) {
+              BlePacket nackPacket;
+              // Use existing seqNum for NACK packet to indicate current packet is not received
+              createNackPacket(nackPacket, mSeqNum);
+              sendPacket(nackPacket);
+              continue;
+            }
+            if (receivedPacket.seqNum < mSeqNum) {
+              // Likely a delayed ACK packet, drop it
+              continue;
+            }
+            // TODO: Handle seq num update if laptop seq num != beetle seq num
+            handshakeStatus = HandshakeStatus::STAT_SYN;
+            mSeqNum += 1;
+            mIsWaitingForAck = false;
+            // Return from doHandshake() since handshake process is complete
+            return true;
+          } else if (getPacketTypeOf(receivedPacket) == PacketType::HELLO) {
+            handshakeStatus = STAT_HELLO;
+            mSeqNum = INITIAL_SEQ_NUM;
+          } else if (getPacketTypeOf(receivedPacket) == PacketType::NACK &&
+              receivedPacket.seqNum == mSeqNum && isPacketValid(mLastSentPacket)) {
+            sendPacket(mLastSentPacket);
+            mIsWaitingForAck = true;
+          }
+        }
+    }
+    delay(LOOP_DELAY);
+  }
+  return false;
+}
+
+bool oldDoHandshake() {
   unsigned long mPacketSentTime = millis();
   byte mSeqNum = INITIAL_SEQ_NUM;
   while (handshakeStatus != STAT_SYN) { 

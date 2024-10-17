@@ -55,23 +55,25 @@ class InternalMainThread(threading.Thread):
         # Below must be player 1 IMU(glove) Beetle
         "F4:B8:5E:42:61:62",
         # Below must be player 1 gun Beetle
-        "F4:B8:5E:42:67:2B",
+        "B4:99:4C:89:18:72",
         # Below must be player 1 vest Beetle
-        "F4:B8:5E:42:6D:75",
+#        "D0:39:72:DF:CA:F2",
         # TODO: Remove line below(wrong Beetle for vest) and uncomment line on top(actual Beetle for vest)
 #        "B4:99:4C:89:1B:FD",
 
         # Below must be player 2 IMU(glove) Beetle
 #        "B4:99:4C:89:1B:FD",
         # Below must be player 2 gun Beetle
-#        "F4:B8:5E:42:6D:0E",
+#        "F4:B8:5E:42:67:2B",
         # Below must be player 2 vest Beetle
-#        "D0:39:72:DF:CA:F2",
+        "F4:B8:5E:42:6D:75",
 
         # Extra 1
 #        "B4:99:4C:89:1B:FD",
         # Extra 2
-#        "B4:99:4C:89:18:1D"
+#        "B4:99:4C:89:18:1D",
+#       # Old player 1 gun
+#        "F4:B8:5E:42:67:2B",
     ]
 
     def __init__(self, outgoing_glove_queue, outgoing_game_state_queue, incoming_game_state_queue):

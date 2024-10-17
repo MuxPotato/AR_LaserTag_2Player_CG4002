@@ -27,7 +27,6 @@ uint8_t numInvalidPacketsReceived = 0;
 /* IR Transmitter */
 /* Gun state */
 uint8_t bulletCount = 6;
-unsigned long lastGunfireTime = 0;
 bool isReloading = false;
 bool isFiring = false;
 bool isFired = false;
@@ -47,8 +46,9 @@ void loop() {
     hasHandshake = doHandshake();
   }
   if (getIsFired()) {
-    isFired = fireGun();
+    isFired = true;
     if (!isWaitingForAck) {
+      fireGun();
       lastSentPacket = sendGunPacket(isFired);
       lastSentPacketTime = millis();
       isWaitingForAck = true;
@@ -167,7 +167,7 @@ uint8_t getBulletCountFrom(const BlePacket &gamePacket) {
  */
 void handleGamePacket(const BlePacket &gamePacket) {
   uint8_t newBulletCount = getBulletCountFrom(gamePacket);
-  if (newBulletCount > bulletCount) {
+  if (bulletCount == 0 && newBulletCount > bulletCount) {
     reload();
   }
   bulletCount = GUN_MAGAZINE_SIZE;
@@ -390,18 +390,13 @@ bool getIsFired() {
  * Attempts to trigger a gun fire.
  * @returns boolean indicating whether or not gun is successfully fired
  */
-bool fireGun() {
-  unsigned long currentTime = millis();
-  if (currentTime - lastGunfireTime > ACTION_INTERVAL && bulletCount > 0) {
-    digitalWrite(LED_PIN, HIGH);
-    IrSender.sendNEC(IR_ADDRESS, IR_COMMAND, 0);  // the address 0x0102 with the command 0x34 is sent
+void fireGun() {
+  IrSender.sendNEC(IR_ADDRESS, IR_COMMAND, 0);  // the address 0x0102 with the command 0x34 is sent
+  if (bulletCount > 0) {
     bulletCount -= 1;
-    visualiseBulletCount();
-    tone(BUZZER_PIN, BUZZER_FREQ, BUZZER_DURATION);
-    lastGunfireTime = currentTime;
-    return true;
   }
-  return false;
+  visualiseBulletCount();
+  tone(BUZZER_PIN, BUZZER_FREQ, BUZZER_DURATION);
 }
 
 void reload() {

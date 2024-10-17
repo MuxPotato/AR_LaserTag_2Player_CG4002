@@ -24,6 +24,7 @@ IRsend irsend(IR_TRN_PIN);
 Adafruit_NeoPixel pixels(PIXEL_COUNT, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
 void gunSetup();
+void fireGun();
 byte getButtonState();
 bool getIsFired();
 void reload();

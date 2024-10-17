@@ -375,7 +375,7 @@ void retransmitLastPacket() {
 
 BlePacket sendDummyPacket() {
   BlePacket dummyPacket;
-  dummyPacket.metadata = PacketType::P1_IMU;
+  dummyPacket.metadata = PacketType::IMU;
   dummyPacket.seqNum = senderSeqNum;
   float x1 = random(0, 100);
   float y1 = random(0, 100);

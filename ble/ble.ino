@@ -76,16 +76,12 @@ bool doHandshake() {
     switch (handshakeStatus) {
       case HandshakeStatus::STAT_NONE:
         {
-          if (Serial.available() <= 0) {
+          if (Serial.available() < PACKET_SIZE) {
+            // Skip this iteration since we haven't received a full 20-byte packet
             continue;
           }
-          // At least 1 byte in serial input buffer
-          readIntoRecvBuffer(recvBuffer);
-          if (recvBuffer.size() < PACKET_SIZE) {
-            continue;
-          }
-          // At least 1 20-byte packet in receive buffer
-          BlePacket receivedPacket = readPacketFrom(recvBuffer);
+          // At least 1 20-byte packet in serial input buffer, read it
+          BlePacket receivedPacket = readPacket();
           if (!isPacketValid(receivedPacket) || receivedPacket.seqNum != mSeqNum) {
             BlePacket nackPacket;
             createNackPacket(nackPacket, mSeqNum);
@@ -109,15 +105,11 @@ bool doHandshake() {
         }
       case HandshakeStatus::STAT_ACK:
         {
-          if (Serial.available() <= 0) {
+          if (Serial.available() < PACKET_SIZE) {
+            // Skip this iteration since we haven't received a full 20-byte packet
             continue;
           }
-          // At least 1 byte in serial input buffer
-          readIntoRecvBuffer(recvBuffer);
-          if (recvBuffer.size() < PACKET_SIZE) {
-            continue;
-          }
-          BlePacket receivedPacket = readPacketFrom(recvBuffer);
+          BlePacket receivedPacket = readPacket();
           if (!isPacketValid(receivedPacket) || receivedPacket.seqNum != mSeqNum) {
             BlePacket nackPacket;
             createNackPacket(nackPacket, mSeqNum);

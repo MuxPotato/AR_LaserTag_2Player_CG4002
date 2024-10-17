@@ -103,12 +103,20 @@ bool doHandshake() {
           mLastSentPacket = ackPacket;
           mLastPacketSentTime = millis();
           mSeqNum += 1;
-          handshakeStatus = STAT_ACK;
+          handshakeStatus = HandshakeStatus::STAT_ACK;
           mIsWaitingForAck = true;
           break;
         }
       case HandshakeStatus::STAT_ACK:
         {
+          if (Serial.available() <= 0) {
+            continue;
+          }
+          // At least 1 byte in serial input buffer
+          readIntoRecvBuffer(recvBuffer);
+          if (recvBuffer.size() < PACKET_SIZE) {
+            continue;
+          }
           BlePacket receivedPacket = readPacketFrom(recvBuffer);
           if (!isPacketValid(receivedPacket) || receivedPacket.seqNum != mSeqNum) {
             BlePacket nackPacket;

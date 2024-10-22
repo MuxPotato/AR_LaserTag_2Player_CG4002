@@ -87,7 +87,7 @@ class AI(Thread):
      
     def run(self):
       messages_IMU = []
-      packet_number = 20
+      packet_number = 75
       #bitstream_path = "/home/xilinx/BITSTREAM/design_1.bit"
       #overlay = Overlay(bitstream_path)
       #model = predict_model(overlay)
@@ -100,7 +100,7 @@ class AI(Thread):
             print("NO item received as IMU queue is empty")
 
         try:
-            message_Shoot = self.fire_queue.get(timeout=0.5) #get from Shoot_queue
+            message_Shoot = self.fire_queue.get(timeout=0.005) #get from Shoot_queue
             print("Received item from fire queue")
         except queue.Empty:
             message_Shoot = None
@@ -136,8 +136,4 @@ class AI(Thread):
                 self.phone_action_queue.put(combined_action)
                 #message_Shoot['isFire'] = False
                 messages_IMU = []
-
-
-    
-    
-    
+        

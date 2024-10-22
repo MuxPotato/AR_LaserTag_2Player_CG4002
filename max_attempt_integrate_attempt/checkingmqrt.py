@@ -13,8 +13,11 @@ class MQTT(Thread):
         Thread.__init__(self)
         self.viz_queue = viz_queue 
         self.phone_action_queue = phone_action_queue 
+
         self.phone_response_queue = phone_response_queue
         self.gamestate_topic = "tovisualizer/gamestate"  # Topic for sending updates to Unity about gamestate 
+
+        # fov_topic might not be needed
         self.fov_topic = "tovisualizer/field_of_view"  # Topic for asking Unity if player in field of view, only if action is bomb
         self.viz_response = "fromvisualizer/response" # topic to get response 
 
@@ -26,12 +29,19 @@ class MQTT(Thread):
 
         self.connected = False 
         self.reconnect_delay = 1 
+    
+    def connect_to_broker(self):
+        while not self.connected:
+            try:
+                self.client.connect("localhost", 1883, 60)  # Adjust IP if HiveMQ is running elsewhere than u96
+                # Start the MQTT client loop
+                self.client.loop_start()
+                self.reconnect_delay = 1  # Reset the reconnect delay after a successful connection
+            except Exception as e:
+                print_message('MQTT', f"Connection failed: {e}. Retrying in {self.reconnect_delay} seconds...")
+                time.sleep(self.reconnect_delay)
+                self.reconnect_delay = min(self.reconnect_delay * 2, 60)  # Exponential backoff up to 60s
 
-        # Connect to the HiveMQ broker running on the Ultra96
-        self.client.connect("localhost", 1883, 60)  # Adjust IP if HiveMQ is running elsewhere
-
-        # Start the MQTT client loop
-        self.client.loop_start()
 
     # Callback when the client connects to the broker
     def on_connect(self, client, userdata, flags, rc):
@@ -59,11 +69,12 @@ class MQTT(Thread):
                 time.sleep(self.reconnect_delay)
                 self.client.reconnect()
                 self.reconnect_delay = 1
-                self.connected = True
+                self.connected = True 
                 print_message('MQTT', "Reconnected to MQTT broker.")
             except Exception as e:
                 print_message('MQTT',f"Reconnection failed:{e}")
                 self.reconnect_delay = min(self.reconnect_delay * 2 ,60)
+
 
 
 
@@ -101,9 +112,14 @@ class MQTT(Thread):
     
     # Function to send the current game state to Unity
     def send_game_state(self,message):
-        self.client.publish(self.gamestate_topic, message)
-        print_message('MQTT',"Sent game state to phone")
-        print("_"*30)
+        try:
+            self.client.publish(self.gamestate_topic, message)
+            print_message('MQTT',"Sent game state to phone")
+            print("_"*30)
+        except Exception as e:
+            print_message('MQTT',f"Failed to send message:{e}")
+            self.connected = False 
+            self.reconnect()
 
 
         # TODO : need to send game state to phone again after game engine receives updated game state from eval server. the actions will be updated to “none” before sending to visualizer.  
@@ -111,14 +127,16 @@ class MQTT(Thread):
 
 
     def run(self):
-      while True:
-        # Receive message from GameEngine
-        message = self.viz_queue.get()
-        #print(f"Visualizer thread: Received '{message}' from GameEngine")
-        #print("_"* 30)
-        print_message('MQTT',"Received message from GameEngine")
-        print()
-        self.send_game_state(message)
+        self.connect_to_broker()
+        print("MQTT: After connection")
+        while True:
+            # Receive message from GameEngine
+            message = self.viz_queue.get()
+            #print(f"Visualizer thread: Received '{message}' from GameEngine")
+            #print("_"* 30)
+            print_message('MQTT',"Received message from GameEngine")
+            print()
+            self.send_game_state(message)
     
     def shutdown(self):
         print("Shutting down MQTT client...")
@@ -130,3 +148,4 @@ class MQTT(Thread):
         self.client.loop_stop()
 
         print("MQTT client shutdown complete.")
+

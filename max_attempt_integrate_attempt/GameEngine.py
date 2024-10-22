@@ -294,7 +294,7 @@ class GameEngine(Thread):
                         if shot_result:
                             print_message('Game Engine', "Player 1's shot hit Player 2!")
                             self.take_bullet_damage(2)
-                            self.format_relayclient_packet_isHit(2) # player 2 got shot
+                            self.to_rs_queue.put(self.format_relayclient_packet_isHit(2, 1)) # player 2 got shot
                         else:
                             print_message('Game Engine', "Player 1's shot missed Player 2!")
                     else: # player_id = 2
@@ -304,7 +304,7 @@ class GameEngine(Thread):
                         if shot_result:
                             print_message('Game Engine', "Player 2's shot hit Player 1!")
                             self.take_bullet_damage(1)
-                            self.format_relayclient_packet_isHit(1) # player 1 got shot
+                            self.to_rs_queue.put(self.format_relayclient_packet_isHit(1, 1)) # player 1 got shot
                         else:
                             print_message('Game Engine', "Player 2's shot missed Player 1!")
                 else:
@@ -440,14 +440,14 @@ class GameEngine(Thread):
         """Check the shot queue to see if the opponent was hit within a 0.5-second timeout."""
         opponent_id = 2 if shooting_player_id == 1 else 1
         start_time = time.time()
-        wait_time = 0.5  # 0.5 seconds to check for opponent hit
+        wait_time = 1  # 0.5 seconds to check for opponent hit
 
         while time.time() - start_time < wait_time:
             # Check if there's something in the queue
             if not self.shot_queue.empty():
                 shot = self.shot_queue.get()
                 # Check if the shot belongs to the opponent and meets the criteria
-                if shot["player_id"] == opponent_id and shot["isHit"] == True:
+                if shot["playerID"] == opponent_id and shot["isHit"] == True:
                     # Opponent was shot
                     
                     return True  # Shot hit the opponent
@@ -695,7 +695,9 @@ class GameEngine(Thread):
 
                 # Sending packets back to vest and gun
                 self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))
+                print_message('Game Engine',"Sending info back to relay client")
                 self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
+                print_message('Game Engine',"Sending info back to relay client")
 
                 
                 

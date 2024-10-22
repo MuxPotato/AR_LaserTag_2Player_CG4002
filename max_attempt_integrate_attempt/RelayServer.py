@@ -6,7 +6,9 @@ import time
 import traceback
 import json
 import re 
-AI_PACKET_COUNT = 20 # vary this to adjust number of packets to go AI
+import numpy as np
+
+AI_PACKET_COUNT = 105 # vary this to adjust number of packets to go AI
 UPPERTHRESHOLD_X = -0.5 #
 LOWERTHRESHOLD_X = -1.4
 UPPERTHRESHOLD_Y = 0.0
@@ -125,16 +127,15 @@ class RelayServer(Thread):
                     }
 
                     # Check if accel for either x, y, z is beyond certain thresholds
-                    if not (LOWERTHRESHOLD_X < packet_data['accel'][0] < UPPERTHRESHOLD_X and 
-                            LOWERTHRESHOLD_Y < packet_data['accel'][1] < UPPERTHRESHOLD_Y and 
-                            LOWERTHRESHOLD_Z < packet_data['accel'][2] < UPPERTHRESHOLD_Z):
+                    if (np.sqrt(packet_data['accel'][0]**2 + packet_data['accel'][1]**2 + packet_data['accel'][2]**2) > 1.6):
                         #print(packet_data['accel'][0])
                         print(f"Threshold exceeded! Processing next {self.x_packets} packets.")
                         self.process_next_packets.set()  # Set the flag to true
 
+                    
                     # If the flag is set, process the next `x` packets
                     if self.process_next_packets.is_set():
-                        print(f"Processing IMUPacket: {packet_data}")
+                        #print(f"Processing IMUPacket: {packet_data}")
                         self.IMU_queue.put(packet_data)
                         # Decrement the packet count and stop after `x` packets
                         self.x_packets -= 1
@@ -190,7 +191,19 @@ class RelayServer(Thread):
         #with open("packets_from_beetles.log", "a") as log_file:
             #log_file.write(f"{time.ctime()}: {msg}\n")
 
-    
+    def start_sampling_period(self):
+        """Start a 5-second sampling period for processing IMU packets."""
+        self.sampling_end_time = time.time() + 5  # Set the end time to 5 seconds from now
+        self.process_next_packets.set()  # Activate the flag to process packets
+
+    def is_sampling_period_active(self):
+        """Check if the sampling period is still active."""
+        if self.sampling_end_time and time.time() < self.sampling_end_time:
+            return True
+        else:
+            self.process_next_packets.clear()  # Deactivate the flag if the period has ended
+            self.sampling_end_time = None  # Reset the end time
+            return False
 
     
     def sendToRelayClient(self):
@@ -198,6 +211,7 @@ class RelayServer(Thread):
         while not self.stop_event.is_set():
             try:
                 # Try to get data from the game engine queue with a timeout to avoid blocking
+                print("Trying to see if game engine send back anything")
                 game_engine_data = self.to_rs_queue.get(timeout=1)
                 message = message = json.dumps(game_engine_data)
                 length = str(len(message))
@@ -233,26 +247,3 @@ class RelayServer(Thread):
         self.stop_event.set()  # Set the stop event to stop the server loop
         self.server.close()  # Close the server socket
         print("Relay server shutdown initiated")
-
-
-
-    """       
-    def simulateClientWithLogFile(self,log_file_path):
-        Simulate receiving data from a client by reading from a log file.
-        try:
-            with open(log_file_path, 'r') as log_file:
-                for line in log_file:
-                    line  = line.strip()
-                    if line: 
-                        self.processMessage(line)
-                    time.sleep(0.1)  # Simulate 10 packets per second
-        except Exception as e:
-            print(f"Error reading log file: {e}")
-    
-    def run(self):
-        while True:
-            self.simulateClientWithLogFile('packets_from_beetles.log')
-            time.sleep(1)
-
-    """
-

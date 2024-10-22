@@ -1,6 +1,8 @@
 #include "imu.hpp"
 #include "packet.hpp"
 
+#define SETUP_DELAY 5000
+
 enum HandshakeStatus {
   STAT_NONE = 0,
   STAT_HELLO = 1,
@@ -38,7 +40,7 @@ void setup() {
   Serial.begin(BAUDRATE);
   
   // Setup IMU
-  delay(500);
+  delay(SETUP_DELAY);
   setupImu();
 }
 

@@ -38,6 +38,9 @@ int16_t GyroErrorZ = 0;
 
 void setup() {
   Serial.begin(BAUDRATE);
+
+  // Set built-in LED to OUTPUT so it can be turned on
+  pinMode(LED_BUILTIN, OUTPUT);
   
   // Setup IMU
   delay(SETUP_DELAY);
@@ -276,6 +279,9 @@ void setupImu() {
   Wire.endTransmission();
   delay(20);
 
+  // Turn on LED to indicate start of calibration
+  digitalWrite(LED_BUILTIN, HIGH);
+
   // Hold steady to calibrate accelerometer of IMU 
   for (size_t accCalibrationRound = 0; accCalibrationRound < NUM_CALIBRATION_ROUNDS; ++accCalibrationRound) {
     update_acc_data();
@@ -299,6 +305,9 @@ void setupImu() {
   GyroErrorX /= NUM_CALIBRATION_ROUNDS;
   GyroErrorY /= NUM_CALIBRATION_ROUNDS;
   GyroErrorZ /= NUM_CALIBRATION_ROUNDS;
+
+  // Turn off LED to indicate that claibration is complete
+  digitalWrite(LED_BUILTIN, LOW);
 
   delay(20);
 

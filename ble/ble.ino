@@ -54,7 +54,7 @@ void loop() {
     // No bytes received from laptop, so send sensor data if needed
     if (!isWaitingForAck) {
       // Only send new packet if previous packet has already been ACK-ed
-      unsigned long transmitPeriod = millis() - lastSentPacket;
+      unsigned long transmitPeriod = millis() - lastSentPacketTime;
       if (transmitPeriod < TRANSMIT_DELAY) {
         // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
         delay(TRANSMIT_DELAY - transmitPeriod);

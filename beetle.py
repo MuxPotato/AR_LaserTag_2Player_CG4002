@@ -53,6 +53,9 @@ class Beetle(threading.Thread):
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(ble_exc))
                 self.mPrint2(stacktrace_str)
                 self.mDataBuffer.clear()
+            except KeyboardInterrupt as exc:
+                # Catch and rethrow the exception so that caller can handle CTRL+C
+                raise exc
 
     def disconnect(self):
         self.mPrint(bcolors.BRIGHT_YELLOW, "Disconnecting {}".format(self.beetle_mac_addr))
@@ -148,6 +151,9 @@ class Beetle(threading.Thread):
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(ble_exc))
                 self.mPrint2(stacktrace_str)
                 self.reconnect()
+            except KeyboardInterrupt as exc:
+                # Catch and rethrow the exception so that caller can handle CTRL+C
+                raise exc
             except Exception as exc:
                 self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in main() of {self.beetle_mac_addr}""")
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(exc))
@@ -501,6 +507,9 @@ class GloveBeetle1Way(Beetle):
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(ble_exc))
                 self.mPrint2(stacktrace_str)
                 self.reconnect()
+            except KeyboardInterrupt as exc:
+                # Catch and rethrow the exception so that caller can handle CTRL+C
+                raise exc
             except Exception as exc:
                 self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in main() of {self.beetle_mac_addr}""")
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(exc))
@@ -552,6 +561,9 @@ class GloveUnreliableBeetle(Beetle):
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(ble_exc))
                 self.mPrint2(stacktrace_str)
                 self.reconnect()
+            except KeyboardInterrupt as exc:
+                # Catch and rethrow the exception so that caller can handle CTRL+C
+                raise exc
             except Exception as exc:
                 self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in main() of {self.beetle_mac_addr}""")
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(exc))

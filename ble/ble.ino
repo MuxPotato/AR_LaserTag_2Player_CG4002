@@ -21,6 +21,8 @@ uint16_t senderSeqNum = INITIAL_SEQ_NUM;
 bool isWaitingForAck = false;
 uint8_t numRetries = 0;
 uint8_t numInvalidPacketsReceived = 0;
+// Used to maintain (RETRANSMIT_DELAY) ms period of retransmissions
+unsigned long lastRetransmitTime = 0;
 
 void setup() {
   Serial.begin(BAUDRATE);
@@ -52,6 +54,11 @@ void loop() {
     // No bytes received from laptop, so send sensor data if needed
     if (!isWaitingForAck) {
       // Only send new packet if previous packet has already been ACK-ed
+      unsigned long transmitPeriod = millis() - lastSentPacket;
+      if (transmitPeriod < TRANSMIT_DELAY) {
+        // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
+        delay(TRANSMIT_DELAY - transmitPeriod);
+      }
       lastSentPacket = sendDummyPacket();
       // Update last packet sent time to track timeout
       lastSentPacketTime = millis();
@@ -364,7 +371,13 @@ int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer) {
 
 void retransmitLastPacket() {
   if (isPacketValid(lastSentPacket)) {
+    unsigned long retransmitPeriod = millis() - lastRetransmitTime;
+    if (retransmitPeriod < RETRANSMIT_DELAY) {
+      // Maintain at least (RETRANSMIT_DELAY) ms delay between retransmissions to avoid overwhelming the Beetle
+      delay(RETRANSMIT_DELAY - retransmitPeriod);
+    }
     sendPacket(lastSentPacket);
+    lastRetransmitTime = millis();
     // Update sent time and wait for ACK again
     lastSentPacketTime = millis();
   } else {
@@ -389,8 +402,5 @@ BlePacket sendDummyPacket() {
 }
 
 void sendPacket(BlePacket &packetToSend) {
-  if ((millis() - lastSentPacketTime) < TRANSMIT_DELAY) {
-    delay(TRANSMIT_DELAY);
-  }
   Serial.write((byte *) &packetToSend, sizeof(packetToSend));
 }

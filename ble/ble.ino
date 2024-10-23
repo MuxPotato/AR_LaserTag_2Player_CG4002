@@ -18,7 +18,6 @@ BlePacket lastSentPacket = {};
 unsigned long lastSentPacketTime = 0;
 uint16_t receiverSeqNum = INITIAL_SEQ_NUM;
 uint16_t senderSeqNum = INITIAL_SEQ_NUM;
-bool shouldResendAfterHandshake = false;
 bool isWaitingForAck = false;
 uint8_t numRetries = 0;
 uint8_t numInvalidPacketsReceived = 0;

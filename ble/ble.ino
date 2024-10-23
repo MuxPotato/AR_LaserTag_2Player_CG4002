@@ -23,6 +23,7 @@ uint8_t numRetries = 0;
 uint8_t numInvalidPacketsReceived = 0;
 // Used to maintain (RETRANSMIT_DELAY) ms period of retransmissions
 unsigned long lastRetransmitTime = 0;
+unsigned long lastReadPacketTime = 0;
 
 void setup() {
   Serial.begin(BAUDRATE);
@@ -47,7 +48,7 @@ void loop() {
       numRetries = 0;
     } */
   }
-  if (Serial.available() > 0) {
+  if (Serial.available() >= PACKET_SIZE) {
     // Received some bytes from laptop, process them
     processIncomingPacket();
   } else {
@@ -328,15 +329,46 @@ void processGivenPacket(const BlePacket &packet) {
 }
 
 void processIncomingPacket() {
+  if (Serial.available() < PACKET_DATA_SIZE) {
+    // Don't read from serial input buffer unless 1 complete packet is received
+    return;
+  }
+  unsigned long readPacketPeriod = millis() - lastReadPacketTime;
+  if (readPacketPeriod < READ_PACKET_DELAY) {
+    delay(READ_PACKET_DELAY - readPacketPeriod);
+  }
+  // Complete 20-byte packet received, read 20 bytes from receive buffer as packet
+  BlePacket receivedPacket = readPacket();
+  if (!isPacketValid(receivedPacket)) {
+    numInvalidPacketsReceived += 1;
+    if (numInvalidPacketsReceived == MAX_INVALID_PACKETS_RECEIVED) {
+      clearSerialInputBuffer();
+      delay(BLE_TIMEOUT);
+      numInvalidPacketsReceived = 0;
+      return;
+    }
+    BlePacket nackPacket;
+    createNackPacket(nackPacket, receiverSeqNum);
+    // Received invalid packet, request retransmit with NACK
+    sendPacket(nackPacket);
+  } else {
+    if (numInvalidPacketsReceived > 0) {
+      numInvalidPacketsReceived = 0;
+    }
+    processGivenPacket(receivedPacket);
+  }
+}
+
+void processIncomingPacket(MyQueue<byte>& mRecvBuffer) {
   // Read incoming bytes into receive buffer
-  readIntoRecvBuffer(recvBuffer);
-  if (recvBuffer.size() >= PACKET_SIZE) {
+  readIntoRecvBuffer(mRecvBuffer);
+  if (mRecvBuffer.size() >= PACKET_SIZE) {
     // Complete 20-byte packet received, read 20 bytes from receive buffer as packet
-    BlePacket receivedPacket = readPacketFrom(recvBuffer);
+    BlePacket receivedPacket = readPacketFrom(mRecvBuffer);
     if (!isPacketValid(receivedPacket)) {
       numInvalidPacketsReceived += 1;
       if (numInvalidPacketsReceived == MAX_INVALID_PACKETS_RECEIVED) {
-        recvBuffer.clear();
+        mRecvBuffer.clear();
         while (Serial.available() > 0) {
           Serial.read();
         }
@@ -354,7 +386,7 @@ void processIncomingPacket() {
       }
       processGivenPacket(receivedPacket);
     }
-  } // if (recvBuffer.size() >= PACKET_SIZE)
+  } // if (mRecvBuffer.size() >= PACKET_SIZE)
 }
 
 int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer) {

@@ -57,6 +57,9 @@ class ReceiverThread(threading.Thread):
         except (ConnectionResetError, socket.error) as e:
             print(f"Error: {str(e)}. Connection might be lost.")
             return None
+        except KeyboardInterrupt as exc:
+            # Explicitly catch and rethrow KeyboardInterrupt to ensure caller can handle CTRL+C
+            raise exc
         
     def update_game_state(self, received_msg: str):
         # game state is a dictionary
@@ -81,6 +84,9 @@ def handle_IMU_data(terminate_event, from_ble_IMU_queue, send_func):
 
         except queue.Empty:
             continue
+        except KeyboardInterrupt as exc:
+            # Explicitly catch and rethrow KeyboardInterrupt to ensure caller can handle CTRL+C
+            raise exc
         except Exception as exc:
             traceback.print_exception(exc)
 
@@ -95,6 +101,9 @@ def handle_shoot_data(terminate_event, from_ble_shoot_queue, send_func):
 
         except queue.Empty:
             continue
+        except KeyboardInterrupt as exc:
+            # Explicitly catch and rethrow KeyboardInterrupt to ensure caller can handle CTRL+C
+            raise exc
         except Exception as exc:
             traceback.print_exception(exc)
 
@@ -206,6 +215,9 @@ class RelayClient(threading.Thread):
             self.receive_handler.start()
             print('Thread for receiving data from RelayServer started')
             self.stop_event.wait()
+        except KeyboardInterrupt as exc:
+            # Explicitly catch and rethrow KeyboardInterrupt to ensure caller can handle CTRL+C
+            raise exc
         except Exception as exc:
             traceback.print_exception(exc)
             print("No data received from int comms")

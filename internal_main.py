@@ -41,6 +41,9 @@ class GameStateHandler(threading.Thread):
                     print(f"""Unknown game state received from relay server: {new_game_state}""")
             except queue.Empty:
                 continue
+            except KeyboardInterrupt as exc:
+                # Explicitly catch and rethrow KeyboardInterrupt to ensure caller can handle CTRL+C
+                raise exc
             except Exception as exc:
                 traceback.print_exception(exc)
         
@@ -148,6 +151,9 @@ class InternalMainThread(threading.Thread):
                 thisBeetle.join()
             self.game_state_handler.join()
             print("All Beetle threads have now terminated")
+        except KeyboardInterrupt as exc:
+            # Explicitly catch and rethrow KeyboardInterrupt to ensure caller can handle CTRL+C
+            raise exc
         except Exception as exc:
             traceback.print_exception(exc)
 

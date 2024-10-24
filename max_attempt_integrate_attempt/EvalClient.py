@@ -115,22 +115,17 @@ class EvalClient(Thread):
 
     #     return success, msg
 
-    def recv_text(self, timeout=10):
+    def recv_text(self):
         """
         Receive a message from the server, waiting until a valid response is received or a timeout occurs.
         """
         msg = ""
         success = False
-        start_time = time.time()
+        
 
         if self.socket is not None:
             try:
                 while True:
-                    # Check if the timeout period has elapsed
-                    if time.time() - start_time > timeout:
-                        print("Timeout occurred while waiting for a response.")
-                        break
-
                     # Receive length followed by '_' followed by message
                     data = b''
                     while not data.endswith(b'_'):

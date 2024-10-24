@@ -10,7 +10,7 @@
 #define PACKET_SIZE 20
 #define PACKET_DATA_SIZE 16
 #define READ_PACKET_DELAY 15
-#define TRANSMIT_DELAY 15
+#define TRANSMIT_DELAY 50
 
 struct BlePacket {
 	/* Start packet header */

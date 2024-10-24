@@ -9,7 +9,8 @@
 #define LOWER_4BIT_MASK 0x0F
 #define PACKET_SIZE 20
 #define PACKET_DATA_SIZE 16
-#define TRANSMIT_DELAY 5
+#define READ_PACKET_DELAY 15
+#define TRANSMIT_DELAY 15
 
 struct BlePacket {
 	/* Start packet header */

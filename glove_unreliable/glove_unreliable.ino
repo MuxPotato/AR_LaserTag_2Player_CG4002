@@ -15,8 +15,9 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum);
 /* Internal comms */
 bool hasHandshake = false;
 HandshakeStatus handshakeStatus = STAT_NONE;
-// unsigned long lastSentPacketTime = 0;
+unsigned long lastSentPacketTime = 0;
 uint16_t seqNum = INITIAL_SEQ_NUM;
+unsigned long lastReadPacketTime = 0;
 
 /* IMU variables */
 // Accelerometer data in LSB per degree
@@ -54,8 +55,13 @@ void loop() {
     if (Serial.available() >= PACKET_SIZE) {
       processIncomingPacket();
     } else {
+      unsigned long transmitPeriod = millis() - lastSentPacketTime;
+      if (transmitPeriod < TRANSMIT_DELAY) {
+        // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
+        delay(TRANSMIT_DELAY - transmitPeriod);
+      }
       BlePacket imuPacket = sendImuPacket();
-      // lastSentPacketTime = millis();
+      lastSentPacketTime = millis();
       seqNum += 1;
     }
   }
@@ -165,6 +171,15 @@ void processGivenPacket(BlePacket &packet) {
 }
 
 void processIncomingPacket() {
+  if (Serial.available() < PACKET_DATA_SIZE) {
+    // Don't read from serial input buffer unless 1 complete packet is received
+    return;
+  }
+  unsigned long readPacketPeriod = millis() - lastReadPacketTime;
+  if (readPacketPeriod < READ_PACKET_DELAY) {
+    delay(READ_PACKET_DELAY - readPacketPeriod);
+  }
+  // Complete 20-byte packet received, read 20 bytes from receive buffer as packet
   BlePacket receivedPacket = readPacket();
   if (isPacketValid(receivedPacket)) {
     processGivenPacket(receivedPacket);

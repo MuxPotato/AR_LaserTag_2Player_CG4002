@@ -39,6 +39,8 @@ class Beetle(threading.Thread):
         # Configure Peripheral
         self.ble_delegate = BlePacketDelegate(self.serial_char, self.mDataBuffer)
         self.mBeetle.withDelegate(self.ble_delegate)
+        # Verbose printing
+        self.is_verbose_printing = False
 
     def connect(self):
         while not self.terminateEvent.is_set():
@@ -276,6 +278,8 @@ class Beetle(threading.Thread):
                             self.receiver_seq_num = beetle_seq_num
                             # Send a SYN+ACK back to Beetle
                             mLastPacketSent = self.sendSynAck(mSeqNum, beetle_seq_num)
+                            if self.is_verbose_printing:
+                                self.mPrint(bcolors.BRIGHT_YELLOW, f"""Sending SYN+ACK {mLastPacketSent} to {self.beetle_mac_addr}""")
                             mSynTime = time.time()
                             hasAck = True
                         elif packet_id == BlePacketType.NACK.value:
@@ -341,7 +345,8 @@ class Beetle(threading.Thread):
             # Read 20 bytes from input buffer
             for i in range(0, PACKET_SIZE):
                 packet.append(receiveBuffer.popleft())
-            self.mPrint2("{} has new packet: {}".format(self.beetle_mac_addr, packet))
+            if self.is_verbose_printing:
+                self.mPrint2("{} has new packet: {}".format(self.beetle_mac_addr, packet))
             return packet
         else:
             return bytearray()
@@ -473,9 +478,10 @@ class GloveBeetle(Beetle):
         player_id = get_player_id_for(self.beetle_mac_addr)
         external_imu_packet = external_utils.ImuPacket(player_id, [x1, y1, z1], [x2, y2, z2])
         self.outgoing_queue.put(external_imu_packet)
-        # TODO: Stop printing debug line below
-        self.mPrint2("Received IMU data from {}: [{}, {}, {}, {}, {}, {}]"
-                .format(self.beetle_mac_addr, x1, y1, z1, x2, y2, z2))
+        if self.is_verbose_printing:
+            # TODO: Stop printing debug line below
+            self.mPrint2("Received IMU data from {}: [{}, {}, {}, {}, {}, {}]"
+                    .format(self.beetle_mac_addr, x1, y1, z1, x2, y2, z2))
         
 class GloveBeetle1Way(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
@@ -595,9 +601,10 @@ class GloveUnreliableBeetle(Beetle):
         player_id = get_player_id_for(self.beetle_mac_addr)
         external_imu_packet = external_utils.ImuPacket(player_id, [x1, y1, z1], [x2, y2, z2])
         self.outgoing_queue.put(external_imu_packet)
-        # TODO: Stop printing debug line below
-        self.mPrint2("Received IMU data from {}: [{}, {}, {}, {}, {}, {}]"
-                .format(self.beetle_mac_addr, x1, y1, z1, x2, y2, z2))
+        if self.is_verbose_printing:
+            # TODO: Stop printing debug line below
+            self.mPrint2("Received IMU data from {}: [{}, {}, {}, {}, {}, {}]"
+                    .format(self.beetle_mac_addr, x1, y1, z1, x2, y2, z2))
 
 class GunBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
@@ -609,7 +616,8 @@ class GunBeetle(Beetle):
         player_id = get_player_id_for(self.beetle_mac_addr)
         external_gun_packet = external_utils.GunPacket(player_id, is_fired)
         self.outgoing_queue.put(external_gun_packet)
-        self.mPrint2("Received gun data from {}: [isFired: {}]".format(self.beetle_mac_addr, is_fired))
+        if self.is_verbose_printing:
+            self.mPrint2("Received gun data from {}: [isFired: {}]".format(self.beetle_mac_addr, is_fired))
     
     def get_gun_data_from(self, gun_packet):
         return gun_packet.data[0] == 1
@@ -617,7 +625,8 @@ class GunBeetle(Beetle):
     def handle_ext_packet(self, ext_packet): # type: ignore
         if isinstance(ext_packet, GunUpdatePacket):
             gun_packet_to_send = self.create_gun_packet(ext_packet.bullets)
-            self.mPrint2(f"""Updating gun state with: {gun_packet_to_send}""")
+            if self.is_verbose_printing:
+                self.mPrint2(f"""Updating gun state with: {gun_packet_to_send}""")
             return gun_packet_to_send
         return None
     
@@ -639,7 +648,8 @@ class VestBeetle(Beetle):
         player_id = get_player_id_for(self.beetle_mac_addr)
         external_vest_packet = external_utils.VestPacket(player_id, is_hit)
         self.outgoing_queue.put(external_vest_packet)
-        self.mPrint2("Received vest data from {}: [isHit: {}]".format(self.beetle_mac_addr, is_hit))
+        if self.is_verbose_printing:
+            self.mPrint2("Received vest data from {}: [isHit: {}]".format(self.beetle_mac_addr, is_hit))
 
     def get_vest_data_from(self, vest_packet):
         return vest_packet.data[0] == 1
@@ -647,7 +657,8 @@ class VestBeetle(Beetle):
     def handle_ext_packet(self, ext_packet): # type: ignore
         if isinstance(ext_packet, VestUpdatePacket):
             vest_packet_to_send = self.create_vest_packet(ext_packet.is_hit, ext_packet.player_hp)
-            self.mPrint2(f"""Updating vest state with: {vest_packet_to_send}""")
+            if self.is_verbose_printing:
+                self.mPrint2(f"""Updating vest state with: {vest_packet_to_send}""")
             return vest_packet_to_send
         return None
     

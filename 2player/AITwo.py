@@ -10,11 +10,11 @@ ACTIONS = ["basket", "soccer", "volley", "bowl", "bomb", "shield", "reload", "ba
 
 class AITwo(Thread):
     
-    PL.reset()
+    """ PL.reset()
     bitstream_path = "/home/xilinx/BITSTREAM/design_1.bit"
     overlay = Overlay(bitstream_path)
     predictor = Predictor(overlay)
-
+ """
     def __init__(self,P2_IMU_queue,P2_action_queue, P2_fire_queue):
         Thread.__init__(self)
         self.P2_IMU_queue = P2_IMU_queue
@@ -27,7 +27,7 @@ class AITwo(Thread):
      
     def run(self):
       messages_IMU = []
-      packet_number = 75
+      packet_number = 25
     
       while True:
         try:
@@ -62,13 +62,13 @@ class AITwo(Thread):
                     'Gyro Y': [message['gyro'][1] for message in messages_IMU],
                     'Gyro Z': [message['gyro'][2] for message in messages_IMU],
                 }
-                print(data)
-                df = pd.DataFrame(data)
-                #action = self.random_action()
-                action_number = self.predictor.get_action(df)
-                print(f"ACTION NUMBER IS: {action_number}")
-                action = ACTIONS[action_number]
-                print(f"Predicted action is: {action}")
+                #print(data)
+                #df = pd.DataFrame(data)
+                action = self.random_action()
+                #action_number = self.predictor.get_action(df)
+                #print(f"ACTION NUMBER IS: {action_number}")
+                #action = ACTIONS[action_number]
+                #print(f"Predicted action is: {action}")
                 number = 2 #Can assume 2 as this queue is reserved for player 2 
                 combined_action = action + ":2"
                 self.P2_action_queue.put(combined_action)

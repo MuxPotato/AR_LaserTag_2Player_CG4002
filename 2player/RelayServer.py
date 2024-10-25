@@ -6,7 +6,7 @@ import time
 import traceback
 import json
 import re 
-from max_attempt.Color import print_message
+from Color import print_message
 import numpy as np
 
 
@@ -189,7 +189,7 @@ class RelayServer(Thread):
             try:
                 # Try to get data from the game engine queue with a timeout to avoid blocking
                 print_message("Relay Server","Checking if any updates to send back to beetles")
-                game_engine_data = self.to_rs_queue.get(timeout=1)
+                game_engine_data = self.to_rs_queue.get(timeout=0.5)
                 message = json.dumps(game_engine_data)
                 length = str(len(message))
                 first = length + "_"

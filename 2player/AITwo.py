@@ -48,7 +48,7 @@ class AITwo(Thread):
            action = 'gun'
            number = 2
            combined_action = action+ ":2"
-           self.phone_action_queue.put(combined_action) 
+           self.P2_action_queue.put(combined_action) 
         
         if len(messages_IMU) < packet_number and message_IMU is not None:
             messages_IMU.append(message_IMU)

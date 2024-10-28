@@ -42,13 +42,16 @@ class AITwo(Thread):
                     continue  # Skip to the next loop since gun action takes priority
 
             except queue.Empty:
-                print("No item received from fire queue; checking IMU queue")
+                pass
+                #print("No item received from fire queue; checking IMU queue")
             
             # Check the IMU queue only if no gun data was available
             try:
                 message_IMU = self.P2_IMU_queue.get(timeout=0.5)
                 print("Received item from IMU queue")
                 
+                # TODO: Check hasReceivedP2Action Signal from GameEngine. 
+
                 if message_IMU:
                     print_message('AITwo', f"Received '{message_IMU}' from RelayServer")
                     action = self.random_action()  # Generate a random action if IMU data is present
@@ -56,7 +59,8 @@ class AITwo(Thread):
                     self.P2_action_queue.put(combined_action)
 
             except queue.Empty:
-                print("No item received from IMU queue; continuing to next loop")
+                pass
+                #print("No item received from IMU queue; continuing to next loop")
 
     
 

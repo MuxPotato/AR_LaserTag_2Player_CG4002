@@ -647,6 +647,8 @@ class GameEngine(Thread):
 
     
     
+    # TODO: Add hasReceivedP1Action Signal AIOne Thread not to put anything into P1_action_queue
+    # TODO: Add hasReceivedP2Action Signal AITwo Thread not to put anything into P2_action_queue
 
     def run(self):
         while True:
@@ -655,6 +657,9 @@ class GameEngine(Thread):
             # Change this tmr    
             # Handle phone action if it's not empty
             if not self.P1_action_queue.empty():
+
+                
+                
 
                 ## Start of Player 1 Action Code ##
                 phone_action1 = self.P1_action_queue.get()

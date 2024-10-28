@@ -188,9 +188,14 @@ class RelayServer(Thread):
         while not self.stop_event.is_set():
             try:
                 # Try to get data from the game engine queue with a timeout to avoid blocking
-                print_message("Relay Server","Checking if any updates to send back to beetles")
+                #print_message("Relay Server","Checking if any updates to send back to beetles")
+                
                 game_engine_data = self.to_rs_queue.get(timeout=0.5)
-                message = json.dumps(game_engine_data)
+                try:
+                    message = json.dumps(game_engine_data)
+                except (TypeError, ValueError) as json_error:
+                    print(f"JSON serialization error: {json_error}. Data: {game_engine_data}")
+                    continue  # Skip this iteration if serialization fails
                 length = str(len(message))
                 first = length + "_"
                 if game_engine_data:

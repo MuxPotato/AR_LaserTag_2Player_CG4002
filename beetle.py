@@ -37,7 +37,7 @@ class Beetle(threading.Thread):
         self.sender_seq_num = INITIAL_SEQ_NUM
         self.incoming_queue = incoming_queue
         # Configure Peripheral
-        self.ble_delegate = BlePacketDelegate(self.serial_char, self.mDataBuffer)
+        self.ble_delegate = BlePacketDelegate(self.mDataBuffer)
         self.mBeetle.withDelegate(self.ble_delegate)
         # Verbose printing
         self.is_verbose_printing = False

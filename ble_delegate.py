@@ -5,10 +5,9 @@ from internal_utils import LOWER_4BITS_MASK, PACKET_SIZE, BlePacketType, bcolors
 
 # Delegate
 class BlePacketDelegate(DefaultDelegate):
-    def __init__(self, serial_char, dataBuffer):
+    def __init__(self, dataBuffer):
         super().__init__()
         self.dataBuffer = dataBuffer
-        self.serial_char = serial_char
         self.fragmented_packet_count = 0
 
     # Bluno Beetle uses cHandle 37

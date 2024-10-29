@@ -19,7 +19,7 @@ class RelayServer(Thread):
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((self.host, self.port))
         self.client = None
-        self.client_lock = Lock()
+        #self.client_lock = Lock()
         self.P1_IMU_queue = P1_IMU_queue
         self.P2_IMU_queue = P2_IMU_queue
         self.shot_queue = shot_queue 
@@ -35,8 +35,7 @@ class RelayServer(Thread):
 
 
     def handleClient(self, client, address):
-        with self.client_lock:
-            self.client = client
+        self.client = client
         while not self.stop_event.is_set():
             try:
                 # Receive length followed by '_' followed by message
@@ -82,20 +81,19 @@ class RelayServer(Thread):
             except Exception as e:
                 print(f"Unhandled exception in handleClient: {e}")
                 traceback.print_exc()
-                self.reconnectClient()
                 break
 
             
     def reconnectClient(self):
-        with self.client_lock:
-            if self.client:
-                self.client.close()
-                self.client = None 
+        if self.client:
+            self.client.close()
+            self.client = None 
         while not self.stop_event.is_set():
             try:
                 print("Waiting for client to reconnect...")
                 client, address = self.server.accept()  # Attempt to reconnect
                 print(f"Client reconnected from {address}")
+                self.is_connected = True
                 self.handleClient(client, address)  
                 break  # Exit the loop if reconnection succeeds
             except socket.timeout:
@@ -205,11 +203,10 @@ class RelayServer(Thread):
                 first = length + "_"
                 if game_engine_data:
                     try:
-                        with self.client_lock:
-                            if self.client:
-                                self.client.sendall(first.encode("utf-8"))
-                                self.client.sendall(message.encode("utf-8"))
-                                print(f"Sent {game_engine_data} to Relay Client")
+                        if self.client:
+                            self.client.sendall(first.encode("utf-8"))
+                            self.client.sendall(message.encode("utf-8"))
+                            print(f"Sent {game_engine_data} to Relay Client")
                     except (ConnectionResetError, socket.error) as e:
                         print(f"Failed to send to Relay Client. Trying to reconnect: {e}")
                         if self.is_connected:
@@ -230,7 +227,7 @@ class RelayServer(Thread):
         while not self.stop_event.is_set():
             try:
                 client, address = self.server.accept()
-                self.isconnected = True 
+                self.is_connected = True 
                 print(f"Relay Client connected from {address}")
                 self.handleClient(client, address)
             except socket.timeout:

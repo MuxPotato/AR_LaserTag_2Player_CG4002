@@ -74,11 +74,6 @@ bool doHandshake() {
   byte mSeqNum = INITIAL_SEQ_NUM;
   bool mIsWaitingForAck = false;
   while (handshakeStatus != STAT_SYN) {
-    if (mIsWaitingForAck && (millis() - mLastPacketSentTime) >= BLE_TIMEOUT && isPacketValid(mLastSentPacket)) {
-      sendPacket(mLastSentPacket);
-      mLastPacketSentTime = millis();
-      continue;
-    }
     // No packet sent yet or not yet timed out or last packet sent is invalid
     switch (handshakeStatus) {
       case HandshakeStatus::STAT_NONE:
@@ -87,9 +82,11 @@ bool doHandshake() {
             // Skip this iteration since we haven't received a full 20-byte packet
             continue;
           }
+          // TODO: Add read packet delay like in main loop()
           // At least 1 20-byte packet in serial input buffer, read it
           BlePacket receivedPacket = readPacket();
           if (!isPacketValid(receivedPacket) || receivedPacket.seqNum != mSeqNum) {
+            // TODO: Add retransmit delay like in main loop()
             BlePacket nackPacket;
             createNackPacket(nackPacket, mSeqNum);
             sendPacket(nackPacket);
@@ -100,6 +97,11 @@ bool doHandshake() {
         }
       case HandshakeStatus::STAT_HELLO:
         {
+          unsigned long mTransmitPeriod = millis() - mLastPacketSentTime;
+          if (mTransmitPeriod < TRANSMIT_DELAY) {
+            // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
+            delay(TRANSMIT_DELAY - mTransmitPeriod);
+          }
           BlePacket ackPacket;
           createHandshakeAckPacket(ackPacket, mSeqNum);  
           sendPacket(ackPacket);
@@ -112,17 +114,26 @@ bool doHandshake() {
         }
       case HandshakeStatus::STAT_ACK:
         {
+          if (mIsWaitingForAck && (millis() - mLastPacketSentTime) >= BLE_TIMEOUT && isPacketValid(mLastSentPacket)) {
+            handshakeStatus = STAT_HELLO;
+            mSeqNum = INITIAL_SEQ_NUM;
+            // TODO: Consider if there's a need to clear serial input buffer here(after retransmitting)
+            continue;
+          }
           if (Serial.available() < PACKET_SIZE) {
             // Skip this iteration since we haven't received a full 20-byte packet
             continue;
           }
+          // TODO: Add read packet delay like in main loop()
           BlePacket receivedPacket = readPacket();
           if (!isPacketValid(receivedPacket) || receivedPacket.seqNum != mSeqNum) {
+            // TODO: Add retransmit delay like in main loop()
             BlePacket nackPacket;
             createNackPacket(nackPacket, mSeqNum);
             sendPacket(nackPacket);
           } else if (getPacketTypeOf(receivedPacket) == PacketType::ACK) {
             if (receivedPacket.seqNum > mSeqNum) {
+              // TODO: Add retransmit delay like in main loop()
               BlePacket nackPacket;
               // Use existing seqNum for NACK packet to indicate current packet is not received
               createNackPacket(nackPacket, mSeqNum);
@@ -144,12 +155,14 @@ bool doHandshake() {
             mSeqNum = INITIAL_SEQ_NUM;
           } else if (getPacketTypeOf(receivedPacket) == PacketType::NACK &&
               receivedPacket.seqNum == mSeqNum && isPacketValid(mLastSentPacket)) {
+            /* TODO: Consider if this block is ever entered, since we only accept NACK
+               for our ACK to a HELLO, which means receivedPacket.seqNum = 0 and mSeqNum = 1 */
+            // TODO: Add retransmit delay like in main loop()
             sendPacket(mLastSentPacket);
             mIsWaitingForAck = true;
           }
         }
     }
-    delay(LOOP_DELAY);
   }
   return false;
 }

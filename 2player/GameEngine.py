@@ -69,7 +69,7 @@ class GameEngine(Thread):
             self.update_both_players_game_state()
             return True
         elif player_id == 2 and self.bomb_p1 > 0:
-            self.bomb_p1 -= 1
+            self.bomb_p2 -= 1
             self.update_both_players_game_state()
             return True
         return False

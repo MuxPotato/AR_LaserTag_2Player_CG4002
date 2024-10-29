@@ -30,6 +30,8 @@ class AIOne(Thread):
 
     def run(self):
         while True:
+
+            
             # Check the gun queue first, as it has priority
             try:
                 message_Shoot = self.P1_fire_queue.get(timeout=0.005)

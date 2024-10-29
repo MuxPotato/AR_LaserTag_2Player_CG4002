@@ -138,6 +138,8 @@ class Beetle(threading.Thread):
                         self.num_invalid_packets_received += 1
                         if (self.num_invalid_packets_received == MAX_RETRANSMITS):
                             self.num_invalid_packets_received = 0
+                            self.mPrint(bcolors.BRIGHT_YELLOW, 
+                                    f"""ERROR: Max retransmits reached for {self.beetle_mac_addr}, resetting""")
                             self.reconnect()
                             continue
                         self.sendNack(self.receiver_seq_num)

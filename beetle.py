@@ -237,6 +237,8 @@ class Beetle(threading.Thread):
         pass
 
     def doHandshake(self):
+        # Clear input buffer so transmissions after handshake begin in a clean state
+        self.mDataBuffer.clear()
         mHasSentHello = False
         mSentHelloTime = time.time()
         mSynTime = time.time()

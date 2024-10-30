@@ -73,6 +73,60 @@ class ReceiverThread(threading.Thread):
                 # Do something with the received message
                 self.update_game_state(received_msg)  
 
+class SenderThread(threading.Thread):
+    def __init__(self, stop_event: threading.Event, from_ble_IMU_queue: queue.Queue, socket, mutex_lock):
+        super().__init__()
+        self.stop_event: threading.Event = stop_event
+        self.from_ble_IMU_queue: queue.Queue = from_ble_IMU_queue
+        self.my_packet_type: str = "IMUPacket"
+        self.my_data_type: str = "IMU"
+        self.mutex_lock = mutex_lock
+        self.socket = socket
+
+    def run(self):
+        self.handle_beetle_data()
+
+    def handle_beetle_data(self):
+        while not self.stop_event.is_set():
+            try:
+                IMU_data = self.from_ble_IMU_queue.get(timeout = QUEUE_GET_TIMEOUT)  
+                print(f"""{self.my_data_type} data received from int comms: {IMU_data}""")
+                serialized_imu_data = f"""'{self.my_packet_type}': {IMU_data._asdict()}"""
+                # Here, you would parse the data and send it to the server
+                self.send_beetle_data(serialized_imu_data)
+
+            except queue.Empty:
+                continue
+            except KeyboardInterrupt as exc:
+                # Explicitly catch and rethrow KeyboardInterrupt to ensure caller can handle CTRL+C
+                raise exc
+            except Exception as exc:
+                traceback.print_exception(exc)
+
+    def send_beetle_data(self, given_msg: str):
+        #message = json.dumps(given_msg)
+        length = str(len(given_msg))
+        first = length + "_"
+        # Ensure that only one thread sends data at a time
+        self.mutex_lock.acquire()
+        self.socket.sendall(first.encode("utf-8"))
+        self.socket.sendall(given_msg.encode("utf-8"))
+        # Allow the other thread to send data now that we're done
+        self.mutex_lock.release()
+        print(f"""Sent {given_msg} for {self.my_packet_type} to relay server""")
+    
+class AnkleSenderThread(SenderThread):
+    def __init__(self, stop_event: threading.Event, from_ble_IMU_queue: queue.Queue, socket, mutex_lock):
+        super().__init__(stop_event, from_ble_IMU_queue, socket, mutex_lock)
+        self.my_packet_type: str = "AnklePacket"
+        self.my_data_type: str = "Ankle"
+        
+class GloveSenderThread(SenderThread):
+    def __init__(self, stop_event: threading.Event, from_ble_IMU_queue: queue.Queue, socket, mutex_lock):
+        super().__init__(stop_event, from_ble_IMU_queue, socket, mutex_lock)
+        self.my_packet_type: str = "ImuPacket"
+        self.my_data_type: str = "Glove"
+
 def handle_IMU_data(terminate_event, from_ble_IMU_queue, send_func):
     while not terminate_event.is_set():
         try:
@@ -137,20 +191,21 @@ def parse_packets(imu_packet, Shootpacket):
 
 class RelayClient(threading.Thread):
 
-    def __init__(self, server_ip, server_port, from_ble_IMU_queue, from_ble_shoot_queue, to_ble_game_state_queue):
+    def __init__(self, server_ip, server_port, from_ble_ankle_queue, from_ble_glove_queue, from_ble_shoot_queue, to_ble_game_state_queue):
 #    def __init__(self, from_ble_IMU_queue, from_ble_shoot_queue, glove_output, game_output):
         super().__init__()
         self.server_ip = server_ip
         self.server_port = server_port  
         self.timeout = 100   # the timeout for receiving any data
         self.socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        self.from_ble_IMU_queue = from_ble_IMU_queue
+        self.from_ble_ankle_queue = from_ble_ankle_queue
+        self.from_ble_glove_queue = from_ble_glove_queue
         self.from_ble_shoot_queue = from_ble_shoot_queue 
         self.to_ble_game_state_queue = to_ble_game_state_queue
         self.stop_event = threading.Event()
         self.socket_mutex = threading.Lock()
-        self.imu_thread = threading.Thread(target=handle_IMU_data,
-                args = (self.stop_event, from_ble_IMU_queue, get_send_func(self.socket, self.socket_mutex),))
+        self.ankle_thread = AnkleSenderThread(self.stop_event, self.from_ble_ankle_queue, self.socket, self.socket_mutex)
+        self.glove_thread = GloveSenderThread(self.stop_event, self.from_ble_glove_queue, self.socket, self.socket_mutex)
         self.shoot_thread = threading.Thread(target=handle_shoot_data, 
                 args = (self.stop_event, from_ble_shoot_queue, get_send_func(self.socket, self.socket_mutex),))
         self.receive_handler = ReceiverThread(self.socket, self.server_ip, self.stop_event, 
@@ -209,9 +264,10 @@ class RelayClient(threading.Thread):
         self.connect(self.server_ip,self.server_port)
         print('Connected to relay server')
         try:
-            self.imu_thread.start()
+            self.ankle_thread.start()
+            self.glove_thread.start()
             self.shoot_thread.start()
-            print('Threads for IMU and Shoot data started')
+            print('Threads for ankle, glove and Shoot data started')
             self.receive_handler.start()
             print('Thread for receiving data from RelayServer started')
             self.stop_event.wait()
@@ -224,9 +280,10 @@ class RelayClient(threading.Thread):
 
     def quit(self):
         self.stop_event.set()
-        self.imu_thread.join()
+        self.ankle_thread.join()
+        self.glove_thread.join()
         self.shoot_thread.join()
         self.receive_handler.join()
-        print('Threads for IMU, Shoot data and receiving data stopped')
+        print('Threads for ankle, glove, Shoot data and receiving data stopped')
         self.socket.close()
         print('Relay client terminated')

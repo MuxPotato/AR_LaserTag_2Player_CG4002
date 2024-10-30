@@ -12,7 +12,7 @@ import numpy as np
 
 
 class RelayServer(Thread):
-    def __init__(self, host ,port ,P1_IMU_queue,P2_IMU_queue,shot_queue ,P1_fire_queue ,P2_fire_queue ,to_rs_queue ):
+    def __init__(self, host ,port ,P1_IMU_queue,P2_IMU_queue,shot_queue ,P1_fire_queue ,P2_fire_queue ,P1_ankle_queue ,P2_ankle_queue,to_rs_queue ):
         Thread.__init__(self)
         self.host = host
         self.port = port
@@ -25,6 +25,8 @@ class RelayServer(Thread):
         self.shot_queue = shot_queue 
         self.P1_fire_queue = P1_fire_queue 
         self.P2_fire_queue = P2_fire_queue 
+        self.P1_ankle_queue = P1_ankle_queue 
+        self.P2_ankle_queue = P2_ankle_queue 
         self.to_rs_queue = to_rs_queue  # hp and ammo to send back to beetles 
         self.server.settimeout(1.0)
         self.stop_event = Event()
@@ -132,6 +134,29 @@ class RelayServer(Thread):
                 else:
                     print("Error: Could not parse IMUPacket")
 
+            if "AnklePacket" in msg:
+                imu_match = re.search(r"'AnklePacket':\s*{.*?playerID':\s*(\d+).*?accel':\s*(\[.*?\]).*?gyro':\s*(\[.*?\])}", msg)
+                if imu_match:
+                    player_id = int(imu_match.group(1))  
+                    accel_data = eval(imu_match.group(2))  # Use eval carefully
+                    gyro_data = eval(imu_match.group(3))
+        
+                    # Create the packet data dictionary
+                    packet_data = {
+                        'playerID': player_id,
+                        'accel': accel_data,
+                        'gyro': gyro_data
+                    }
+
+                    
+
+                    if packet_data["playerID"] == 1:
+                        self.P1_ankle_queue.put(packet_data)
+                    elif packet_data["playerID"] == 2:
+                        self.P2_ankle_queue.put(packet_data)
+                        
+                else:
+                    print("Error: Could not parse IMUPacket")
             # Check for ShootPacket with either isFired or isHit
             elif "ShootPacket" in msg:
                 shoot_match = re.search(r"'ShootPacket':\s*{.*?playerID':\s*(\d+).*?(isFired|isHit)':\s*(True|False)}", msg)

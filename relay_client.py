@@ -1,12 +1,14 @@
 
 import json
+from math import sqrt
 import queue
 import socket
 import sys
 import threading
+import time
 import traceback
 
-from external_utils import QUEUE_GET_TIMEOUT
+from external_utils import COOLDOWN_PERIOD, PACKETS_PER_ACTION, QUEUE_GET_TIMEOUT, ImuRelayState
 
 class ReceiverThread(threading.Thread):
     def __init__(self, my_socket: socket.SocketType, server_ip: str, stop_event: threading.Event, to_ble_game_state_queue: queue.Queue):
@@ -74,6 +76,7 @@ class ReceiverThread(threading.Thread):
                 self.update_game_state(received_msg)  
 
 class SenderThread(threading.Thread):
+
     def __init__(self, stop_event: threading.Event, from_ble_IMU_queue: queue.Queue, socket, mutex_lock):
         super().__init__()
         self.stop_event: threading.Event = stop_event
@@ -81,7 +84,13 @@ class SenderThread(threading.Thread):
         self.my_packet_type: str = "IMUPacket"
         self.my_data_type: str = "IMU"
         self.mutex_lock = mutex_lock
-        self.socket = socket
+        self.relay_socket = socket
+        # Threshold for accelerometer data before an incoming packet from Beetle is considered
+        #   a potential action packet
+        self.data_threshold: float = 1.5
+        self.sender_state: ImuRelayState = ImuRelayState.WAITING_FOR_ACTION
+        self.num_action_packets_sent: int = 0
+        self.cooldown_period_start: float = 0
 
     def run(self):
         self.handle_beetle_data()
@@ -89,11 +98,10 @@ class SenderThread(threading.Thread):
     def handle_beetle_data(self):
         while not self.stop_event.is_set():
             try:
-                IMU_data = self.from_ble_IMU_queue.get(timeout = QUEUE_GET_TIMEOUT)  
-                print(f"""{self.my_data_type} data received from int comms: {IMU_data}""")
-                serialized_imu_data = f"""'{self.my_packet_type}': {IMU_data._asdict()}"""
+                imu_packet = self.from_ble_IMU_queue.get(timeout = QUEUE_GET_TIMEOUT)  
+                print(f"""{self.my_data_type} data received from int comms: {imu_packet}""")
                 # Here, you would parse the data and send it to the server
-                self.send_beetle_data(serialized_imu_data)
+                self.send_beetle_data(imu_packet)
 
             except queue.Empty:
                 continue
@@ -103,29 +111,78 @@ class SenderThread(threading.Thread):
             except Exception as exc:
                 traceback.print_exception(exc)
 
-    def send_beetle_data(self, given_msg: str):
-        #message = json.dumps(given_msg)
-        length = str(len(given_msg))
+    def send_beetle_data(self, imu_packet):
+        if self.sender_state == ImuRelayState.WAITING_FOR_ACTION:
+            # Incoming IMU data from Beetle has not crossed threshold yet
+            accel_analytics: float = self.get_analytics_for(imu_packet.accel)
+            if accel_analytics >= self.data_threshold:
+                # Current packet exceeds threshold for action(potential action packet),
+                #   send it to relay server for AI inference
+                self.sender_state = ImuRelayState.SENDING_ACTION
+            # If imu data hasn't crossed threshold, continue waiting for a potential action packet
+        elif self.sender_state == ImuRelayState.SENDING_ACTION:
+            if self.num_action_packets_sent < PACKETS_PER_ACTION:
+                # Incoming IMU data from Beetle crossed threshold, but number of action data packets
+                #   sent is less than PACKETS_PER_ACTION
+                serialized_packet: str = self.serialize(imu_packet)
+                self.send_to_server(serialized_packet)
+                self.num_action_packets_sent += 1
+            if self.num_action_packets_sent >= PACKETS_PER_ACTION:
+                # Target number of actions packets now sent, begin cooldown period
+                self.sender_state = ImuRelayState.COOLDOWN
+                self.num_action_packets_sent = 0
+                # Cooldown period starts now, record the start time
+                self.cooldown_period_start = time.time()
+                return
+        elif self.sender_state == ImuRelayState.COOLDOWN:
+            # Currently in cooldown period
+            if (time.time() - self.cooldown_period_start) > COOLDOWN_PERIOD:
+                # Cooldown period is now over, return to waiting for action state
+                self.sender_state = ImuRelayState.WAITING_FOR_ACTION
+                return
+            # Still within cooldown period, don't send any data(just drop the given packet)
+
+    def send_to_server(self, given_data: str):
+        #message = json.dumps(given_data)
+        length = str(len(given_data))
         first = length + "_"
         # Ensure that only one thread sends data at a time
         self.mutex_lock.acquire()
-        self.socket.sendall(first.encode("utf-8"))
-        self.socket.sendall(given_msg.encode("utf-8"))
+        self.relay_socket.sendall(first.encode("utf-8"))
+        self.relay_socket.sendall(given_data.encode("utf-8"))
         # Allow the other thread to send data now that we're done
         self.mutex_lock.release()
-        print(f"""Sent {given_msg} for {self.my_packet_type} to relay server""")
+        print(f"""Sent {given_data} for {self.my_packet_type} to relay server""")
+
+    # Begin helper functions section
+    def get_analytics_for(self, imu_packet):
+        imu_accel: list[float] = imu_packet.accel
+        mean_sq_value: float = 0
+        # Sum the square of each accelerometer value
+        for value in imu_accel:
+            mean_sq_value += value ** 2
+        # Square root the sum of squares
+        mean_sq_value = sqrt(mean_sq_value)
+        return mean_sq_value
+    
+    def serialize(self, imu_packet):
+        serialized_imu_data = f"""'{self.my_packet_type}': {imu_packet._asdict()}"""
+        return serialized_imu_data
+        
     
 class AnkleSenderThread(SenderThread):
     def __init__(self, stop_event: threading.Event, from_ble_IMU_queue: queue.Queue, socket, mutex_lock):
         super().__init__(stop_event, from_ble_IMU_queue, socket, mutex_lock)
         self.my_packet_type: str = "AnklePacket"
         self.my_data_type: str = "Ankle"
+        self.data_threshold: float = 2.5
         
 class GloveSenderThread(SenderThread):
     def __init__(self, stop_event: threading.Event, from_ble_IMU_queue: queue.Queue, socket, mutex_lock):
         super().__init__(stop_event, from_ble_IMU_queue, socket, mutex_lock)
         self.my_packet_type: str = "ImuPacket"
         self.my_data_type: str = "Glove"
+        self.data_threshold: float = 1.5
 
 def handle_IMU_data(terminate_event, from_ble_IMU_queue, send_func):
     while not terminate_event.is_set():

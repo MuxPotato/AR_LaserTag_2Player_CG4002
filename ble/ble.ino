@@ -445,7 +445,3 @@ BlePacket sendDummyPacket() {
   sendPacket(dummyPacket);
   return dummyPacket;
 }
-
-void sendPacket(BlePacket &packetToSend) {
-  Serial.write((byte *) &packetToSend, sizeof(packetToSend));
-}

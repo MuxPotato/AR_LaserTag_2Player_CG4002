@@ -295,6 +295,10 @@ BlePacket readPacketFrom(MyQueue<byte> &recvBuffer) {
   return newPacket;
 }
 
+void sendPacket(BlePacket &packetToSend) {
+  Serial.write((byte *) &packetToSend, sizeof(packetToSend));
+}
+
 void serialiseImuData(int16_t givenDataValue, byte imuData[PACKET_DATA_SIZE], int offset) {
   if (offset >= PACKET_DATA_SIZE || offset < 0) {
     return;

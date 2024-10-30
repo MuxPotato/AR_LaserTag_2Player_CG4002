@@ -1,8 +1,18 @@
+from enum import Enum
 import os
 from typing import MutableSequence, NamedTuple
 
 # Constants
+## Number of packets to send to AI for inference per potential action
+PACKETS_PER_ACTION = 60
+## Cooldown period after each action in seconds
+COOLDOWN_PERIOD = 3
 QUEUE_GET_TIMEOUT = 1
+
+class ImuRelayState(Enum):
+    WAITING_FOR_ACTION = 0
+    SENDING_ACTION = 1
+    COOLDOWN = 2
 
 class ImuPacket(NamedTuple):
     playerID: int

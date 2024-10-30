@@ -2,13 +2,14 @@ import queue
 import sys
 import threading
 import traceback
-from beetle import GloveUnreliableBeetle, GunBeetle, GloveBeetle, VestBeetle
+from beetle import GunBeetle, ImuUnreliableBeetle, VestBeetle
 from internal_utils import GAME_STATE_QUEUE_TIMEOUT, GunUpdatePacket, VestUpdatePacket, bcolors
 
 class GameStateHandler(threading.Thread):
     def __init__(self, incoming_game_state_queue: queue.Queue, gun_update_queue: queue.Queue, vest_update_queue: queue.Queue):
         super().__init__()
         self.incoming_game_state_queue = incoming_game_state_queue
+        # TODO: Add 2 queues(1 gun, 1 vest) per player
         self.gun_update_queue = gun_update_queue
         self.vest_update_queue = vest_update_queue
         self.stop_event = threading.Event()
@@ -27,6 +28,7 @@ class GameStateHandler(threading.Thread):
                 new_game_state = self.incoming_game_state_queue.get(timeout = GAME_STATE_QUEUE_TIMEOUT)
                 if new_game_state is None:
                     continue
+                # TODO: Add parser that checks player ID to determine which queue to put the update in
                 if self.is_gun_game_state(new_game_state):
                     gun_update_packet = GunUpdatePacket(player_id = new_game_state.id, 
                             bullets = new_game_state.bullets)
@@ -79,9 +81,9 @@ class InternalMainThread(threading.Thread):
 #        "B4:99:4C:89:18:1D",
     ]
 
-    def __init__(self, outgoing_glove_queue, outgoing_game_state_queue, incoming_game_state_queue):
+    def __init__(self, outgoing_imu_queue, outgoing_game_state_queue, incoming_game_state_queue):
         super().__init__()
-        self.outgoing_glove_queue = outgoing_glove_queue
+        self.outgoing_imu_queue = outgoing_imu_queue
         self.outgoing_game_state_queue = outgoing_game_state_queue
         self.incoming_game_state_queue = incoming_game_state_queue
         self.incoming_glove_queue = queue.Queue()
@@ -109,13 +111,13 @@ class InternalMainThread(threading.Thread):
             index = 0
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
-            glove1Beetle = GloveUnreliableBeetle(beetle_addr, self.outgoing_glove_queue, self.incoming_glove_queue, colors[index])
+            glove1Beetle = ImuUnreliableBeetle(beetle_addr, self.outgoing_imu_queue, self.incoming_glove_queue, colors[index])
             self.beetles.append(glove1Beetle)
             glove1Beetle.start()
             index += 1
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
-            ankle1Beetle = GloveUnreliableBeetle(beetle_addr, self.outgoing_glove_queue, self.incoming_glove_queue, colors[index - 1])
+            ankle1Beetle = ImuUnreliableBeetle(beetle_addr, self.outgoing_imu_queue, self.incoming_glove_queue, colors[index - 1])
             self.beetles.append(ankle1Beetle)
             ankle1Beetle.start()
 
@@ -132,13 +134,13 @@ class InternalMainThread(threading.Thread):
             index += 1
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
-            glove2Beetle = GloveBeetle(beetle_addr, self.outgoing_glove_queue, self.incoming_glove_queue, colors[index])
+            glove2Beetle = ImuUnreliableBeetle(beetle_addr, self.outgoing_imu_queue, self.incoming_glove_queue, colors[index])
             self.beetles.append(glove2Beetle)
             glove2Beetle.start()
             index += 1
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
-            ankle2Beetle = GloveBeetle(beetle_addr, self.outgoing_glove_queue, self.incoming_glove_queue, colors[index - 1])
+            ankle2Beetle = ImuUnreliableBeetle(beetle_addr, self.outgoing_imu_queue, self.incoming_glove_queue, colors[index - 1])
             self.beetles.append(ankle2Beetle)
             ankle2Beetle.start()
 

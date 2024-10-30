@@ -40,24 +40,26 @@ BLUNO_MAC_ADDR_LIST = [
 BEETLE_MAC_ADDR_MAP = {
     # Below must be player 1 IMU(glove) Beetle
     "F4:B8:5E:42:61:62": 1,
-    # Below must be player 1 vest Beetle
+    # Below must be player 1 IMU(ankle) Beetle
     "D0:39:72:DF:CA:F2": 1,
     # Below must be player 1 gun Beetle
     "B4:99:4C:89:18:72": 1,
+    # Below must be player 1 vest Beetle
+    "F4:B8:5E:42:6D:0E": 1,
 
     # Below must be player 2 IMU(glove) Beetle
     "B4:99:4C:89:1B:FD": 2,
+    # Below must be player 2 IMU(ankle) Beetle
+    "34:08:E1:2A:08:61": 2,
+    # Below must be player 2 gun Beetle
+    "F4:B8:5E:42:67:2B": 2,
     # Below must be player 2 vest Beetle
     "F4:B8:5E:42:6D:75": 2,
-    # Below must be player 2 gun Beetle
-    "F4:B8:5E:42:6D:0E": 2,
 
     # Extra 1
-#    "B4:99:4C:89:1B:FD": 1,
+#    "F4:B8:5E:42:67:6E": 1,
     # Extra 2
 #    "B4:99:4C:89:18:1D": 2,
-    # Old player 1 gun
-#   "F4:B8:5E:42:67:2B": 1,
 }
 
 ## BLE GATT

@@ -341,13 +341,6 @@ void retransmitLastPacket() {
   }
 }
 
-void sendPacket(BlePacket &packetToSend) {
-  if ((millis() - lastSentPacketTime) < TRANSMIT_DELAY) {
-    delay(TRANSMIT_DELAY);
-  }
-  Serial.write((byte *) &packetToSend, sizeof(packetToSend));
-}
-
 void createVestPacketData(bool mIsShot, byte packetData[PACKET_DATA_SIZE]) {
   packetData[0] = mIsShot ? 1 : 0;
 }

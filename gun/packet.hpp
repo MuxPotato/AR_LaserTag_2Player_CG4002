@@ -268,3 +268,7 @@ BlePacket readPacketFrom(MyQueue<byte> &recvBuffer) {
   newPacket.crc = (byte) recvBuffer.pop_front();
   return newPacket;
 }
+
+void sendPacket(BlePacket &packetToSend) {
+  Serial.write((byte *) &packetToSend, sizeof(packetToSend));
+}

@@ -175,12 +175,6 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
 }
 
-void getPacketData(byte packetData[PACKET_DATA_SIZE]) {
-  for (size_t i = 0; i < PACKET_DATA_SIZE; ++i) {
-    packetData[i] = (byte) Serial.read();
-  }
-}
-
 void processGivenPacket(BlePacket &packet) {
   char packetType = getPacketTypeOf(packet);
   switch (packetType) {
@@ -206,24 +200,6 @@ void processIncomingPacket() {
     processGivenPacket(receivedPacket);
   }
   // Unreliable communication, so drop packet if incoming packet is invalid
-}
-
-BlePacket readPacket() {
-  BlePacket newPacket = {};
-  if (Serial.available() < PACKET_SIZE) {
-    return newPacket;
-  }
-  newPacket.metadata = (byte) Serial.read();
-  uint16_t seqNumLowByte = (uint16_t) Serial.read();
-  uint16_t seqNumHighByte = (uint16_t) Serial.read();
-  newPacket.seqNum = seqNumLowByte + (seqNumHighByte << BITS_PER_BYTE);
-  getPacketData(newPacket.data);
-  newPacket.crc = (byte) Serial.read();
-  return newPacket;
-}
-
-void sendPacket(BlePacket &packetToSend) {
-  Serial.write((byte *) &packetToSend, sizeof(packetToSend));
 }
 
 /* IMU */

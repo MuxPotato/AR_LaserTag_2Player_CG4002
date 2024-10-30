@@ -577,12 +577,29 @@ class ImuUnreliableBeetle(Beetle):
         x1, y1, z1, x2, y2, z2 = self.getDataFrom(raw_data_packet.data)
         internal_imu_packet = ImuPacket(self.beetle_mac_addr, [x1, y1, z1], [x2, y2, z2])
         player_id = get_player_id_for(self.beetle_mac_addr)
-        external_imu_packet = external_utils.ImuPacket(player_id, [x1, y1, z1], [x2, y2, z2])
+        external_imu_packet = self.create_imu_packet_from(player_id, [x1, y1, z1], [x2, y2, z2])
         self.outgoing_queue.put(external_imu_packet)
         if self.is_verbose_printing:
             # TODO: Stop printing debug line below
             self.mPrint2("Received IMU data from {}: [{}, {}, {}, {}, {}, {}]"
                     .format(self.beetle_mac_addr, x1, y1, z1, x2, y2, z2))
+            
+    def create_imu_packet_from(self, player_id: int, acc_data: list, gyro_data: list):
+        pass
+    
+class AnkleUnreliableBeetle(ImuUnreliableBeetle):
+    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
+        super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
+
+    def create_imu_packet_from(self, player_id: int, acc_data: list, gyro_data: list):
+        return external_utils.AnklePacket(player_id, acc_data, gyro_data)
+    
+class GloveUnreliableBeetle(ImuUnreliableBeetle):
+    def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
+        super().__init__(beetle_mac_addr, outgoing_queue, incoming_queue, color)
+
+    def create_imu_packet_from(self, player_id: int, acc_data: list, gyro_data: list):
+        return external_utils.ImuPacket(player_id, acc_data, gyro_data)
 
 class GunBeetle(Beetle):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):

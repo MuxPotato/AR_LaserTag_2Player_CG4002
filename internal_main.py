@@ -2,7 +2,7 @@ import queue
 import sys
 import threading
 import traceback
-from beetle import GunBeetle, ImuUnreliableBeetle, VestBeetle
+from beetle import AnkleUnreliableBeetle, GloveUnreliableBeetle, GunBeetle, ImuUnreliableBeetle, VestBeetle
 from internal_utils import GAME_STATE_QUEUE_TIMEOUT, GunUpdatePacket, VestUpdatePacket, bcolors
 
 class GameStateHandler(threading.Thread):
@@ -111,13 +111,13 @@ class InternalMainThread(threading.Thread):
             index = 0
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
-            glove1Beetle = ImuUnreliableBeetle(beetle_addr, self.outgoing_imu_queue, self.incoming_glove_queue, colors[index])
+            glove1Beetle = GloveUnreliableBeetle(beetle_addr, self.outgoing_imu_queue, self.incoming_glove_queue, colors[index])
             self.beetles.append(glove1Beetle)
             glove1Beetle.start()
             index += 1
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
-            ankle1Beetle = ImuUnreliableBeetle(beetle_addr, self.outgoing_imu_queue, self.incoming_glove_queue, colors[index - 1])
+            ankle1Beetle = AnkleUnreliableBeetle(beetle_addr, self.outgoing_imu_queue, self.incoming_glove_queue, colors[index - 1])
             self.beetles.append(ankle1Beetle)
             ankle1Beetle.start()
 
@@ -134,13 +134,13 @@ class InternalMainThread(threading.Thread):
             index += 1
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
-            glove2Beetle = ImuUnreliableBeetle(beetle_addr, self.outgoing_imu_queue, self.incoming_glove_queue, colors[index])
+            glove2Beetle = GloveUnreliableBeetle(beetle_addr, self.outgoing_imu_queue, self.incoming_glove_queue, colors[index])
             self.beetles.append(glove2Beetle)
             glove2Beetle.start()
             index += 1
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
-            ankle2Beetle = ImuUnreliableBeetle(beetle_addr, self.outgoing_imu_queue, self.incoming_glove_queue, colors[index - 1])
+            ankle2Beetle = AnkleUnreliableBeetle(beetle_addr, self.outgoing_imu_queue, self.incoming_glove_queue, colors[index - 1])
             self.beetles.append(ankle2Beetle)
             ankle2Beetle.start()
 

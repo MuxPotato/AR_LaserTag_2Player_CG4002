@@ -8,6 +8,10 @@ class ImuPacket(NamedTuple):
     playerID: int
     accel: MutableSequence[float]
     gyro: MutableSequence[float]
+class AnklePacket(NamedTuple):
+    playerID: int
+    accel: MutableSequence[float]
+    gyro: MutableSequence[float]
 class GameStatePacket(NamedTuple):
     playerID: int
     playerHP: int

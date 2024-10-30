@@ -124,6 +124,7 @@ byte parsePacketTypeFrom(byte metadata);
 int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer);
 BlePacket sendDummyPacket();
 void sendPacket(BlePacket &packetToSend);
+void serialiseImuData(int16_t givenDataValue, byte imuData[PACKET_DATA_SIZE], int offset);
 
 uint8_t clearSerialInputBuffer() {
   uint8_t numBytesRemoved = 0;
@@ -198,6 +199,19 @@ void floatToData(byte packetData[PACKET_DATA_SIZE], float x1, float y1, float z1
   // Padding bytes
   for (size_t i = 12; i < PACKET_DATA_SIZE; i += 1) {
     packetData[i] = 0;
+  }
+}
+
+void getBytesFrom(byte imuData[PACKET_DATA_SIZE], int16_t accX, int16_t accY, int16_t accZ, 
+      int16_t gyroX, int16_t gyroY, int16_t gyroZ) {
+  serialiseImuData(accX, imuData, 0);
+  serialiseImuData(accY, imuData, 2);
+  serialiseImuData(accZ, imuData, 4);
+  serialiseImuData(gyroX, imuData, 6);
+  serialiseImuData(gyroY, imuData, 8);
+  serialiseImuData(gyroZ, imuData, 10);
+  for (size_t i = 12; i < PACKET_DATA_SIZE; ++i) {
+    imuData[i] = PACKET_DATA_SIZE - 12;
   }
 }
 
@@ -279,4 +293,12 @@ BlePacket readPacketFrom(MyQueue<byte> &recvBuffer) {
   getPacketData(recvBuffer, newPacket.data);
   newPacket.crc = (byte) recvBuffer.pop_front();
   return newPacket;
+}
+
+void serialiseImuData(int16_t givenDataValue, byte imuData[PACKET_DATA_SIZE], int offset) {
+  if (offset >= PACKET_DATA_SIZE || offset < 0) {
+    return;
+  }
+  imuData[offset] = (byte) givenDataValue;
+  imuData[offset + 1] = (byte) (givenDataValue >> BITS_PER_BYTE);
 }

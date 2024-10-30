@@ -203,6 +203,12 @@ uint8_t getCrcOf(const BlePacket &packet) {
   return crcValue;
 }
 
+void getPacketData(byte packetData[PACKET_DATA_SIZE]) {
+  for (size_t i = 0; i < PACKET_DATA_SIZE; ++i) {
+    packetData[i] = (byte) Serial.read();
+  }
+}
+
 void getPacketData(MyQueue<byte> &recvBuffer, byte packetData[PACKET_DATA_SIZE]) {
   for (size_t i = 0; i < PACKET_DATA_SIZE; ++i) {
     packetData[i] = recvBuffer.pop_front();
@@ -236,6 +242,20 @@ bool isPacketValid(BlePacket &packet) {
 
 byte parsePacketTypeFrom(byte metadata) {
   return metadata & LOWER_4BIT_MASK;
+}
+
+BlePacket readPacket() {
+  BlePacket newPacket = {};
+  if (Serial.available() < PACKET_SIZE) {
+    return newPacket;
+  }
+  newPacket.metadata = (byte) Serial.read();
+  uint16_t seqNumLowByte = (uint16_t) Serial.read();
+  uint16_t seqNumHighByte = (uint16_t) Serial.read();
+  newPacket.seqNum = seqNumLowByte + (seqNumHighByte << BITS_PER_BYTE);
+  getPacketData(newPacket.data);
+  newPacket.crc = (byte) Serial.read();
+  return newPacket;
 }
 
 BlePacket readPacketFrom(MyQueue<byte> &recvBuffer) {

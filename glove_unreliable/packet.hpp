@@ -46,6 +46,15 @@ bool isHeadByte(byte currByte);
 byte parsePacketTypeFrom(byte metadata);
 void serialiseImuData(int16_t givenDataValue, byte imuData[PACKET_DATA_SIZE], int offset);
 
+uint8_t clearSerialInputBuffer() {
+  uint8_t numBytesRemoved = 0;
+  while (Serial.available()) {
+    byte nextByte = (byte) Serial.read();
+    numBytesRemoved += 1;
+  }
+  return numBytesRemoved;
+}
+
 void createDataFrom(String givenStr, byte packetData[PACKET_DATA_SIZE]) {
   const size_t MAX_SIZE = givenStr.length() > PACKET_DATA_SIZE ? PACKET_DATA_SIZE : givenStr.length();
   const char *stringChar = givenStr.c_str();

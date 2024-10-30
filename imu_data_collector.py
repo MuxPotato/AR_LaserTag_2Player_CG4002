@@ -3,8 +3,7 @@ import csv
 import os
 import queue
 import sys
-import time
-from beetle import GloveBeetle, GloveUnreliableBeetle
+from beetle import GloveUnreliableBeetle
 from internal_utils import bcolors
 
 IMU_BEETLE = "F4:B8:5E:42:61:62"

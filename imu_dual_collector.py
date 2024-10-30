@@ -7,10 +7,15 @@ import threading
 from beetle import GloveUnreliableBeetle
 from internal_utils import bcolors
 
-# Glove IMU
+# Set 1 Glove IMU
 GLOVE_IMU_BEETLE = "F4:B8:5E:42:61:62"
-# Ankle strap
+# Set 1 Ankle strap
 ANKLE_IMU_BEETLE = "D0:39:72:DF:CA:F2"
+
+# Set 2 Glove IMU
+#GLOVE_IMU_BEETLE = "B4:99:4C:89:1B:FD"
+# Set 2 Ankle strap
+#ANKLE_IMU_BEETLE = "34:08:E1:2A:08:61"
 
 def dump_imu_data_to_csv(filename: str, label: str, imu_queue: queue.Queue, imu_type: str = "glove"):
     target_file_path = f"""imu_data/{filename}_{imu_type}.csv"""

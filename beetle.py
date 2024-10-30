@@ -13,7 +13,7 @@ class Beetle(threading.Thread):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
         super().__init__()
         self.beetle_mac_addr = beetle_mac_addr
-        self.mBeetle = Peripheral()
+        self.mBeetle: Peripheral = Peripheral()
         self.color = color
         self.terminateEvent = threading.Event()
         # Runtime variables
@@ -62,6 +62,7 @@ class Beetle(threading.Thread):
     def disconnect(self):
         self.mPrint(bcolors.BRIGHT_YELLOW, "Disconnecting {}".format(self.beetle_mac_addr))
         self.mBeetle.disconnect()
+        # self.clear_state()
         self.mDataBuffer.clear()
         self.hasHandshake = False
         self.num_retransmits = 0
@@ -338,6 +339,28 @@ class Beetle(threading.Thread):
         for i in range(0, num_padding_bytes):
             result.append(num_padding_bytes)
         return num_padding_bytes, result
+    
+    def clear_state(self):
+        # self.mBeetle = None
+        self.mDataBuffer.clear()
+        self.hasHandshake = False
+        self.num_retransmits = 0
+        self.num_invalid_packets_received = 0
+        self.is_waiting_for_ack = False
+        self.lastPacketSent = None
+        self.lastPacketSentTime = -1
+        self.num_retransmits = 0
+
+    def init_state(self):
+        self.mBeetle = Peripheral()
+        self.mBeetle.withDelegate(self.ble_delegate)
+        self.hasHandshake = False
+        self.num_retransmits = 0
+        self.num_invalid_packets_received = 0
+        self.is_waiting_for_ack = False
+        self.lastPacketSent = None
+        self.lastPacketSentTime = -1
+        self.num_retransmits = 0
 
     """
         receivedBuffer assumed to have a valid 20-byte packet if it has at least 20 bytes

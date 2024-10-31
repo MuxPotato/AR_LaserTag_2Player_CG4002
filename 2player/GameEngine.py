@@ -719,7 +719,12 @@ class GameEngine(Thread):
 
 
                 ## Start of Player 2 Action Code ##
-                phone_action2 = self.P2_action_queue.get()
+                
+                
+                # FOR SINGLE PHONE TESTING
+                # HERE WE JUST PUT A RANDOM ACTION INTO THE PHONE. I MADE IT ALWAYS BASKETBALL
+                #phone_action2 = self.P2_action_queue.get()
+                phone_action2 = "basket:2"
                 
                 print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
                 viz_format2 = self.process_phone_action(phone_action2)

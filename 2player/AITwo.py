@@ -11,7 +11,7 @@ import time
 PACKET_NUMBER = 60
 ACTIONS = ["basket", "volley", "bowl", "bomb", "shield", "reload", "basket","logout"] 
 
-class AIOne(Thread):
+class AITwo(Thread):
     
     PL.reset()
     bitstream_path = "/home/xilinx/BITSTREAM/design_1.bit"
@@ -34,8 +34,9 @@ class AIOne(Thread):
 
 
     def run(self):
-        while True:
-            messages_IMU = []
+        messages_IMU = []
+        
+        while True:  
             
             # Check the gun queue first, as it has priority
             try:

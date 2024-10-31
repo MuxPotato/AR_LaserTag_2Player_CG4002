@@ -109,9 +109,17 @@ class RelayServer(Thread):
             # Manually clean up any unwanted quotes or spaces
             msg = msg.strip('"').strip()
 
+            print(msg)
+
             # Check for IMUPacket
             if "IMUPacket" in msg:
-                imu_match = re.search(r"'IMUPacket':\s*{.*?playerID':\s*(\d+).*?accel':\s*(\[.*?\]).*?gyro':\s*(\[.*?\])}", msg)
+                # Corrected regex pattern
+                imu_match = re.search(
+                    r"'IMUPacket':\s*{\s*'playerID':\s*(\d+),\s*'accel':\s*(\[[^\]]*\]),\s*'gyro':\s*(\[[^\]]*\])\s*}",
+                    msg
+                )
+                
+                #imu_match = re.search(r"'IMUPacket':\s*{.*?playerID':\s*(\d+).*?accel':\s*(\[.*?\]).*?gyro':\s*(\[.*?\])}", msg)
                 if imu_match:
                     player_id = int(imu_match.group(1))  
                     accel_data = eval(imu_match.group(2))  # Use eval carefully
@@ -134,7 +142,7 @@ class RelayServer(Thread):
                 else:
                     print("Error: Could not parse IMUPacket")
 
-            if "AnklePacket" in msg:
+            elif "AnklePacket" in msg:
                 imu_match = re.search(r"'AnklePacket':\s*{.*?playerID':\s*(\d+).*?accel':\s*(\[.*?\]).*?gyro':\s*(\[.*?\])}", msg)
                 if imu_match:
                     player_id = int(imu_match.group(1))  

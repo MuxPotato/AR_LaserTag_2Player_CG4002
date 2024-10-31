@@ -33,8 +33,9 @@ class AIOne(Thread):
 
 
     def run(self):
+        messages_IMU = []
         while True:
-            messages_IMU = []
+            # messages_IMU = [] # Whoever wrote this here, i just want to say, u r not a clown, u r the entire circus
             
             # Check the gun queue first, as it has priority
             try:
@@ -81,6 +82,8 @@ class AIOne(Thread):
               
             if message_IMU is not None:
                 messages_IMU.append(message_IMU)
+                print("IMU data appended to messages")
+                print("current IMU message count: ", len(messages_IMU))
             #if time.time() - self.last_activity_time > 3 and len(messages_IMU) > 30 and not message_Shoot['isFire']:
             if len(messages_IMU) == PACKET_NUMBER:
                 print("Sending data for prediction")
@@ -94,6 +97,7 @@ class AIOne(Thread):
                 }
                 #print(data)
                 df = pd.DataFrame(data)
+                df.to_csv('IMU_debug_data.csv', mode='a', index=False, header=not pd.io.common.file_exists('IMU_debug_data.csv'))
                 action_number = self.predictor.get_action(df)
                 #print(f"ACTION NUMBER IS: {action_number}")
                 action = ACTIONS[action_number]

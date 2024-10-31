@@ -32,7 +32,7 @@ class Predictor():
     def predict(self, input_data):
         self.send(input_data)
         results = []
-        self.N_ACTIONS = 8
+        self.N_ACTIONS = 7
         for i in range(self.N_ACTIONS):
             results.append(self.output_buffer[i])
         return results
@@ -47,7 +47,7 @@ class Predictor():
         #predictor = predict_model(overlay)
         print("Allocating buffers")
         self.N_FEATURES = 24
-        self.N_ACTIONS = 8
+        self.N_ACTIONS = 7
         self.input_buffer = allocate(shape=(self.N_FEATURES,), dtype=np.float32)
         self.output_buffer = allocate(shape=(self.N_ACTIONS,), dtype=np.int)
         data = self.dataAggregator(data) #this would already have flattened it out

@@ -118,9 +118,10 @@ class InternalMainThread(threading.Thread):
             index += 1
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
-            ankle1Beetle = AnkleUnreliableBeetle(beetle_addr, self.outgoing_ankle_queue, self.incoming_glove_queue, colors[index - 1])
+            ankle1Beetle = AnkleUnreliableBeetle(beetle_addr, self.outgoing_ankle_queue, self.incoming_glove_queue, colors[index])
             self.beetles.append(ankle1Beetle)
             ankle1Beetle.start()
+            index += 1
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
             gun1Beetle = GunBeetle(beetle_addr, self.outgoing_game_state_queue, self.to_gun_queue, colors[index])
@@ -141,9 +142,10 @@ class InternalMainThread(threading.Thread):
             index += 1
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
-            ankle2Beetle = AnkleUnreliableBeetle(beetle_addr, self.outgoing_ankle_queue, self.incoming_glove_queue, colors[index - 1])
+            ankle2Beetle = AnkleUnreliableBeetle(beetle_addr, self.outgoing_ankle_queue, self.incoming_glove_queue, colors[index])
             self.beetles.append(ankle2Beetle)
             ankle2Beetle.start()
+            index += 1
 
             beetle_addr = InternalMainThread.MAIN_BLUNO_MAC_ADDR_LIST[index]
             gun2Beetle = GunBeetle(beetle_addr, self.outgoing_game_state_queue, self.to_gun_queue, colors[index])
@@ -155,7 +157,6 @@ class InternalMainThread(threading.Thread):
             vest2Beetle = VestBeetle(beetle_addr, self.outgoing_game_state_queue, self.to_vest_queue, colors[index])
             self.beetles.append(vest2Beetle)
             vest2Beetle.start()
-            index += 1
 
             # Start separate thread to wait for incoming game state from game engine
             self.game_state_handler.start()

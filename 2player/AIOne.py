@@ -35,7 +35,7 @@ class AIOne(Thread):
     def run(self):
         messages_IMU = []
         while True:
-            # messages_IMU = [] # Whoever wrote this here, i just want to say, u r not a clown, u r the entire circus
+            
             
             # Check the gun queue first, as it has priority
             try:

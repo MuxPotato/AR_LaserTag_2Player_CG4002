@@ -1,6 +1,8 @@
 from pynq import Overlay, allocate
 import numpy as np
 import pandas as pd
+#import joblib
+#import torch 
 
 class Predictor():
 
@@ -20,7 +22,8 @@ class Predictor():
 
     def send(self, input_data):
         self.N_FEATURES = 24
-        input_array = input_data.to_numpy().flatten()
+        #input_array = input_data.to_numpy().flatten()
+        input_array = input_data.flatten()
         for i in range(self.N_FEATURES):
             self.input_buffer[i] = input_array[i]
         self.dma.sendchannel.transfer(self.input_buffer)
@@ -42,6 +45,10 @@ class Predictor():
         self.output_buffer.freebuffer()
 
     def get_action(self, data):
+
+        # Comment this out to get the working version
+        #with open('/home/xilinx/BITSTREAM/scaler.pkl', 'rb') as file:
+        #    scaler = joblib.load(file)
         #bitstream_path = "/home/xilinx/BITSTREAM/design_1.bit"
         #overlay = Overlay(bitstream_path)
         #predictor = predict_model(overlay)
@@ -50,8 +57,13 @@ class Predictor():
         self.N_ACTIONS = 7
         self.input_buffer = allocate(shape=(self.N_FEATURES,), dtype=np.float32)
         self.output_buffer = allocate(shape=(self.N_ACTIONS,), dtype=np.int)
-        data = self.dataAggregator(data) #this would already have flattened it out
-        data = data.values
+        data = self.dataAggregator(data).values #this would already have flattened it out
+        
+        # Comment this out to get working mode
+        #data = scaler.transform(data) #apply standard scaler
+        #data = torch.tensor(data, dtype=torch.float32) #turn it into torch tensor
+        
+
         print("AI is predicting now")
         predict_results = self.predict(data)
         print("AI finished predicting")

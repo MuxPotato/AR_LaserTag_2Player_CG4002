@@ -8,7 +8,7 @@ import json
 import re 
 from Color import print_message
 import numpy as np
-
+import select 
 
 
 class RelayServer(Thread):
@@ -41,38 +41,43 @@ class RelayServer(Thread):
         while not self.stop_event.is_set():
             try:
                 # Receive length followed by '_' followed by message
-                data = b''
-                while not data.endswith(b'_'):
-                    _d = client.recv(1)
-                    if not _d:  # Client disconnected
-                        print(f"Client {address} disconnected")
-                        raise ConnectionResetError("Client disconnected")
-                    data += _d
-                if len(data) == 0:
-                    print("No data")
-                    break
+                ready_to_read,_,in_error = select.select([client],[],[client],2.0)
+                if in_error:
+                    print(f"Client {address} disconnected due to error")
+                    raise ConnectionResetError("Socket error on client disconnect")
+                if ready_to_read:
+                    data = b''
+                    while not data.endswith(b'_'):
+                        _d = client.recv(1)
+                        if not _d:  # Client disconnected
+                            print(f"Client {address} disconnected")
+                            raise ConnectionResetError("Client disconnected")
+                        data += _d
+                    if len(data) == 0:
+                        print("No data")
+                        break
 
-                data = data.decode("utf-8")
-                length = int(data[:-1])
+                    data = data.decode("utf-8")
+                    length = int(data[:-1])
 
-                data = b''
-                while len(data) < length:
-                    _d = client.recv(length - len(data))
-                    if not _d:  # Client disconnected
-                        print(f"Client {address} disconnected")
-                        raise ConnectionResetError("Client disconnected")
+                    data = b''
+                    while len(data) < length:
+                        _d = client.recv(length - len(data))
+                        if not _d:  # Client disconnected
+                            print(f"Client {address} disconnected")
+                            raise ConnectionResetError("Client disconnected")
+                            
+                        data += _d
+                    if len(data) == 0:
+                        print("No data")
+                        break
+
+                    msg = data.decode("utf-8")
+                    if length != len(data):
+                        print("Packet length does not match, packet dropped")
+                    else:
                         
-                    data += _d
-                if len(data) == 0:
-                    print("No data")
-                    break
-
-                msg = data.decode("utf-8")
-                if length != len(data):
-                    print("Packet length does not match, packet dropped")
-                else:
-                    
-                    self.processMessage(msg)
+                        self.processMessage(msg)
           
             except (ConnectionResetError, socket.error) as e:
                     print(f"Error: {str(e)}. Attempting to reconnect...")

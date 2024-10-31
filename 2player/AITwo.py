@@ -10,7 +10,7 @@ import time
 
 PACKET_NUMBER = 60
 ACTIONS = ["basket", "volley", "bowl", "bomb", "shield", "reload", "basket","logout"] 
-
+DEFAULT_ACTION_NUMBER = 1
 class AITwo(Thread):
     
     PL.reset()
@@ -35,7 +35,7 @@ class AITwo(Thread):
 
     def run(self):
         messages_IMU = []
-        
+
         while True:  
             
             # Check the gun queue first, as it has priority
@@ -77,12 +77,14 @@ class AITwo(Thread):
                 # TODO: Check hasReceivedP1Action Signal from GameEngine. 
 
             except queue.Empty:
-                message_IMU = None
-                pass
+                continue
                 #print("No item received from IMU queue; continuing to next loop")
               
-            if message_IMU is not None:
-                messages_IMU.append(message_IMU)
+            
+                
+            messages_IMU.append(message_IMU)
+            print("IMU data appended to messages")
+            print("current IMU message count: ", len(messages_IMU))
             #if time.time() - self.last_activity_time > 3 and len(messages_IMU) > 30 and not message_Shoot['isFire']:
             if len(messages_IMU) == PACKET_NUMBER:
                 print("Sending data for prediction")
@@ -96,12 +98,15 @@ class AITwo(Thread):
                 }
                 #print(data)
                 df = pd.DataFrame(data)
-                action_number = self.predictor.get_action(df)
-                #print(f"ACTION NUMBER IS: {action_number}")
-                action = ACTIONS[action_number]
-                print(f"Predicted action is: {action}")
-                combined_action = action + ":2"
-                self.P2_action_queue.put(combined_action)
+                try:
+                    action_number = self.predictor.get_action(df)
+                    #print(f"ACTION NUMBER IS: {action_number}")
+                    action = ACTIONS[action_number]
+                    print(f"Predicted action is: {action}")
+                    combined_action = action + ":2"
+                    self.P2_action_queue.put(combined_action)
+                except Exception as e:
+                    print(f"Error predicting action: {e}")
                 #message_Shoot['isFire'] = False
                 messages_IMU = []
 

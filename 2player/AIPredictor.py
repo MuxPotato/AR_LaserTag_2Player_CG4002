@@ -51,6 +51,7 @@ class Predictor():
         self.input_buffer = allocate(shape=(self.N_FEATURES,), dtype=np.float32)
         self.output_buffer = allocate(shape=(self.N_ACTIONS,), dtype=np.int)
         data = self.dataAggregator(data) #this would already have flattened it out
+        data = data.values
         print("AI is predicting now")
         predict_results = self.predict(data)
         print("AI finished predicting")

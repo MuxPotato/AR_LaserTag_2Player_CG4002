@@ -8,7 +8,7 @@ from Color import print_message
 import time
 
 PACKET_NUMBER = 60
-ACTIONS = ["basket", "volley", "bowl", "bomb", "shield", "reload", "basket","logout"] 
+ACTIONS = ["basket", "volley", "bowl", "bomb", "shield", "reload", "basket", "logout"] 
 
 class AIOne(Thread):
     
@@ -76,14 +76,13 @@ class AIOne(Thread):
                 # TODO: Check hasReceivedP1Action Signal from GameEngine. 
 
             except queue.Empty:
-                message_IMU = None
-                pass
+                continue
                 #print("No item received from IMU queue; continuing to next loop")
               
-            if message_IMU is not None:
-                messages_IMU.append(message_IMU)
-                print("IMU data appended to messages")
-                print("current IMU message count: ", len(messages_IMU))
+           
+            messages_IMU.append(message_IMU)
+            print("IMU data appended to messages")
+            print("current IMU message count: ", len(messages_IMU))
             #if time.time() - self.last_activity_time > 3 and len(messages_IMU) > 30 and not message_Shoot['isFire']:
             if len(messages_IMU) == PACKET_NUMBER:
                 print("Sending data for prediction")

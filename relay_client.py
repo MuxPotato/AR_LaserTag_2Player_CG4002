@@ -81,7 +81,7 @@ class SenderThread(threading.Thread):
         super().__init__()
         self.stop_event: threading.Event = stop_event
         self.from_ble_IMU_queue: queue.Queue = from_ble_IMU_queue
-        self.my_packet_type: str = "IMUPacket"
+        self.my_packet_type: str = "ImuPacket"
         self.my_data_type: str = "IMU"
         self.mutex_lock = mutex_lock
         self.relay_socket = socket
@@ -114,7 +114,7 @@ class SenderThread(threading.Thread):
     def send_beetle_data(self, imu_packet):
         if self.sender_state == ImuRelayState.WAITING_FOR_ACTION:
             # Incoming IMU data from Beetle has not crossed threshold yet
-            accel_analytics: float = self.get_analytics_for(imu_packet.accel)
+            accel_analytics: float = self.get_analytics_for(imu_packet)
             if accel_analytics >= self.data_threshold:
                 # Current packet exceeds threshold for action(potential action packet),
                 #   send it to relay server for AI inference
@@ -180,7 +180,7 @@ class AnkleSenderThread(SenderThread):
 class GloveSenderThread(SenderThread):
     def __init__(self, stop_event: threading.Event, from_ble_IMU_queue: queue.Queue, socket, mutex_lock):
         super().__init__(stop_event, from_ble_IMU_queue, socket, mutex_lock)
-        self.my_packet_type: str = "ImuPacket"
+        self.my_packet_type: str = "IMUPacket"
         self.my_data_type: str = "Glove"
         self.data_threshold: float = 1.5
 

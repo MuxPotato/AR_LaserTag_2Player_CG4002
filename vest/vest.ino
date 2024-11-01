@@ -35,12 +35,12 @@ Adafruit_NeoPixel pixels(NUM_HP_LED, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
 void setup() {
   Serial.begin(BAUDRATE);
-  /* Initialise sentPacket with invalid metadata
-    to ensure it's detected as corrupted if ever
-    sent without assigning actual (valid) packet */
-  lastSentPacket.metadata = PLACEHOLDER_METADATA;
-  // TODO: Uncomment line below
+  
+  // Setup IR receiver-specific logic
   irReceiverSetup();
+
+  // Set up internal comms 
+  setupBle();
 }
 
 void loop() {
@@ -177,6 +177,22 @@ bool doHandshake() {
     }
   }
   return false;
+}
+
+/**
+ * Setup for the BLE internal communications-related logic and variables
+ */
+void setupBle() {
+  // Clear the serial input buffer
+  clearSerialInputBuffer();
+  // Clear the serial output buffer
+  //   WARNING: This sends out all existing data in the output buffer over BLE though
+  Serial.flush();
+
+  /* Initialise lastSentPacket with invalid metadata
+    to ensure it's detected as corrupted if ever
+    sent without assigning actual (valid) packet */
+  lastSentPacket.metadata = PLACEHOLDER_METADATA;
 }
 
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {

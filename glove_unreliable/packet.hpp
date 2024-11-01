@@ -5,7 +5,6 @@
 #define BLE_TIMEOUT 250
 #define INITIAL_SEQ_NUM 0
 #define INVALID_PACKET_ID -1
-#define LOOP_DELAY 25
 #define LOWER_4BIT_MASK 0x0F
 #define PACKET_SIZE 20
 #define PACKET_DATA_SIZE 16

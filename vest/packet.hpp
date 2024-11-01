@@ -12,6 +12,8 @@
 #define PACKET_SIZE 20
 #define PACKET_DATA_SIZE 16
 #define PLACEHOLDER_METADATA 0x0F
+#define READ_PACKET_DELAY 15
+#define RETRANSMIT_DELAY 25
 #define TRANSMIT_DELAY 5
 
 struct BlePacket {
@@ -121,6 +123,15 @@ byte parsePacketTypeFrom(byte metadata);
 int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer);
 BlePacket sendDummyPacket();
 void sendPacket(BlePacket &packetToSend);
+
+uint8_t clearSerialInputBuffer() {
+  uint8_t numBytesRemoved = 0;
+  while (Serial.available() > 0) {
+    byte nextByte = (byte) Serial.read();
+    numBytesRemoved += 1;
+  }
+  return numBytesRemoved;
+}
 
 void createPacket(BlePacket &packet, byte packetType, uint16_t givenSeqNum, byte data[PACKET_DATA_SIZE]) {
   packet.metadata = packetType;

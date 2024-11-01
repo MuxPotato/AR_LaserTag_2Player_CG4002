@@ -15,7 +15,7 @@ void retransmitLastPacket();
 
 bool hasHandshake = false;
 HandshakeStatus handshakeStatus = STAT_NONE;
-MyQueue<byte> recvBuffer{};
+// MyQueue<byte> recvBuffer{};
 // Zero-initialise sentPacket
 BlePacket lastSentPacket = {};
 unsigned long lastSentPacketTime = 0;
@@ -24,6 +24,9 @@ uint16_t senderSeqNum = INITIAL_SEQ_NUM;
 bool isWaitingForAck = false;
 uint8_t numRetries = 0;
 uint8_t numInvalidPacketsReceived = 0;
+// Used to maintain (RETRANSMIT_DELAY) ms period of retransmissions
+unsigned long lastRetransmitTime = 0;
+unsigned long lastReadPacketTime = 0;
 
 // Vest game state
 bool isShot = false;
@@ -48,6 +51,12 @@ void loop() {
     // Gunshot detected
     isShot = true;
     if (!isWaitingForAck) {
+      // Only send new packet if previous packet has already been ACK-ed
+      unsigned long transmitPeriod = millis() - lastSentPacketTime;
+      if (transmitPeriod < TRANSMIT_DELAY) {
+        // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
+        delay(TRANSMIT_DELAY - transmitPeriod);
+      }
       // Send out isShot state to game engine
       lastSentPacket = sendVestPacket();
       // Update last packet sent time to track timeout
@@ -293,30 +302,34 @@ void processGivenPacket(const BlePacket &packet) {
 }
 
 void processIncomingPacket() {
-  // Read incoming bytes into receive buffer
-  readIntoRecvBuffer(recvBuffer);
-  if (recvBuffer.size() >= PACKET_SIZE) {
-    // Complete 20-byte packet received, read 20 bytes from receive buffer as packet
-    BlePacket receivedPacket = readPacketFrom(recvBuffer);
-    if (!isPacketValid(receivedPacket)) {
-      numInvalidPacketsReceived += 1;
-      if (numInvalidPacketsReceived == MAX_INVALID_PACKETS_RECEIVED) {
-        recvBuffer.clear();
-        while (Serial.available() > 0) {
-          Serial.read();
-        }
-        delay(TRANSMIT_DELAY);
-        numInvalidPacketsReceived = 0;
-        return;
-      }
-      BlePacket nackPacket;
-      createNackPacket(nackPacket, receiverSeqNum);
-      // Received invalid packet, request retransmit with NACK
-      sendPacket(nackPacket);
-    } else {
-      processGivenPacket(receivedPacket);
+  if (Serial.available() < PACKET_DATA_SIZE) {
+    // Don't read from serial input buffer unless 1 complete packet is received
+    return;
+  }
+  unsigned long readPacketPeriod = millis() - lastReadPacketTime;
+  if (readPacketPeriod < READ_PACKET_DELAY) {
+    delay(READ_PACKET_DELAY - readPacketPeriod);
+  }
+  // Complete 20-byte packet received, read 20 bytes from receive buffer as packet
+  BlePacket receivedPacket = readPacket();
+  if (!isPacketValid(receivedPacket)) {
+    numInvalidPacketsReceived += 1;
+    if (numInvalidPacketsReceived == MAX_INVALID_PACKETS_RECEIVED) {
+      clearSerialInputBuffer();
+      delay(BLE_TIMEOUT);
+      numInvalidPacketsReceived = 0;
+      return;
     }
-  } // if (recvBuffer.size() >= PACKET_SIZE)
+    BlePacket nackPacket;
+    createNackPacket(nackPacket, receiverSeqNum);
+    // Received invalid packet, request retransmit with NACK
+    sendPacket(nackPacket);
+  } else {
+    if (numInvalidPacketsReceived > 0) {
+      numInvalidPacketsReceived = 0;
+    }
+    processGivenPacket(receivedPacket);
+  }
 }
 
 int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer) {
@@ -333,7 +346,13 @@ int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer) {
 
 void retransmitLastPacket() {
   if (isPacketValid(lastSentPacket)) {
+    unsigned long retransmitPeriod = millis() - lastRetransmitTime;
+    if (retransmitPeriod < RETRANSMIT_DELAY) {
+      // Maintain at least (RETRANSMIT_DELAY) ms delay between retransmissions to avoid overwhelming the Beetle
+      delay(RETRANSMIT_DELAY - retransmitPeriod);
+    }
     sendPacket(lastSentPacket);
+    lastRetransmitTime = millis();
     // Update sent time and wait for ACK again
     lastSentPacketTime = millis();
   } else {

@@ -94,7 +94,8 @@ class Beetle(threading.Thread):
         if self.model_num_char is None or self.serial_char is None:
             self.mPrint(bcolors.BRIGHT_YELLOW, f"""{self.beetle_mac_addr}: Unable to find required characteristics""")
             self.reconnect()
-        self.ble_delegate = NewBlePacketDelegate(self.mDataBuffer, self.model_num_char, self.serial_char)
+        self.ble_delegate = NewBlePacketDelegate(self.mDataBuffer, self.command_char,
+                self.model_num_char, self.serial_char)
         self.mBeetle = self.mBeetle.withDelegate(self.ble_delegate)
         # m_bluno_auth = False
         # self.mPrint(bcolors.BRIGHT_YELLOW, f"""Authenticating {self.beetle_mac_addr}...""")

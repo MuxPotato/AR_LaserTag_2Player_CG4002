@@ -12,7 +12,7 @@ void retransmitLastPacket();
 
 bool hasHandshake = false;
 HandshakeStatus handshakeStatus = STAT_NONE;
-MyQueue<byte> recvBuffer{};
+// MyQueue<byte> recvBuffer{};
 // Zero-initialise lastSentPacket
 BlePacket lastSentPacket = {};
 unsigned long lastSentPacketTime = 0;
@@ -27,10 +27,9 @@ unsigned long lastReadPacketTime = 0;
 
 void setup() {
   Serial.begin(BAUDRATE);
-  /* Initialise lastSentPacket with invalid metadata
-    to ensure it's detected as corrupted if ever
-    sent without assigning actual (valid) packet */
-  lastSentPacket.metadata = PLACEHOLDER_METADATA;
+
+  // Set up internal comms 
+  setupBle();
 }
 
 void loop() {
@@ -167,6 +166,7 @@ bool doHandshake() {
   return false;
 }
 
+/* Old handshake function, obsolete(relies on my custom Queue as input buffer)
 bool oldDoHandshake() {
   unsigned long mPacketSentTime = millis();
   byte mSeqNum = INITIAL_SEQ_NUM;
@@ -201,7 +201,7 @@ bool oldDoHandshake() {
         while ((millis() - mPacketSentTime) < BLE_TIMEOUT) {
           readIntoRecvBuffer(recvBuffer);
           if (recvBuffer.size() >= PACKET_SIZE) {
-            /* BUG: This if block is still getting triggered after the laptop sends SYN+ACK */
+            // BUG: This if block is still getting triggered after the laptop sends SYN+ACK
             BlePacket receivedPacket = readPacketFrom(recvBuffer);
             if (!isPacketValid(receivedPacket)) {
               BlePacket nackPacket;
@@ -231,10 +231,10 @@ bool oldDoHandshake() {
             }
           }
         } // while ((millis() - mPacketSentTime) < BLE_TIMEOUT)
-        /* At this point, either timeout while waiting for incoming packet(no packet received at all), 
-          or incoming packet was corrupted and timeout occurred before valid packet was received,
-          or HELLO/NACK packet received before timeout occurred
-        */
+        // At this point, either timeout while waiting for incoming packet(no packet received at all), 
+        //  or incoming packet was corrupted and timeout occurred before valid packet was received,
+        //  or HELLO/NACK packet received before timeout occurred
+        //
         if (!hasReceivedPacket) {
           // Timed out waiting for incoming packet, send ACK for HELLO again
           handshakeStatus = STAT_HELLO;
@@ -242,6 +242,23 @@ bool oldDoHandshake() {
     }
   } // while (handshakeStatus != STAT_SYN)
   return false;
+}
+*/
+
+/**
+ * Setup for the BLE internal communications-related logic and variables
+ */
+void setupBle() {
+  // Clear the serial input buffer
+  clearSerialInputBuffer();
+  // Clear the serial output buffer
+  //   WARNING: This sends out all existing data in the output buffer over BLE though
+  Serial.flush();
+
+  /* Initialise lastSentPacket with invalid metadata
+    to ensure it's detected as corrupted if ever
+    sent without assigning actual (valid) packet */
+  lastSentPacket.metadata = PLACEHOLDER_METADATA;
 }
 
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {

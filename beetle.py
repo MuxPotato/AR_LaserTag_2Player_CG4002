@@ -4,8 +4,8 @@ import threading
 import time
 import traceback
 import anycrc
-from ble_delegate import BlePacketDelegate
-from internal_utils import ACC_LSB_SCALE, BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, GYRO_LSB_SCALE, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, GunPacket, GunUpdatePacket, ImuPacket, VestPacket, VestUpdatePacket, bcolors, get_player_id_for, metadata_to_packet_type
+from ble_delegate import BlePacketDelegate, NewBlePacketDelegate
+from internal_utils import ACC_LSB_SCALE, BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_COMMAND_CHARACTERISTIC_UUID, GATT_MODEL_NUMBER_CHARACTERISTIC_UUID, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, GYRO_LSB_SCALE, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, GunPacket, GunUpdatePacket, ImuPacket, VestPacket, VestUpdatePacket, bcolors, get_player_id_for, metadata_to_packet_type
 import external_utils
 from bluepy.btle import BTLEException, Peripheral
 
@@ -22,6 +22,8 @@ class Beetle(threading.Thread):
         self.mDataBuffer = deque()
         self.mService = None
         self.serial_char = None
+        self.command_char = None
+        self.model_num_char = None
         self.start_transmit_time = 0
         self.num_invalid_packets_received = 0
         ### Sequence number for packets created by Beetle to send to laptop
@@ -38,7 +40,7 @@ class Beetle(threading.Thread):
         self.incoming_queue = incoming_queue
         # Configure Peripheral
         self.ble_delegate = BlePacketDelegate(self.mDataBuffer)
-        self.mBeetle.withDelegate(self.ble_delegate)
+        self.mBeetle = self.mBeetle.withDelegate(self.ble_delegate)
         # Verbose printing
         self.is_verbose_printing = False
 
@@ -49,6 +51,11 @@ class Beetle(threading.Thread):
                 self.mBeetle.connect(self.beetle_mac_addr)
                 self.mService = self.mBeetle.getServiceByUUID(GATT_SERIAL_SERVICE_UUID)
                 self.serial_char = self.mService.getCharacteristics(GATT_SERIAL_CHARACTERISTIC_UUID)[0]
+                #self.setup_bluetooth()
+                # Clear input buffer in case Beetle sent any packets before being authenticated
+                #self.mDataBuffer.clear()
+                #self.mService = self.mBeetle.getServiceByUUID(GATT_SERIAL_SERVICE_UUID)
+                #self.serial_char = self.mService.getCharacteristics(GATT_SERIAL_CHARACTERISTIC_UUID)[0]
                 break
             except BTLEException as ble_exc:
                 self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in connect() for Beetle: {self.beetle_mac_addr}""")
@@ -73,6 +80,30 @@ class Beetle(threading.Thread):
         self.disconnect()
         time.sleep(BLE_TIMEOUT)
         self.connect()
+
+    def setup_bluetooth(self):
+        m_services = self.mBeetle.getServices()
+        for m_service in m_services:
+            for m_characteristic in m_service.getCharacteristics():
+                if m_characteristic.uuid == GATT_SERIAL_CHARACTERISTIC_UUID:
+                    self.serial_char = m_characteristic
+                elif m_characteristic.uuid == GATT_COMMAND_CHARACTERISTIC_UUID:
+                    self.command_char = m_characteristic
+                elif m_characteristic.uuid == GATT_MODEL_NUMBER_CHARACTERISTIC_UUID:
+                    self.model_num_char = m_characteristic
+        if self.model_num_char is None or self.serial_char is None:
+            self.mPrint(bcolors.BRIGHT_YELLOW, f"""{self.beetle_mac_addr}: Unable to find required characteristics""")
+            self.reconnect()
+        self.ble_delegate = NewBlePacketDelegate(self.mDataBuffer, self.model_num_char, self.serial_char)
+        self.mBeetle = self.mBeetle.withDelegate(self.ble_delegate)
+        # m_bluno_auth = False
+        # self.mPrint(bcolors.BRIGHT_YELLOW, f"""Authenticating {self.beetle_mac_addr}...""")
+        # while not m_bluno_auth:
+        #     if self.mBeetle.waitForNotifications(BLE_WAIT_TIMEOUT):
+        #         if self.ble_delegate.get_bluno_auth():
+        #             m_bluno_auth = True
+        # if self.is_verbose_printing:
+        #     self.mPrint(bcolors.BRIGHT_YELLOW, f"""{self.beetle_mac_addr} has been authenticated""")
 
     def isConnected(self):
         return self.hasHandshake

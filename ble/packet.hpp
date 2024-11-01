@@ -128,7 +128,7 @@ void serialiseImuData(int16_t givenDataValue, byte imuData[PACKET_DATA_SIZE], in
 
 uint8_t clearSerialInputBuffer() {
   uint8_t numBytesRemoved = 0;
-  while (Serial.available()) {
+  while (Serial.available() > 0) {
     byte nextByte = (byte) Serial.read();
     numBytesRemoved += 1;
   }

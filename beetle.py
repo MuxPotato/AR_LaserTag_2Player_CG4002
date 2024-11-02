@@ -426,7 +426,8 @@ class Beetle(threading.Thread):
                     if not m_has_sent_syn:
                         # Send both the sender seq num and the receiver seq num, the latter of which confirms that beetle's sender seq num
                         ##  is parsed successfully if it matches Beetle's internal sender seq num
-                        m_last_packet_sent = self.sendSynAck(self.sender_seq_num, self.receiver_seq_num)
+                        # TODO: Send laptop sender seq num to beetle to synchronise laptop sender seq num too
+                        m_last_packet_sent = self.sendSynAck(m_seq_num, self.receiver_seq_num)
                         m_last_packet_sent_time = time.time()
                         m_has_sent_syn = True
                         if self.is_verbose_printing:

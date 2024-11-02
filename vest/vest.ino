@@ -166,7 +166,7 @@ bool doHandshake() {
             handshakeStatus = STAT_HELLO;
             mSeqNum = INITIAL_SEQ_NUM;
           } else if (getPacketTypeOf(receivedPacket) == PacketType::NACK &&
-              receivedPacket.seqNum == mSeqNum && isPacketValid(mLastSentPacket)) {
+              receivedPacket.seqNum == (mSeqNum - 1) && isPacketValid(mLastSentPacket)) {
             /* TODO: Consider if this block is ever entered, since we only accept NACK
                for our ACK to a HELLO, which means receivedPacket.seqNum = 0 and mSeqNum = 1 */
             // TODO: Add retransmit delay like in main loop()

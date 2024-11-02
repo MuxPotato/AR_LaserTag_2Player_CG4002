@@ -1,5 +1,8 @@
 #include "packet.hpp"
 
+#define ACCEL_UPPER_BOUND 32768
+#define GYRO_UPPER_BOUND 32750
+
 enum HandshakeStatus {
   STAT_NONE = 0,
   STAT_HELLO = 1,
@@ -449,16 +452,15 @@ void retransmitLastPacket() {
 
 BlePacket sendDummyPacket() {
   BlePacket dummyPacket;
-  dummyPacket.metadata = PacketType::IMU;
-  dummyPacket.seqNum = senderSeqNum;
-  float x1 = random(0, 100);
-  float y1 = random(0, 100);
-  float z1 = random(0, 100);
-  float x2 = random(0, 100);
-  float y2 = random(0, 100);
-  float z2 = random(0, 100);
-  floatToData(dummyPacket.data, x1, y1, z1, x2, y2, z2);
-  dummyPacket.crc = getCrcOf(dummyPacket);
+  byte dummyData[PACKET_DATA_SIZE] = {};
+  int16_t x1 = random(-ACCEL_UPPER_BOUND, ACCEL_UPPER_BOUND);
+  int16_t y1 = random(-ACCEL_UPPER_BOUND, ACCEL_UPPER_BOUND);
+  int16_t z1 = random(-ACCEL_UPPER_BOUND, ACCEL_UPPER_BOUND);
+  int16_t x2 = random(-GYRO_UPPER_BOUND, GYRO_UPPER_BOUND);
+  int16_t y2 = random(-GYRO_UPPER_BOUND, GYRO_UPPER_BOUND);
+  int16_t z2 = random(-GYRO_UPPER_BOUND, GYRO_UPPER_BOUND);
+  getBytesFrom(dummyData, x1, y1, z1, x2, y2, z2);
+  createPacket(dummyPacket, PacketType::IMU, senderSeqNum, dummyData);
   sendPacket(dummyPacket);
   return dummyPacket;
 }

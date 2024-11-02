@@ -40,15 +40,18 @@ void loop() {
     hasHandshake = doHandshake();
   }
   if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
-    //if (numRetries < MAX_RETRANSMITS) {
+    if (numRetries < MAX_RETRANSMITS) {
       retransmitLastPacket();
-      /* numRetries += 1;
+      numRetries += 1;
     } else {
-      // Max retries reached, stop retransmitting
+      /* // Max retries reached, stop retransmitting
       isWaitingForAck = false;
-      lastSentPacket.metadata = PLACEHOLDER_METADATA;
+      lastSentPacket.metadata = PLACEHOLDER_METADATA; */
+      
+      // Laptop might have disconnected, re-enter handshake
+      hasHandshake = false;
       numRetries = 0;
-    } */
+    }
   }
   if (Serial.available() >= PACKET_SIZE) {
     // Received some bytes from laptop, process them
@@ -307,7 +310,8 @@ void processGivenPacket(const BlePacket &packet) {
       isWaitingForAck = false;
       // Increment senderSeqNum upon every ACK
       senderSeqNum += 1;
-      // numRetries = 0;
+      // Reset retry count on ACK
+      numRetries = 0;
       break;
     case PacketType::NACK:
       if (!isWaitingForAck) {

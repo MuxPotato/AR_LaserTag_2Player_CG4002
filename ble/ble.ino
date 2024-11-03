@@ -39,6 +39,7 @@ void loop() {
   if (!hasHandshake) {
     hasHandshake = doHandshake();
   }
+  // Retransmit last sent packet on timeout
   if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
     if (numRetries < MAX_RETRANSMITS) {
       retransmitLastPacket();
@@ -56,10 +57,11 @@ void loop() {
       numRetries = 0;
     }
   }
+  // Handle incoming packets
   if (Serial.available() >= PACKET_SIZE) {
     // Received some bytes from laptop, process them
     processIncomingPacket();
-  } else {
+  } else { // Send raw data packets(if any)
     // No bytes received from laptop, so send sensor data if needed
     if (!isWaitingForAck) {
       // Only send new packet if previous packet has already been ACK-ed

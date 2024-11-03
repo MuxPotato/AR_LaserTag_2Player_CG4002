@@ -6,6 +6,7 @@
 #define INITIAL_SEQ_NUM 0
 #define INVALID_PACKET_ID -1
 #define LOWER_4BIT_MASK 0x0F
+#define MAX_RETRANSMITS 10
 #define PACKET_SIZE 20
 #define PACKET_DATA_SIZE 16
 #define READ_PACKET_DELAY 15
@@ -27,6 +28,13 @@ struct BlePacket {
 	/* End footer */
 };
 
+enum HandshakeStatus {
+  STAT_NONE = 0,
+  STAT_HELLO = 1,
+  STAT_ACK = 2,
+  STAT_SYN = 3
+};
+
 enum PacketType {
   HELLO = 0,
   ACK = 1,
@@ -41,6 +49,8 @@ enum PacketType {
 
 void createPacket(BlePacket &packet, byte packetType, uint16_t givenSeqNum, byte data[PACKET_DATA_SIZE]);
 uint8_t getCrcOf(const BlePacket &packet);
+HandshakeStatus doHandshake();
+bool hasHandshake();
 bool isHeadByte(byte currByte);
 byte parsePacketTypeFrom(byte metadata);
 void serialiseImuData(int16_t givenDataValue, byte imuData[PACKET_DATA_SIZE], int offset);

@@ -3,17 +3,9 @@
 
 #define SETUP_DELAY 5000
 
-enum HandshakeStatus {
-  STAT_NONE = 0,
-  STAT_HELLO = 1,
-  STAT_ACK = 2,
-  STAT_SYN = 3
-};
-
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum);
 
 /* Internal comms */
-bool hasHandshake = false;
 HandshakeStatus handshakeStatus = STAT_NONE;
 unsigned long lastSentPacketTime = 0;
 uint16_t seqNum = INITIAL_SEQ_NUM;
@@ -52,8 +44,8 @@ void setup() {
 }
 
 void loop() {
-  if (!hasHandshake) {
-    hasHandshake = doHandshake();
+  if (!hasHandshake()) {
+    handshakeStatus = doHandshake();
   } else {
     if (Serial.available() >= PACKET_SIZE) {
       processIncomingPacket();
@@ -70,7 +62,7 @@ void loop() {
   }
 }
 
-bool doHandshake() {
+HandshakeStatus doHandshake() {
   unsigned long mLastPacketSentTime = millis();
   BlePacket mLastSentPacket;
   byte mSeqNum = INITIAL_SEQ_NUM;
@@ -151,7 +143,7 @@ bool doHandshake() {
             mSeqNum += 1;
             mIsWaitingForAck = false;
             // Return from doHandshake() since handshake process is complete
-            return true;
+            return HandshakeStatus::STAT_SYN;
           } else if (getPacketTypeOf(receivedPacket) == PacketType::HELLO) {
             handshakeStatus = STAT_HELLO;
             mSeqNum = INITIAL_SEQ_NUM;
@@ -166,7 +158,7 @@ bool doHandshake() {
         }
     }
   }
-  return false;
+  return handshakeStatus;
 }
 
 /**
@@ -188,11 +180,14 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
 }
 
+bool hasHandshake() {
+  return handshakeStatus == HandshakeStatus::STAT_SYN;
+}
+
 void processGivenPacket(BlePacket &packet) {
   char packetType = getPacketTypeOf(packet);
   switch (packetType) {
     case PacketType::HELLO:
-      hasHandshake = false;
       handshakeStatus = STAT_HELLO;
       break;
   }

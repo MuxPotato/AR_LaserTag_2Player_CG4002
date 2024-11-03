@@ -17,7 +17,6 @@ class Beetle(threading.Thread):
         self.color = color
         self.terminateEvent = threading.Event()
         # Runtime variables
-        self.hasHandshake = False
         self.handshake_status: HandshakeStatus = HandshakeStatus.HELLO
         ## Receiver variables
         self.mDataBuffer = deque()
@@ -72,7 +71,6 @@ class Beetle(threading.Thread):
         self.mBeetle.disconnect()
         # self.clear_state()
         self.mDataBuffer.clear()
-        self.hasHandshake = False
         self.handshake_status = HandshakeStatus.HELLO
         self.num_retransmits = 0
         self.num_invalid_packets_received = 0
@@ -109,7 +107,7 @@ class Beetle(threading.Thread):
         #     self.mPrint(bcolors.BRIGHT_YELLOW, f"""{self.beetle_mac_addr} has been authenticated""")
 
     def isConnected(self):
-        return self.hasHandshake
+        return self.has_handshake()
 
     def quit(self):
         end_transmission_time = time.time()
@@ -132,7 +130,7 @@ class Beetle(threading.Thread):
     def main(self):
         while not self.terminateEvent.is_set():
             try:
-                if not self.hasHandshake:
+                if not self.has_handshake():
                     # Perform 3-way handshake
                     self.do_handshake()
                 # At this point, handshake is now completed
@@ -483,7 +481,6 @@ class Beetle(threading.Thread):
         if self.start_transmit_time == 0:
             # Set the time of 1st completion of 3-way handshake so we can compute transmission speed
             self.start_transmit_time = time.time()
-        self.hasHandshake = True
         # Clear input buffer after handshake is completed to start data transmission from clean state
         self.mDataBuffer.clear()
         self.mPrint2(inputString = "Handshake completed with {}".format(self.beetle_mac_addr))
@@ -503,7 +500,6 @@ class Beetle(threading.Thread):
     def clear_state(self):
         # self.mBeetle = None
         self.mDataBuffer.clear()
-        self.hasHandshake = False
         self.handshake_status = HandshakeStatus.HELLO
         self.num_retransmits = 0
         self.num_invalid_packets_received = 0
@@ -515,7 +511,6 @@ class Beetle(threading.Thread):
     def init_state(self):
         self.mBeetle = Peripheral()
         self.mBeetle.withDelegate(self.ble_delegate)
-        self.hasHandshake = False
         self.handshake_status = HandshakeStatus.HELLO
         self.num_retransmits = 0
         self.num_invalid_packets_received = 0
@@ -579,6 +574,9 @@ class Beetle(threading.Thread):
     def getSeqNumFrom(self, packetBytes):
         seq_num = packetBytes[1] + (packetBytes[2] << BITS_PER_BYTE)
         return seq_num
+    
+    def has_handshake(self):
+        return self.handshake_status == HandshakeStatus.COMPLETE
     
     def isValidPacket(self, given_packet):
         # Check for NULL packet or incomplete packet
@@ -679,7 +677,7 @@ class ImuUnreliableBeetle(Beetle):
     def main(self):
         while not self.terminateEvent.is_set():
             try:
-                if not self.hasHandshake:
+                if not self.has_handshake():
                     # Perform 3-way handshake
                     self.do_handshake()
                 # Handshake already completed

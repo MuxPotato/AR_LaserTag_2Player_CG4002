@@ -484,7 +484,7 @@ class Beetle(threading.Thread):
         # Clear input buffer after handshake is completed to start data transmission from clean state
         self.mDataBuffer.clear()
         self.mPrint2(inputString = "Handshake completed with {}".format(self.beetle_mac_addr))
-        return True
+        return self.handshake_status
 
     def run(self):
         self.connect()

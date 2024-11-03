@@ -1,19 +1,11 @@
 #include "packet.hpp"
 #include "vest.hpp"
 
-enum HandshakeStatus {
-  STAT_NONE = 0,
-  STAT_HELLO = 1,
-  STAT_ACK = 2,
-  STAT_SYN = 3
-};
-
 /* Internal comms */
 void handleGamePacket(const BlePacket &gamePacket);
 void processIncomingPacket();
 void retransmitLastPacket();
 
-bool hasHandshake = false;
 HandshakeStatus handshakeStatus = STAT_NONE;
 // MyQueue<byte> recvBuffer{};
 // Zero-initialise sentPacket
@@ -44,8 +36,8 @@ void setup() {
 }
 
 void loop() {
-  if (!hasHandshake) {
-    hasHandshake = doHandshake();
+  if (!hasHandshake()) {
+    handshakeStatus = doHandshake();
   }
   if (getIsShotFromIr()) {
     // Gunshot detected
@@ -64,15 +56,21 @@ void loop() {
       isWaitingForAck = true;
     }
   } else if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
-    //if (numRetries < MAX_RETRANSMITS) {
+    if (numRetries < MAX_RETRANSMITS) {
       retransmitLastPacket();
-      /* numRetries += 1;
+      numRetries += 1;
     } else {
-      // Max retries reached, stop retransmitting
+      /* // Max retries reached, stop retransmitting
       isWaitingForAck = false;
-      lastSentPacket.metadata = PLACEHOLDER_METADATA;
+      lastSentPacket.metadata = PLACEHOLDER_METADATA; */
+
+      // Clear serial input/output buffers to restart transmission from clean state
+      clearSerialInputBuffer();
+      Serial.flush();
+      // Laptop might have disconnected, re-enter handshake
+      handshakeStatus = STAT_NONE;
       numRetries = 0;
-    } */
+    }
   }
   if (Serial.available() > 0) {
     // Received some bytes from laptop, process them
@@ -80,7 +78,7 @@ void loop() {
   }
 }
 
-bool doHandshake() {
+HandshakeStatus doHandshake() {
   unsigned long mLastPacketSentTime = millis();
   BlePacket mLastSentPacket;
   byte mSeqNum = INITIAL_SEQ_NUM;
@@ -161,7 +159,7 @@ bool doHandshake() {
             mSeqNum += 1;
             mIsWaitingForAck = false;
             // Return from doHandshake() since handshake process is complete
-            return true;
+            return HandshakeStatus::STAT_SYN;
           } else if (getPacketTypeOf(receivedPacket) == PacketType::HELLO) {
             handshakeStatus = STAT_HELLO;
             mSeqNum = INITIAL_SEQ_NUM;
@@ -176,7 +174,7 @@ bool doHandshake() {
         }
     }
   }
-  return false;
+  return handshakeStatus;
 }
 
 /**
@@ -235,11 +233,14 @@ void handleGamePacket(const BlePacket &gamePacket) {
   playerHp = newPlayerHp;
 }
 
+bool hasHandshake() {
+  return handshakeStatus == HandshakeStatus::STAT_SYN;
+}
+
 void processGivenPacket(const BlePacket &packet) {
   char givenPacketType = getPacketTypeOf(packet);
   switch (givenPacketType) {
     case PacketType::HELLO:
-      hasHandshake = false;
       handshakeStatus = STAT_HELLO;
       break;
     case PacketType::ACK:
@@ -264,7 +265,7 @@ void processGivenPacket(const BlePacket &packet) {
       senderSeqNum += 1;
       // Reset isShot state so next gunshot can be registered
       isShot = false;
-      // numRetries = 0;
+      numRetries = 0;
       break;
     case PacketType::NACK:
       if (!isWaitingForAck) {

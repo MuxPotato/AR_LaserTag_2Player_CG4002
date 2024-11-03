@@ -8,7 +8,7 @@
 #define LOWER_4BIT_MASK 0x0F
 #define MAX_BUFFER_SIZE 40
 #define MAX_INVALID_PACKETS_RECEIVED 5
-#define MAX_RETRANSMITS 5
+#define MAX_RETRANSMITS 10
 #define PACKET_SIZE 20
 #define PACKET_DATA_SIZE 16
 #define PLACEHOLDER_METADATA 0x0F
@@ -30,6 +30,13 @@ struct BlePacket {
 	/* Start footer */
 	byte crc;
 	/* End footer */
+};
+
+enum HandshakeStatus {
+  STAT_NONE = 0,
+  STAT_HELLO = 1,
+  STAT_ACK = 2,
+  STAT_SYN = 3
 };
 
 enum PacketType {
@@ -116,8 +123,9 @@ public:
 /* Method declarations */
 void createDataFrom(String givenStr, byte packetData[PACKET_DATA_SIZE]);
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum);
-bool doHandshake();
+HandshakeStatus doHandshake();
 uint8_t getCrcOf(const BlePacket &packet);
+bool hasHandshake();
 bool isHeadByte(byte currByte);
 byte parsePacketTypeFrom(byte metadata);
 int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer);

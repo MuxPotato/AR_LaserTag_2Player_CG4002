@@ -114,6 +114,16 @@ class BlePacketType(Enum):
     GAME_ACTION = 7
     INFO = 8
 
+class HandshakeStatus(Enum):
+    # Laptop has not sent HELLO packet, will send HELLO
+    HELLO = 0
+    # Laptop has sent HELLO packet, waiting for ACK from Beetle
+    ACK = 1 
+    # Laptop received ACK from Beetle, will send SYN+ACK packet to Beetle
+    SYN = 2
+    # Handshake complete
+    COMPLETE = 3
+
 class GunPacket(NamedTuple):
     beetle_mac: str
     gunBoolean: bool

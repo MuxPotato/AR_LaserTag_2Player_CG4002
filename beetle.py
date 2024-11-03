@@ -73,6 +73,7 @@ class Beetle(threading.Thread):
         # self.clear_state()
         self.mDataBuffer.clear()
         self.hasHandshake = False
+        self.handshake_status = HandshakeStatus.HELLO
         self.num_retransmits = 0
         self.num_invalid_packets_received = 0
 
@@ -503,6 +504,7 @@ class Beetle(threading.Thread):
         # self.mBeetle = None
         self.mDataBuffer.clear()
         self.hasHandshake = False
+        self.handshake_status = HandshakeStatus.HELLO
         self.num_retransmits = 0
         self.num_invalid_packets_received = 0
         self.is_waiting_for_ack = False
@@ -514,6 +516,7 @@ class Beetle(threading.Thread):
         self.mBeetle = Peripheral()
         self.mBeetle.withDelegate(self.ble_delegate)
         self.hasHandshake = False
+        self.handshake_status = HandshakeStatus.HELLO
         self.num_retransmits = 0
         self.num_invalid_packets_received = 0
         self.is_waiting_for_ack = False

@@ -54,6 +54,7 @@ void loop() {
       Serial.flush();
       // Laptop might have disconnected, re-enter handshake
       hasHandshake = false;
+      handshakeStatus = STAT_NONE;
       numRetries = 0;
     }
   }

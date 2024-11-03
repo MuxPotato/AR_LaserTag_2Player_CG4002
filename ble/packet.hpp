@@ -32,6 +32,13 @@ struct BlePacket {
 	/* End footer */
 };
 
+enum HandshakeStatus {
+  STAT_NONE = 0,
+  STAT_HELLO = 1,
+  STAT_ACK = 2,
+  STAT_SYN = 3
+};
+
 enum PacketType {
   HELLO = 0,
   ACK = 1,
@@ -116,8 +123,9 @@ public:
 /* Method declarations */
 void createDataFrom(String givenStr, byte packetData[PACKET_DATA_SIZE]);
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum);
-bool doHandshake();
+HandshakeStatus doHandshake();
 uint8_t getCrcOf(const BlePacket &packet);
+bool hasHandshake();
 bool isHeadByte(byte currByte);
 byte parsePacketTypeFrom(byte metadata);
 int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer);

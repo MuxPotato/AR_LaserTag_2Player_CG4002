@@ -3,17 +3,9 @@
 #define ACCEL_UPPER_BOUND 32768
 #define GYRO_UPPER_BOUND 32750
 
-enum HandshakeStatus {
-  STAT_NONE = 0,
-  STAT_HELLO = 1,
-  STAT_ACK = 2,
-  STAT_SYN = 3
-};
-
 void processIncomingPacket();
 void retransmitLastPacket();
 
-bool hasHandshake = false;
 HandshakeStatus handshakeStatus = STAT_NONE;
 // MyQueue<byte> recvBuffer{};
 // Zero-initialise lastSentPacket
@@ -36,8 +28,8 @@ void setup() {
 }
 
 void loop() {
-  if (!hasHandshake) {
-    hasHandshake = doHandshake();
+  if (!hasHandshake()) {
+    handshakeStatus = doHandshake();
   }
   // Retransmit last sent packet on timeout
   if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
@@ -53,7 +45,6 @@ void loop() {
       clearSerialInputBuffer();
       Serial.flush();
       // Laptop might have disconnected, re-enter handshake
-      hasHandshake = false;
       handshakeStatus = STAT_NONE;
       numRetries = 0;
     }
@@ -80,7 +71,7 @@ void loop() {
 }
 
 /* Begin 'More important functions' section */
-bool doHandshake() {
+HandshakeStatus doHandshake() {
   unsigned long mLastPacketSentTime = millis();
   BlePacket mLastSentPacket;
   byte mSeqNum = INITIAL_SEQ_NUM;
@@ -161,7 +152,7 @@ bool doHandshake() {
             mSeqNum += 1;
             mIsWaitingForAck = false;
             // Return from doHandshake() since handshake process is complete
-            return true;
+            return HandshakeStatus::STAT_SYN;
           } else if (getPacketTypeOf(receivedPacket) == PacketType::HELLO) {
             handshakeStatus = STAT_HELLO;
             mSeqNum = INITIAL_SEQ_NUM;
@@ -176,7 +167,7 @@ bool doHandshake() {
         }
     }
   }
-  return false;
+  return handshakeStatus;
 }
 
 /* Old handshake function, obsolete(relies on my custom Queue as input buffer)
@@ -292,11 +283,14 @@ void handleGamePacket(const BlePacket &gamePacket) {
   // TODO: Implement processing a given gamePacket
 }
 
+bool hasHandshake() {
+  return handshakeStatus == HandshakeStatus::STAT_SYN;
+}
+
 void processGivenPacket(const BlePacket &packet) {
   char givenPacketType = getPacketTypeOf(packet);
   switch (givenPacketType) {
     case PacketType::HELLO:
-      hasHandshake = false;
       handshakeStatus = STAT_HELLO;
       break;
     case PacketType::ACK:

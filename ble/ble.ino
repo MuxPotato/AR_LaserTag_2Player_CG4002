@@ -79,6 +79,7 @@ void loop() {
   }
 }
 
+/* Begin 'More important functions' section */
 bool doHandshake() {
   unsigned long mLastPacketSentTime = millis();
   BlePacket mLastSentPacket;
@@ -272,7 +273,9 @@ void setupBle() {
     sent without assigning actual (valid) packet */
   lastSentPacket.metadata = PLACEHOLDER_METADATA;
 }
+/* End 'More important functions' section */
 
+/* Begin 'All other functions' section */
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   byte packetData[PACKET_DATA_SIZE] = {};
   uint16_t seqNumToSyn = senderSeqNum;

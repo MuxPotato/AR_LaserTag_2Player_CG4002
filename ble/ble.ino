@@ -47,7 +47,10 @@ void loop() {
       /* // Max retries reached, stop retransmitting
       isWaitingForAck = false;
       lastSentPacket.metadata = PLACEHOLDER_METADATA; */
-      
+
+      // Clear serial input/output buffers to restart transmission from clean state
+      clearSerialInputBuffer();
+      Serial.flush();
       // Laptop might have disconnected, re-enter handshake
       hasHandshake = false;
       numRetries = 0;

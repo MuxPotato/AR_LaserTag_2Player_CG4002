@@ -30,13 +30,13 @@ class GameStateHandler(threading.Thread):
                     continue
                 # TODO: Add parser that checks player ID to determine which queue to put the update in
                 if self.is_gun_game_state(new_game_state):
-                    gun_update_packet = GunUpdatePacket(player_id = new_game_state.id, 
-                            bullets = new_game_state.bullets)
+                    gun_update_packet = GunUpdatePacket(player_id = new_game_state["id"], 
+                            bullets = new_game_state["bullets"])
                     # TODO: Check which player ID and put packet in the right Beetle's queue
                     self.gun_update_queue.put(gun_update_packet)
                 elif self.is_vest_game_state(new_game_state):
-                    vest_update_packet = VestUpdatePacket(player_id = new_game_state.id, 
-                            is_hit = new_game_state.isShot, player_hp = new_game_state.hp)
+                    vest_update_packet = VestUpdatePacket(player_id = new_game_state["id"], 
+                            is_hit = new_game_state["isHit"], player_hp = new_game_state["hp"])
                     # TODO: Check which player ID and put packet in the right Beetle's queue
                     self.vest_update_queue.put(vest_update_packet)
                 else:

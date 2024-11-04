@@ -9,6 +9,7 @@ import time
 import traceback
 
 from external_utils import COOLDOWN_PERIOD, PACKETS_PER_ACTION, QUEUE_GET_TIMEOUT, ImuRelayState
+from internal_utils import bcolors
 
 class ReceiverThread(threading.Thread):
     def __init__(self, my_socket: socket.SocketType, server_ip: str, stop_event: threading.Event, to_ble_game_state_queue: queue.Queue):
@@ -116,6 +117,7 @@ class SenderThread(threading.Thread):
             # Incoming IMU data from Beetle has not crossed threshold yet
             accel_analytics: float = self.get_analytics_for(imu_packet)
             if accel_analytics >= self.data_threshold:
+                print(f"""{bcolors.RED}DEBUG: Threshold exceeded, sending data{bcolors.ENDC}""")
                 # Current packet exceeds threshold for action(potential action packet),
                 #   send it to relay server for AI inference
                 self.sender_state = ImuRelayState.SENDING_ACTION
@@ -133,10 +135,12 @@ class SenderThread(threading.Thread):
                 self.num_action_packets_sent = 0
                 # Cooldown period starts now, record the start time
                 self.cooldown_period_start = time.time()
+                print(f"""{bcolors.RED}DEBUG: Cooldown period start{bcolors.ENDC}""")
                 return
         elif self.sender_state == ImuRelayState.COOLDOWN:
             # Currently in cooldown period
             if (time.time() - self.cooldown_period_start) > COOLDOWN_PERIOD:
+                print(f"""{bcolors.RED}DEBUG: Cooldown period end, waiting for threshold{bcolors.ENDC}""")
                 # Cooldown period is now over, return to waiting for action state
                 self.sender_state = ImuRelayState.WAITING_FOR_ACTION
                 return
@@ -248,21 +252,25 @@ def parse_packets(imu_packet, Shootpacket):
 
 class RelayClient(threading.Thread):
 
-    def __init__(self, server_ip, server_port, from_ble_ankle_queue, from_ble_glove_queue, from_ble_shoot_queue, to_ble_game_state_queue):
+    def __init__(self, server_ip, server_port, from_ble_p1_ankle_queue, from_ble_p1_glove_queue, from_ble_p2_ankle_queue, from_ble_p2_glove_queue, from_ble_shoot_queue, to_ble_game_state_queue):
 #    def __init__(self, from_ble_IMU_queue, from_ble_shoot_queue, glove_output, game_output):
         super().__init__()
         self.server_ip = server_ip
         self.server_port = server_port  
         self.timeout = 100   # the timeout for receiving any data
         self.socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        self.from_ble_ankle_queue = from_ble_ankle_queue
-        self.from_ble_glove_queue = from_ble_glove_queue
+        self.from_ble_p1_ankle_queue = from_ble_p1_ankle_queue
+        self.from_ble_p1_glove_queue = from_ble_p1_glove_queue
+        self.from_ble_p2_ankle_queue = from_ble_p2_ankle_queue
+        self.from_ble_p2_glove_queue = from_ble_p2_glove_queue
         self.from_ble_shoot_queue = from_ble_shoot_queue 
         self.to_ble_game_state_queue = to_ble_game_state_queue
         self.stop_event = threading.Event()
         self.socket_mutex = threading.Lock()
-        self.ankle_thread = AnkleSenderThread(self.stop_event, self.from_ble_ankle_queue, self.socket, self.socket_mutex)
-        self.glove_thread = GloveSenderThread(self.stop_event, self.from_ble_glove_queue, self.socket, self.socket_mutex)
+        self.ankle_p1_thread = AnkleSenderThread(self.stop_event, self.from_ble_p1_ankle_queue, self.socket, self.socket_mutex)
+        self.glove_p1_thread = GloveSenderThread(self.stop_event, self.from_ble_p1_glove_queue, self.socket, self.socket_mutex)
+        self.ankle_p2_thread = AnkleSenderThread(self.stop_event, self.from_ble_p2_ankle_queue, self.socket, self.socket_mutex)
+        self.glove_p2_thread = GloveSenderThread(self.stop_event, self.from_ble_p2_glove_queue, self.socket, self.socket_mutex)
         self.shoot_thread = threading.Thread(target=handle_shoot_data, 
                 args = (self.stop_event, from_ble_shoot_queue, get_send_func(self.socket, self.socket_mutex),))
         self.receive_handler = ReceiverThread(self.socket, self.server_ip, self.stop_event, 
@@ -321,8 +329,10 @@ class RelayClient(threading.Thread):
         self.connect(self.server_ip,self.server_port)
         print('Connected to relay server')
         try:
-            self.ankle_thread.start()
-            self.glove_thread.start()
+            self.ankle_p1_thread.start()
+            self.glove_p1_thread.start()
+            self.ankle_p2_thread.start()
+            self.glove_p2_thread.start()
             self.shoot_thread.start()
             print('Threads for ankle, glove and Shoot data started')
             self.receive_handler.start()
@@ -337,8 +347,10 @@ class RelayClient(threading.Thread):
 
     def quit(self):
         self.stop_event.set()
-        self.ankle_thread.join()
-        self.glove_thread.join()
+        self.ankle_p1_thread.join()
+        self.glove_p1_thread.join()
+        self.ankle_p2_thread.join()
+        self.glove_p2_thread.join()
         self.shoot_thread.join()
         self.receive_handler.join()
         print('Threads for ankle, glove, Shoot data and receiving data stopped')

@@ -241,16 +241,15 @@ bool hasHandshake() {
  * -Override this in device-specific Beetles to return true only when there's raw data to transmit(e.g. gun fire)
  */
 bool hasRawData() {
+  // isFired must be false unless fireGun() sets it to true(when gun has ammo and trigger is pressed)
+  isFired = false;
   // Check whether gun trigger is pressed
   if (getIsFired()) {
-    // Gun trigger is pressed, set isFired to true
-    isFired = true;
     // Trigger gunfire-related game logic
     fireGun();
     // Indicate that there's sensor data to send to laptop
     return true;
   }
-  isFired = false;
   // Gun trigger isn't pressed, no sensor data to send to laptop
   return false;
 }
@@ -473,6 +472,7 @@ void fireGun() {
   IrSender.sendNEC(IR_ADDRESS, IR_COMMAND, 0);  // the address 0x0102 with the command 0x34 is sent
   if (bulletCount > 0) {
     bulletCount -= 1;
+    // Gun trigger is pressed and gun has ammo, set isFired to true
     isFired = true;
   }
   visualiseBulletCount();

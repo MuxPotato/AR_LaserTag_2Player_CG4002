@@ -42,7 +42,7 @@ class Beetle(threading.Thread):
         self.ble_delegate = BlePacketDelegate(self.mDataBuffer)
         self.mBeetle = self.mBeetle.withDelegate(self.ble_delegate)
         # Debug printing(more verbose)
-        self.is_debug_printing = False
+        self.is_debug_printing = True
 
     def connect(self):
         while not self.terminateEvent.is_set():

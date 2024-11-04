@@ -123,6 +123,7 @@ public:
 /* Method declarations */
 void createDataFrom(String givenStr, byte packetData[PACKET_DATA_SIZE]);
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum);
+BlePacket createRawDataPacket();
 HandshakeStatus doHandshake();
 uint8_t getCrcOf(const BlePacket &packet);
 bool hasHandshake();

@@ -48,25 +48,25 @@ void loop() {
       handshakeStatus = STAT_NONE;
       numRetries = 0;
     }
-  }
-  // Handle incoming packets
-  if (Serial.available() >= PACKET_SIZE) {
+  } else if (!isWaitingForAck && hasRawData()) { // Send raw data packets(if any)
+    // Only send new packet if previous packet has been ACK-ed and there's new sensor data to send
+    unsigned long transmitPeriod = millis() - lastSentPacketTime;
+    if (transmitPeriod < TRANSMIT_DELAY) {
+      // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
+      delay(TRANSMIT_DELAY - transmitPeriod);
+    }
+    // Read sensor data and generate a BlePacket encapsulating that data
+    BlePacket mRawDataPacket = createRawDataPacket();
+    // Send updated sensor data to laptop
+    sendPacket(mRawDataPacket);
+    // Update last sent packet to latest sensor data packet
+    lastSentPacket = mRawDataPacket;
+    // Update last packet sent time to track timeout
+    lastSentPacketTime = millis();
+    isWaitingForAck = true;
+  } else if (Serial.available() >= PACKET_SIZE) { // Handle incoming packets
     // Received some bytes from laptop, process them
     processIncomingPacket();
-  } else { // Send raw data packets(if any)
-    // No bytes received from laptop, so send sensor data if needed
-    if (!isWaitingForAck) {
-      // Only send new packet if previous packet has already been ACK-ed
-      unsigned long transmitPeriod = millis() - lastSentPacketTime;
-      if (transmitPeriod < TRANSMIT_DELAY) {
-        // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
-        delay(TRANSMIT_DELAY - transmitPeriod);
-      }
-      lastSentPacket = sendDummyPacket();
-      // Update last packet sent time to track timeout
-      lastSentPacketTime = millis();
-      isWaitingForAck = true;
-    }
   }
 }
 
@@ -278,6 +278,24 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
 }
 
+/**
+ * Reads raw data from connected sensors and returns a BlePacket encapsulating the data
+ * -Override this in device-specific Beetles to create device-specific data packets
+ */
+BlePacket createRawDataPacket() {
+  BlePacket dummyPacket;
+  byte dummyData[PACKET_DATA_SIZE] = {};
+  int16_t x1 = random(-ACCEL_UPPER_BOUND, ACCEL_UPPER_BOUND);
+  int16_t y1 = random(-ACCEL_UPPER_BOUND, ACCEL_UPPER_BOUND);
+  int16_t z1 = random(-ACCEL_UPPER_BOUND, ACCEL_UPPER_BOUND);
+  int16_t x2 = random(-GYRO_UPPER_BOUND, GYRO_UPPER_BOUND);
+  int16_t y2 = random(-GYRO_UPPER_BOUND, GYRO_UPPER_BOUND);
+  int16_t z2 = random(-GYRO_UPPER_BOUND, GYRO_UPPER_BOUND);
+  getBytesFrom(dummyData, x1, y1, z1, x2, y2, z2);
+  createPacket(dummyPacket, PacketType::IMU, senderSeqNum, dummyData);
+  return dummyPacket;
+}
+
 /* Implement this function in actual Beetles(e.g. process game state packet) */
 void handleGamePacket(const BlePacket &gamePacket) {
   // TODO: Implement processing a given gamePacket
@@ -285,6 +303,14 @@ void handleGamePacket(const BlePacket &gamePacket) {
 
 bool hasHandshake() {
   return handshakeStatus == HandshakeStatus::STAT_SYN;
+}
+
+/**
+ * Checks whether the connected sensors of this Beetle has raw data to send to laptop.
+ * -Override this in device-specific Beetles to return true only when there's raw data to transmit(e.g. gun fire)
+ */
+bool hasRawData() {
+  return (millis() - lastSentPacketTime) >= TRANSMIT_DELAY;
 }
 
 void processGivenPacket(const BlePacket &packet) {

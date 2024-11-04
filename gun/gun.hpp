@@ -2,6 +2,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <IRremote.hpp>
 #include <Wire.h>
+#include "packet.hpp"
 
 #define ACTION_INTERVAL 600
 #define BUTTON_PIN 4
@@ -23,9 +24,14 @@
 IRsend irsend(IR_TRN_PIN);
 Adafruit_NeoPixel pixels(PIXEL_COUNT, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
+BlePacket createGunPacket(bool mIsFired);
 void gunSetup();
 void fireGun();
 byte getButtonState();
 bool getIsFired();
 void reload();
 void visualiseBulletCount();
+
+void getPacketDataFor(bool mIsFired, byte packetData[PACKET_DATA_SIZE]) {
+  packetData[0] = mIsFired ? 1 : 0;
+}

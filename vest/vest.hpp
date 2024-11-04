@@ -2,6 +2,7 @@
 #include <IRremote.hpp>
 #include <Wire.h>
 #include <Adafruit_NeoPixel.h>
+#include "packet.hpp"
 
 #define EXPECTED_IR_ADDRESS 0x0102
 #define BUZZER_PIN 4
@@ -20,3 +21,7 @@ void doRespawn();
 bool getIsShotFromIr();
 void giveLife();
 void updateHpLed(uint8_t givenPlayerHp);
+
+void createVestPacketData(bool mIsHit, byte packetData[PACKET_DATA_SIZE]) {
+  packetData[0] = mIsHit ? 1 : 0;
+}

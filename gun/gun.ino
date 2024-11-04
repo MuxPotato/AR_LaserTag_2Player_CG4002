@@ -1,5 +1,4 @@
 #include "gun.hpp"
-#include "packet.hpp"
 
 /* Internal comms */
 void processIncomingPacket();
@@ -40,21 +39,8 @@ void loop() {
   if (!hasHandshake()) {
     handshakeStatus = doHandshake();
   }
-  if (getIsFired()) {
-    isFired = true;
-    if (!isWaitingForAck) {
-      fireGun();
-      // Only send new packet if previous packet has already been ACK-ed
-      unsigned long transmitPeriod = millis() - lastSentPacketTime;
-      if (transmitPeriod < TRANSMIT_DELAY) {
-        // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
-        delay(TRANSMIT_DELAY - transmitPeriod);
-      }
-      lastSentPacket = sendGunPacket(isFired);
-      lastSentPacketTime = millis();
-      isWaitingForAck = true;
-    }
-  } else if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
+  // Retransmit last sent packet on timeout
+  if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
     if (numRetries < MAX_RETRANSMITS) {
       retransmitLastPacket();
       numRetries += 1;
@@ -62,7 +48,7 @@ void loop() {
       /* // Max retries reached, stop retransmitting
       isWaitingForAck = false;
       lastSentPacket.metadata = PLACEHOLDER_METADATA; */
-      
+
       // Clear serial input/output buffers to restart transmission from clean state
       clearSerialInputBuffer();
       Serial.flush();
@@ -70,8 +56,23 @@ void loop() {
       handshakeStatus = STAT_NONE;
       numRetries = 0;
     }
-  }
-  if (Serial.available() > 0) {
+  } else if (!isWaitingForAck && hasRawData()) { // Send raw data packets(if any)
+    // Only send new packet if previous packet has been ACK-ed and there's new sensor data to send
+    unsigned long transmitPeriod = millis() - lastSentPacketTime;
+    if (transmitPeriod < TRANSMIT_DELAY) {
+      // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
+      delay(TRANSMIT_DELAY - transmitPeriod);
+    }
+    // Read sensor data and generate a BlePacket encapsulating that data
+    BlePacket mRawDataPacket = createRawDataPacket();
+    // Send updated sensor data to laptop
+    sendPacket(mRawDataPacket);
+    // Update last sent packet to latest sensor data packet
+    lastSentPacket = mRawDataPacket;
+    // Update last packet sent time to track timeout
+    lastSentPacketTime = millis();
+    isWaitingForAck = true;
+  } else if (Serial.available() >= PACKET_SIZE) { // Handle incoming packets
     // Received some bytes from laptop, process them
     processIncomingPacket();
   }
@@ -192,6 +193,14 @@ void setupBle() {
   lastSentPacket.metadata = PLACEHOLDER_METADATA;
 }
 
+BlePacket createGunPacket(bool mIsFired) {
+  BlePacket gunPacket = {};
+  byte packetData[PACKET_DATA_SIZE] = {};
+  getPacketDataFor(mIsFired, packetData);
+  createPacket(gunPacket, PacketType::IR_TRANS, senderSeqNum, packetData);
+  return gunPacket;
+}
+
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   byte packetData[PACKET_DATA_SIZE] = {};
   uint16_t seqNumToSyn = senderSeqNum;
@@ -201,6 +210,10 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   packetData[0] = (byte) seqNumToSyn;
   packetData[1] = (byte) (seqNumToSyn >> BITS_PER_BYTE);
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
+}
+
+BlePacket createRawDataPacket() {
+  return createGunPacket(isFired);
 }
 
 uint8_t getBulletCountFrom(const BlePacket &gamePacket) {
@@ -221,6 +234,25 @@ void handleGamePacket(const BlePacket &gamePacket) {
 
 bool hasHandshake() {
   return handshakeStatus == HandshakeStatus::STAT_SYN;
+}
+
+/**
+ * Checks whether the connected sensors of this Beetle has raw data to send to laptop.
+ * -Override this in device-specific Beetles to return true only when there's raw data to transmit(e.g. gun fire)
+ */
+bool hasRawData() {
+  // Check whether gun trigger is pressed
+  if (getIsFired()) {
+    // Gun trigger is pressed, set isFired to true
+    isFired = true;
+    // Trigger gunfire-related game logic
+    fireGun();
+    // Indicate that there's sensor data to send to laptop
+    return true;
+  }
+  isFired = false;
+  // Gun trigger isn't pressed, no sensor data to send to laptop
+  return false;
 }
 
 void processGivenPacket(const BlePacket &packet) {
@@ -366,10 +398,6 @@ void retransmitLastPacket() {
   }
 }
 
-void getPacketDataFor(bool mIsFired, byte packetData[PACKET_DATA_SIZE]) {
-  packetData[0] = mIsFired ? 1 : 0;
-}
-
 BlePacket sendGunPacket(bool mIsFired) {
   BlePacket gunPacket = {};
   byte packetData[PACKET_DATA_SIZE] = {};
@@ -445,6 +473,7 @@ void fireGun() {
   IrSender.sendNEC(IR_ADDRESS, IR_COMMAND, 0);  // the address 0x0102 with the command 0x34 is sent
   if (bulletCount > 0) {
     bulletCount -= 1;
+    isFired = true;
   }
   visualiseBulletCount();
   tone(BUZZER_PIN, BUZZER_FREQ, BUZZER_DURATION);

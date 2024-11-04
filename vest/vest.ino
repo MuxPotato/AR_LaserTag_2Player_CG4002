@@ -1,4 +1,3 @@
-#include "packet.hpp"
 #include "vest.hpp"
 
 /* Internal comms */
@@ -21,7 +20,7 @@ unsigned long lastRetransmitTime = 0;
 unsigned long lastReadPacketTime = 0;
 
 // Vest game state
-bool isShot = false;
+bool isHit = false;
 uint8_t playerHp = 100;
 Adafruit_NeoPixel pixels(NUM_HP_LED, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -39,23 +38,8 @@ void loop() {
   if (!hasHandshake()) {
     handshakeStatus = doHandshake();
   }
-  if (getIsShotFromIr()) {
-    // Gunshot detected
-    isShot = true;
-    if (!isWaitingForAck) {
-      // Only send new packet if previous packet has already been ACK-ed
-      unsigned long transmitPeriod = millis() - lastSentPacketTime;
-      if (transmitPeriod < TRANSMIT_DELAY) {
-        // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
-        delay(TRANSMIT_DELAY - transmitPeriod);
-      }
-      // Send out isShot state to game engine
-      lastSentPacket = sendVestPacket();
-      // Update last packet sent time to track timeout
-      lastSentPacketTime = millis();
-      isWaitingForAck = true;
-    }
-  } else if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
+  // Retransmit last sent packet on timeout
+  if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
     if (numRetries < MAX_RETRANSMITS) {
       retransmitLastPacket();
       numRetries += 1;
@@ -71,8 +55,23 @@ void loop() {
       handshakeStatus = STAT_NONE;
       numRetries = 0;
     }
-  }
-  if (Serial.available() > 0) {
+  } else if (!isWaitingForAck && hasRawData()) { // Send raw data packets(if any)
+    // Only send new packet if previous packet has been ACK-ed and there's new sensor data to send
+    unsigned long transmitPeriod = millis() - lastSentPacketTime;
+    if (transmitPeriod < TRANSMIT_DELAY) {
+      // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
+      delay(TRANSMIT_DELAY - transmitPeriod);
+    }
+    // Read sensor data and generate a BlePacket encapsulating that data
+    BlePacket mRawDataPacket = createRawDataPacket();
+    // Send updated sensor data to laptop
+    sendPacket(mRawDataPacket);
+    // Update last sent packet to latest sensor data packet
+    lastSentPacket = mRawDataPacket;
+    // Update last packet sent time to track timeout
+    lastSentPacketTime = millis();
+    isWaitingForAck = true;
+  } else if (Serial.available() >= PACKET_SIZE) { // Handle incoming packets
     // Received some bytes from laptop, process them
     processIncomingPacket();
   }
@@ -204,7 +203,19 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
 }
 
-bool getIsShotFrom(const BlePacket &gamePacket) {
+/**
+ * Reads raw data from connected sensors and returns a BlePacket encapsulating the data
+ * -Override this in device-specific Beetles to create device-specific data packets
+ */
+BlePacket createRawDataPacket() {
+  BlePacket vestPacket = {};
+  byte packetData[PACKET_DATA_SIZE] = {};
+  createVestPacketData(isHit, packetData);
+  createPacket(vestPacket, PacketType::IR_RECV, senderSeqNum, packetData);
+  return vestPacket;
+}
+
+bool getIsHitFrom(const BlePacket &gamePacket) {
   return gamePacket.data[0] == 1;
 }
 
@@ -216,9 +227,9 @@ uint8_t getPlayerHpFrom(const BlePacket &gamePacket) {
  * Update internal variables based on the new game state received
  */
 void handleGamePacket(const BlePacket &gamePacket) {
-  bool newIsShot = getIsShotFrom(gamePacket);
+  bool newIsHit = getIsHitFrom(gamePacket);
   uint8_t newPlayerHp = getPlayerHpFrom(gamePacket);
-  if (newIsShot) {
+  if (newIsHit) {
     doGunshotHit();
   }
   if (newPlayerHp != playerHp) {
@@ -229,12 +240,28 @@ void handleGamePacket(const BlePacket &gamePacket) {
       doDamage();
     }
   }
-  isShot = newIsShot;
+  isHit = newIsHit;
   playerHp = newPlayerHp;
 }
 
 bool hasHandshake() {
   return handshakeStatus == HandshakeStatus::STAT_SYN;
+}
+
+/**
+ * Checks whether the connected sensors of this Beetle has raw data to send to laptop.
+ * -Override this in device-specific Beetles to return true only when there's raw data to transmit(e.g. gun fire)
+ */
+bool hasRawData() {
+  // Check whether vest was hit by gunshot
+  if (getIsHitFromIr()) {
+    // Gunshot detected
+    isHit = true;
+    // Indicate that there's sensor data to send to laptop
+    return true;
+  }
+  // No gunshot detected, nothing to send to laptop
+  return false;
 }
 
 void processGivenPacket(const BlePacket &packet) {
@@ -263,8 +290,8 @@ void processGivenPacket(const BlePacket &packet) {
       isWaitingForAck = false;
       // Increment senderSeqNum upon every ACK
       senderSeqNum += 1;
-      // Reset isShot state so next gunshot can be registered
-      isShot = false;
+      // Reset isHit state so next gunshot can be registered
+      isHit = false;
       numRetries = 0;
       break;
     case PacketType::NACK:
@@ -377,14 +404,10 @@ void retransmitLastPacket() {
   }
 }
 
-void createVestPacketData(bool mIsShot, byte packetData[PACKET_DATA_SIZE]) {
-  packetData[0] = mIsShot ? 1 : 0;
-}
-
 BlePacket sendVestPacket() {
   BlePacket vestPacket = {};
   byte packetData[PACKET_DATA_SIZE] = {};
-  createVestPacketData(isShot, packetData);
+  createVestPacketData(isHit, packetData);
   createPacket(vestPacket, PacketType::IR_RECV, senderSeqNum, packetData);
   sendPacket(vestPacket);
   return vestPacket;
@@ -401,17 +424,17 @@ void irReceiverSetup() {
   TimerFreeTone(BUZZER_PIN, 400, 500);
 }
 
-bool getIsShotFromIr() {
-  bool mIsShot = false;
+bool getIsHitFromIr() {
+  bool mIsHit = false;
   if (IrReceiver.decode()) {  // Check if an IR signal is received
     if (IrReceiver.decodedIRData.protocol == NEC && 
         IrReceiver.decodedIRData.address == EXPECTED_IR_ADDRESS) {  // Compare with expected address
       digitalWrite(LED_PIN, HIGH);  // Turn on the LED if address matches
-      mIsShot = true;
+      mIsHit = true;
     }
     IrReceiver.resume();  // Clear the buffer for the next IR signal
   }
-  return mIsShot;
+  return mIsHit;
 }
 
 void doDamage() {

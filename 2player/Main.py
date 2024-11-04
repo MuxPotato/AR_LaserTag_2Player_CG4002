@@ -10,13 +10,20 @@ from AIOne import AIOne
 from AITwo import AITwo
 
 
-#host = '172.26.190.191'
-relayhost = '172.26.191.210'
+
+
+
+#relayhost = '172.26.191.210'
+
+relayhost = '192.168.1.6'
+
 #socket.gethostbyname(socket.gethostname())
 relayport = 5055
 
 evalhost = '127.0.0.1'
-evalport = 8888
+#evalport = 8888
+
+evalport = 41363
 
 
 P1_IMU_queue = queue.Queue()

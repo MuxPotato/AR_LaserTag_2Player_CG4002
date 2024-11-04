@@ -1,8 +1,8 @@
 from threading import Thread
 import queue
-from pynq import Overlay, PL
+#from pynq import Overlay, PL
 import pandas as pd
-from AIPredictor import Predictor
+#from AIPredictor import Predictor
 import random 
 from Color import print_message
 import time
@@ -12,10 +12,12 @@ ACTIONS = ["basket", "volley", "bowl", "bomb", "shield", "reload", "basket", "lo
 
 class AIOne(Thread):
     
-    PL.reset()
-    bitstream_path = "/home/xilinx/BITSTREAM/design_1.bit"
-    overlay = Overlay(bitstream_path)
-    predictor = Predictor(overlay) 
+    # CONTINUE HERE
+    # Comment out here for the actual run
+    # PL.reset()
+    # bitstream_path = "/home/xilinx/BITSTREAM/design_1.bit"
+    # overlay = Overlay(bitstream_path)
+    # predictor = Predictor(overlay) 
 
     def __init__(self,P1_IMU_queue,P1_action_queue, P1_fire_queue,P1_ankle_queue):
         Thread.__init__(self)
@@ -24,6 +26,7 @@ class AIOne(Thread):
         self.P1_action_queue = P1_action_queue
         self.P1_ankle_queue = P1_ankle_queue 
         #self.last_activity_time = time.time()
+        self.message_ankle_count = 0 
         
     
    
@@ -78,13 +81,15 @@ class AIOne(Thread):
             except queue.Empty:
                 continue
                 #print("No item received from IMU queue; continuing to next loop")
-              
+            
            
+
+            # Only for local testing 
             messages_IMU.append(message_IMU)
             print("IMU data appended to messages")
             print("current IMU message count: ", len(messages_IMU))
             #if time.time() - self.last_activity_time > 3 and len(messages_IMU) > 30 and not message_Shoot['isFire']:
-            if len(messages_IMU) == PACKET_NUMBER:
+            if len(messages_IMU) > 0:
                 print("Sending data for prediction")
                 data = {
                     'Accel X': [message['accel'][0] for message in messages_IMU],
@@ -94,17 +99,95 @@ class AIOne(Thread):
                     'Gyro Y': [message['gyro'][1] for message in messages_IMU],
                     'Gyro Z': [message['gyro'][2] for message in messages_IMU],
                 }
-                #print(data)
-                df = pd.DataFrame(data)
-                df.to_csv('IMU_debug_data.csv', mode='a', index=False, header=not pd.io.common.file_exists('IMU_debug_data.csv'))
-                action_number = self.predictor.get_action(df)
-                #print(f"ACTION NUMBER IS: {action_number}")
-                action = ACTIONS[action_number]
-                print(f"Predicted action is: {action}")
-                combined_action = action + ":1"
+
+                # Mapping of accel values to actions
+                accel_to_action = {
+                    (0, 0, 0): "basket",
+                    (0, 0, 1): "volley",
+                    (0, 1, 0): "gun",
+                    (0, 1, 1): "reload",
+                    (1, 0, 0): "shield",
+                    (1, 0, 1): "bomb",
+                    (1, 1, 0): "bowl",
+                    (1, 1, 1): "logout",
+                }
+
+                # Extract the accel values from the first message in messages_IMU for action mapping
+                accel_values = (data['Accel X'][0], data['Accel Y'][0], data['Accel Z'][0])
+                action = accel_to_action.get(accel_values, "unknown")  # Default to "unknown" if not found
+
+                if action == "unknown":
+                    print("Warning: Unrecognized accel values. Defaulting to random action.")
+                    action = self.random_action()
+                else:
+                    print(f"Mapped action based on accel values: {action}")
+
+                # Combine the action with player ID and put it in the queue
+                combined_action = f"{action}:1"
                 self.P1_action_queue.put(combined_action)
-                #message_Shoot['isFire'] = False
+
+                # Clear messages_IMU after processing
                 messages_IMU = []
+
+
+
+
+
+
+            # Proper Code
+
+            # messages_IMU.append(message_IMU)
+            # print("IMU data appended to messages")
+            # print("current IMU message count: ", len(messages_IMU))
+            # #if time.time() - self.last_activity_time > 3 and len(messages_IMU) > 30 and not message_Shoot['isFire']:
+            # if len(messages_IMU) == PACKET_NUMBER:
+            #     print("Sending data for prediction")
+            #     data = {
+            #         'Accel X': [message['accel'][0] for message in messages_IMU],
+            #         'Accel Y': [message['accel'][1] for message in messages_IMU],
+            #         'Accel Z': [message['accel'][2] for message in messages_IMU],
+            #         'Gyro X': [message['gyro'][0] for message in messages_IMU],
+            #         'Gyro Y': [message['gyro'][1] for message in messages_IMU],
+            #         'Gyro Z': [message['gyro'][2] for message in messages_IMU],
+            #     }
+
+            #     # Commet out for actual test
+            #     #print(data)
+            #     # df = pd.DataFrame(data)
+            #     # df.to_csv('IMU_debug_data.csv', mode='a', index=False, header=not pd.io.common.file_exists('IMU_debug_data.csv'))
+            #     # action_number = self.predictor.get_action(df)
+            #     # #print(f"ACTION NUMBER IS: {action_number}")
+            #     # action = ACTIONS[action_number]
+
+            #     action = self.random_action()
+
+            #     print(f"Predicted action is: {action}")
+            #     combined_action = action + ":1"
+            #     self.P1_action_queue.put(combined_action)
+            #     #message_Shoot['isFire'] = False
+            #     messages_IMU = []
+
+
+            # try:
+            #     message_ankle = self.P1_ankle_queue.get(timeout = 0.005)
+            #     print("Received item from ankle queue")
+                
+            #     if message_ankle:
+            #         self.message_ankle_count += 1
+                    
+            #         if (self.message_ankle_count >= 60):
+            #             action = 'soccer'
+            #             print_message('AIOne', f"Received '{message_ankle}' from RelayServer")
+            #             combined_action = action + ":1"
+            #             self.P1_action_queue.put(combined_action)
+            #             self.message_ankle_count = 0
+
+            #         continue  # Skip to the next loop since ankle  takes priority
+            # except queue.Empty:
+            #     pass 
+
+
+
     
 
      

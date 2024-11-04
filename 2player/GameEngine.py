@@ -39,6 +39,13 @@ class GameEngine(Thread):
         self.hp_bullet = 5
         self.hp_bomb = 5
 
+        self.ACTIONTIMEOUT = 15
+        self.LOGOUT_FAILSAFE_TURNS = 20
+        self.PHONE_RESPONSE_TIMEOUT = 5
+
+
+        self.game_turns_passed = 0
+
 
 
     def get_player_state(self, player_id):
@@ -413,6 +420,17 @@ class GameEngine(Thread):
                 action_p1 = "update_ui"
                 action_p2 = "update_ui"
                 print_message('Game Engine', f"UI update requested for both players.")
+
+
+            elif action_type == "logout":
+                if player_id == 1:
+                    action_p1 = "logout"
+                else:
+                    action_p2 = "logout"
+        
+                print_message('Game Engine', f"Player {player_id} logout")
+            
+            
                 
             else:
                 print_message('Game Engine', f"Unknown action type: {action_type}")
@@ -645,10 +663,41 @@ class GameEngine(Thread):
             print(f"Error: {e}")
 
 
-    
+    def clear_queue(self, queue):
+        if not queue.empty():
+            print("Debug: Clearing non-empty queue")
+        while not queue.empty():
+            queue.get()
     
     # TODO: Add hasReceivedP1Action Signal AIOne Thread not to put anything into P1_action_queue
     # TODO: Add hasReceivedP2Action Signal AITwo Thread not to put anything into P2_action_queue
+
+
+
+    def send_to_phone_and_wait_for_phone_response_with_retries(self, viz_queue, phone_response_queue, viz_format, max_retries, player_id):
+        for attempt in range(max_retries):
+            try:
+                print(f"Game Engine: Sending message to phone, attempt {attempt + 1}")
+                viz_queue.put(viz_format)
+
+                print(f"Game Engine: Waiting for phone reply, attempt {attempt + 1}")
+                phone_response = phone_response_queue.get(timeout=self.PHONE_RESPONSE_TIMEOUT)
+                print("Game Engine: Received response from phone")
+                return phone_response  # Successful response, return it
+
+            except queue.Empty:
+                print(f"Game Engine: No response received, attempt {attempt + 1} timed out")
+
+        # After max_retries, fallback to the default response
+        print("Game Engine: Max retries reached, using default response")
+
+        # Format of response is 
+        # string Response = $"{player_id}:{isPrevActionAnAIAction}:{isPrevActionHit}:{prevActionString}:{rainBombHitCount}"
+        # I assume that the probabilty of hitting an AI action i.e. players see each other is a lot higher than not seeing
+        # Also i assume rain bomb is 0
+        default_response = f"{player_id}:1:1:Basket:0"
+        return default_response
+
 
     def run(self):
         while True:
@@ -663,15 +712,21 @@ class GameEngine(Thread):
 
                 ## Start of Player 1 Action Code ##
                 phone_action1 = self.P1_action_queue.get()
+
+                if (phone_action1 == "logout:1" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
+                    print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
+                    phone_action1 = "basket:1"
                 
                 print_message('Game Engine', f"Received action '{phone_action1}' from phone action queue player 1")
                 viz_format1 = self.process_phone_action(phone_action1)
                 
-    
-                self.viz_queue.put(viz_format1)
 
-                print("Game Engine: Waiting for phone 1 to reply")
-                phone1_response = self.phone_response_queue.get()
+                phone1_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format1,max_retries=2,player_id=1)
+                
+                # OLD
+                # self.viz_queue.put(viz_format1)
+                # print("Game Engine: Waiting for phone 1 to reply")
+                # phone1_response = self.phone_response_queue.get()
 
 
 
@@ -723,18 +778,42 @@ class GameEngine(Thread):
                 
                 # FOR SINGLE PHONE TESTING
                 # HERE WE JUST PUT A RANDOM ACTION INTO THE PHONE. I MADE IT ALWAYS BASKETBALL
-                #phone_action2 = self.P2_action_queue.get()
-                phone_action2 = "basket:2"
+
+
+
+                # phone_action2 = self.P2_action_queue.get()
+                # #phone_action2 = "basket:2"
                 
-                print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
+                # print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
+                # viz_format2 = self.process_phone_action(phone_action2)
+
+
+                # Set a timer for Player 2 action
+                try:
+                    # Wait for Player 2 action with a timeout of 30 seconds
+                    phone_action2 = self.P2_action_queue.get(timeout=self.ACTIONTIMEOUT)
+
+                    if (phone_action2 == "logout:2" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
+                        print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
+                        phone_action2 = "basket:2"
+
+                    
+                    print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
+                except queue.Empty:
+                    # Timeout reached: set Player 2 action to a default value
+                    phone_action2 = "basket:2"
+                    print_message('Game Engine', "Player 2 action timeout, setting to default action.")
+
+
                 viz_format2 = self.process_phone_action(phone_action2)
+
                 
     
-                self.viz_queue.put(viz_format2)
+                # self.viz_queue.put(viz_format2)
 
-                print("Game Engine: Waiting for phone 2 to reply")
-                phone2_response = self.phone_response_queue.get()
-
+                # print("Game Engine: Waiting for phone 2 to reply")
+                # phone2_response = self.phone_response_queue.get()
+                phone2_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format2,max_retries=2,player_id=2)
 
 
                 # There should be two phone response but right now, 1 player game so we only put 1 first
@@ -776,6 +855,12 @@ class GameEngine(Thread):
                 self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
                 print_message('Game Engine',"Sending info back to relay client")
 
+                # Clear queue to prevent duplicate
+                self.clear_queue(self.P1_action_queue)
+                self.clear_queue(self.P2_action_queue)
+
+                self.game_turns_passed += 1
+
 
 
 
@@ -784,15 +869,20 @@ class GameEngine(Thread):
 
                 ## Start of Player 2 Action Code ##
                 phone_action2 = self.P2_action_queue.get()
+
+
+                if (phone_action2 == "logout:2" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
+                    print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
+                    phone_action2 = "basket:2"
                 
                 print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
                 viz_format2 = self.process_phone_action(phone_action2)
                 
-    
-                self.viz_queue.put(viz_format2)
+                phone2_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format2,max_retries=2,player_id=2)
+                # self.viz_queue.put(viz_format2)
 
-                print("Game Engine: Waiting for phone 2 to reply")
-                phone2_response = self.phone_response_queue.get()
+                # print("Game Engine: Waiting for phone 2 to reply")
+                # phone2_response = self.phone_response_queue.get()
 
 
 
@@ -841,16 +931,30 @@ class GameEngine(Thread):
                 
 
                 ## Start of Player 1 Action Code ##
-                phone_action1 = self.P1_action_queue.get()
+                try:
+                    # Wait for Player 1 action with a timeout of 30 seconds
+                    phone_action1 = self.P1_action_queue.get(timeout=self.ACTIONTIMEOUT)
+
+
+                    if (phone_action1 == "logout:1" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
+                        print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
+                        phone_action1 = "basket:1"
+
+                    print_message('Game Engine', f"Received action '{phone_action1}' from phone action queue player 1")
+                except queue.Empty:
+                    # Timeout reached: set Player 1 action to a default value
+                    phone_action1 = "basket:1"
+                    print_message('Game Engine', "Player 1 action timeout, setting to default action.")
                 
                 print_message('Game Engine', f"Received action '{phone_action1}' from phone action queue player 1")
                 viz_format1 = self.process_phone_action(phone_action1)
                 
-    
-                self.viz_queue.put(viz_format1)
 
-                print("Game Engine: Waiting for phone 1 to reply")
-                phone1_response = self.phone_response_queue.get()
+                phone1_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format1,max_retries=2,player_id=1)
+                # self.viz_queue.put(viz_format1)
+
+                # print("Game Engine: Waiting for phone 1 to reply")
+                # phone1_response = self.phone_response_queue.get()
 
 
 
@@ -895,6 +999,15 @@ class GameEngine(Thread):
 
 
                 ## End of Player 1 Action Code ##
+
+
+                # Clear queue to prevent duplicate
+                self.clear_queue(self.P1_action_queue)
+                self.clear_queue(self.P2_action_queue)
+
+                self.game_turns_passed += 1
+
+           
 
                 
                 

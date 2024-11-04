@@ -26,8 +26,8 @@ class MQTT(Thread):
         self.reconnect_delay = 1 
 
         # Connect to the HiveMQ broker running on the Ultra96
-        self.client.connect("localhost", 1883, 60)  # Adjust IP if HiveMQ is running elsewhere
-
+        #self.client.connect("localhost", 1883, 60)  # Adjust IP if HiveMQ is running elsewhere
+        self.client.connect("192.168.1.6", 1883, 60)  # Adjust IP if HiveMQ is running elsewhere
         # Start the MQTT client loop
         self.client.loop_start()
 

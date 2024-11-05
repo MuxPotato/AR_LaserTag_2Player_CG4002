@@ -787,7 +787,7 @@ class GunBeetle(Beetle):
     
     def create_gun_packet(self, bullets: int):
         gun_packet_to_send = self.createPacket(BlePacketType.GAME_STAT, 
-                self.sender_seq_num, self.get_gun_data_from(bullets))
+                self.sender_seq_num, self.create_gun_packet_data(bullets))
         return gun_packet_to_send
     
     def create_gun_packet_data(self, bullets: int):

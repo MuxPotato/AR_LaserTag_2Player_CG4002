@@ -38,6 +38,26 @@ BLUNO_MAC_ADDR_LIST = [
     "B4:99:4C:89:18:1D"
 ]
 
+class BEETLE_MAC_ADDR(Enum):
+    # Below must be player 1 IMU(glove) Beetle
+    P1_GLOVE = "F4:B8:5E:42:61:62"
+    # Below must be player 1 IMU(ankle) Beetle
+    P1_ANKLE = "D0:39:72:DF:CA:F2"
+    # Below must be player 1 gun Beetle
+    P1_GUN = "B4:99:4C:89:18:72"
+    # Below must be player 1 vest Beetle
+    P1_VEST = "F4:B8:5E:42:6D:0E"
+    # Below must be player 2 IMU(glove) Beetle
+    P2_GLOVE = "B4:99:4C:89:1B:FD"
+    # Below must be player 2 IMU(ankle) Beetle
+    P2_ANKLE = "34:08:E1:2A:08:61"
+    # Below must be player 2 gun Beetle
+    P2_GUN = "F4:B8:5E:42:67:2B"
+    # Below must be player 2 vest Beetle
+    P2_VEST = "F4:B8:5E:42:6D:75"
+    # Extra Beetle
+    EXTRA = "F4:B8:5E:42:67:6E"
+
 BEETLE_MAC_ADDR_MAP = {
     # Below must be player 1 IMU(glove) Beetle
     "F4:B8:5E:42:61:62": 1,

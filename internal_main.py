@@ -69,7 +69,7 @@ class GameStateHandler(threading.Thread):
         return 'bullets' in game_state.keys()
     
     def is_vest_game_state(self, game_state: dict):
-        return 'isShot' in game_state.keys()
+        return 'isHit' in game_state.keys()
 
 class InternalMainThread(threading.Thread):
     MAIN_BLUNO_MAC_ADDR_LIST = [

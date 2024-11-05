@@ -46,19 +46,24 @@ void setup() {
 void loop() {
   if (!hasHandshake()) {
     handshakeStatus = doHandshake();
-  } else {
-    if (Serial.available() >= PACKET_SIZE) {
-      processIncomingPacket();
-    } else {
-      unsigned long transmitPeriod = millis() - lastSentPacketTime;
-      if (transmitPeriod < TRANSMIT_DELAY) {
-        // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
-        delay(TRANSMIT_DELAY - transmitPeriod);
-      }
-      BlePacket imuPacket = sendImuPacket();
-      lastSentPacketTime = millis();
-      seqNum += 1;
-    }
+  }
+  unsigned long currentTime = millis();
+  if ((currentTime - lastSentPacketTime) >= TRANSMIT_DELAY && hasRawData()) { // Send raw data packets(if any)
+    // Only send new packet if previous packet has been ACK-ed and there's new sensor data to send
+    // Read sensor data and generate a BlePacket encapsulating that data
+    BlePacket mRawDataPacket = createRawDataPacket();
+    // Send updated sensor data to laptop
+    sendPacket(mRawDataPacket);
+    // Update last sent packet to latest sensor data packet
+    //lastSentPacket = mRawDataPacket;
+    // Update last packet sent time to track timeout
+    lastSentPacketTime = millis();
+    //isWaitingForAck = true;
+    seqNum += 1;
+  } else if ((currentTime - lastReadPacketTime) >= READ_PACKET_DELAY
+      && Serial.available() >= PACKET_SIZE) { // Handle incoming packets
+    // Received some bytes from laptop, process them
+    processIncomingPacket();
   }
 }
 
@@ -180,8 +185,33 @@ void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
 }
 
+BlePacket createRawDataPacket() {
+  update_acc_data();
+  update_gyro_data();
+  AccX -= AccErrorX;
+  AccY -= AccErrorY;
+  AccZ -= AccErrorZ;
+  GyroX -= GyroErrorX;
+  GyroY -= GyroErrorY;
+  GyroZ -= GyroErrorZ;
+
+  BlePacket imuPacket;
+  byte imuData[PACKET_DATA_SIZE] = {};
+  getBytesFrom(imuData, AccX, AccY, AccZ, GyroX, GyroY, GyroZ);
+  createPacket(imuPacket, PacketType::IMU, seqNum, imuData);
+  return imuPacket;
+}
+
 bool hasHandshake() {
   return handshakeStatus == HandshakeStatus::STAT_SYN;
+}
+
+/**
+ * Checks whether the connected sensors of this Beetle has raw data to send to laptop.
+ * -Override this in device-specific Beetles to return true only when there's raw data to transmit(e.g. gun fire)
+ */
+bool hasRawData() {
+  return true;
 }
 
 void processGivenPacket(BlePacket &packet) {

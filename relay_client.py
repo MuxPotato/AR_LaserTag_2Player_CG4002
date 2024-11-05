@@ -252,7 +252,9 @@ def parse_packets(imu_packet, Shootpacket):
 
 class RelayClient(threading.Thread):
 
-    def __init__(self, server_ip, server_port, from_ble_p1_ankle_queue, from_ble_p1_glove_queue, from_ble_p2_ankle_queue, from_ble_p2_glove_queue, from_ble_shoot_queue, to_ble_game_state_queue):
+    def __init__(self, server_ip, server_port, from_ble_p1_ankle_queue, from_ble_p1_glove_queue,
+                from_ble_p2_ankle_queue, from_ble_p2_glove_queue,
+                from_ble_shoot_queue, to_ble_game_state_queue):
 #    def __init__(self, from_ble_IMU_queue, from_ble_shoot_queue, glove_output, game_output):
         super().__init__()
         self.server_ip = server_ip

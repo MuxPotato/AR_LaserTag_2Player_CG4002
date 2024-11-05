@@ -186,7 +186,7 @@ class GloveSenderThread(SenderThread):
         super().__init__(stop_event, from_ble_IMU_queue, socket, mutex_lock)
         self.my_packet_type: str = "IMUPacket"
         self.my_data_type: str = "Glove"
-        self.data_threshold: float = 1.5
+        self.data_threshold: float = 2.0
 
 def handle_IMU_data(terminate_event, from_ble_IMU_queue, send_func):
     while not terminate_event.is_set():

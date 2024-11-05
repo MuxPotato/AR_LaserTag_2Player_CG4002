@@ -313,7 +313,7 @@ bool hasHandshake() {
  * -Override this in device-specific Beetles to return true only when there's raw data to transmit(e.g. gun fire)
  */
 bool hasRawData() {
-  return (millis() - lastSentPacketTime) >= TRANSMIT_DELAY;
+  return true;
 }
 
 void processGivenPacket(const BlePacket &packet) {

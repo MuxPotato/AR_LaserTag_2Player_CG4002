@@ -786,7 +786,7 @@ class GunBeetle(Beetle):
         return None
     
     def create_gun_packet(self, bullets: int):
-        gun_packet_to_send = self.createPacket(BlePacketType.GAME_STAT, 
+        gun_packet_to_send = self.createPacket(BlePacketType.GAME_STAT.value, 
                 self.sender_seq_num, self.create_gun_packet_data(bullets))
         return gun_packet_to_send
     
@@ -818,7 +818,7 @@ class VestBeetle(Beetle):
         return None
     
     def create_vest_packet(self, is_hit: bool, player_hp: int):
-        vest_packet_to_send = self.createPacket(BlePacketType.GAME_STAT, self.sender_seq_num, 
+        vest_packet_to_send = self.createPacket(BlePacketType.GAME_STAT.value, self.sender_seq_num, 
                 self.create_vest_data_from(is_hit, player_hp))
         return vest_packet_to_send
     

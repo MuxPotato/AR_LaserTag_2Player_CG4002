@@ -1,4 +1,4 @@
-#from pynq import Overlay, allocate
+from pynq import Overlay, allocate
 import numpy as np
 import pandas as pd
 #import joblib
@@ -45,7 +45,19 @@ class Predictor():
         self.output_buffer.freebuffer()
 
     def get_action(self, data):
+        training_means = np.array([
+        -1.94028259e+00,  1.16325457e+00, -7.65094048e-01,  8.03948734e-01,
+        -1.76951948e+00,  1.41974662e+00, -3.25406599e-01,  6.30218839e-01,
+        -1.50601100e+00,  1.78318961e+00,  1.11053262e-01,  7.19834277e-01,
+        -2.02029029e+02,  2.21790534e+02,  5.29427953e+00,  9.40582854e+01,
+        -2.05593926e+02,  2.35067405e+02,  2.97750794e+01,  1.12964170e+02,
+    -   2.16084875e+02,  2.41806434e+02,  2.05542256e+01,  1.14335743e+02])
 
+        training_stds = np.array([
+        0.124629, 0.86404658, 0.32529657, 0.25366361, 0.31754728, 0.58622105,
+        0.20172633, 0.12819533, 0.44938652, 0.44094928, 0.19620003, 0.25296486,
+        53.16240268, 43.55555881, 29.03289211, 25.5634424, 55.12884439, 38.07998133,
+        36.84229021, 40.57844236, 38.7222338, 22.38784155, 32.60452863, 17.02292851])
         # Comment this out to get the working version
         #with open('/home/xilinx/BITSTREAM/scaler.pkl', 'rb') as file:
         #    scaler = joblib.load(file)
@@ -56,9 +68,14 @@ class Predictor():
         self.N_FEATURES = 24
         self.N_ACTIONS = 7
         self.input_buffer = allocate(shape=(self.N_FEATURES,), dtype=np.float32)
-        self.output_buffer = allocate(shape=(self.N_ACTIONS,), dtype=np.int)
-        data = self.dataAggregator(data).values #this would already have flattened it out
-        
+        self.output_buffer = allocate(shape=(self.N_ACTIONS,), dtype=np.float32)
+        data = pd.DataFrame(data)
+        data.to_csv('df_pre_aggregate.csv', mode='a', index=False, header=False)
+        data = self.dataAggregator(data)
+        data.to_csv('df_post_aggregate.csv', mode='a', index=False, header=False)
+        data = data.values #this would already have flattened it out
+        data = (data - training_means) / training_stds
+        #data.to_csv('df_post_scaling.csv', mode='a', index=False, header=False)
         # Comment this out to get working mode
         #data = scaler.transform(data) #apply standard scaler
         #data = torch.tensor(data, dtype=torch.float32) #turn it into torch tensor

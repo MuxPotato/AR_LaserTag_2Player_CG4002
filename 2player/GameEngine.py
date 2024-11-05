@@ -39,7 +39,7 @@ class GameEngine(Thread):
         self.hp_bullet = 5
         self.hp_bomb = 5
 
-        self.ACTIONTIMEOUT = 15
+        self.ACTIONTIMEOUT = 20
         self.LOGOUT_FAILSAFE_TURNS = 20
         self.PHONE_RESPONSE_TIMEOUT = 5
 
@@ -698,6 +698,9 @@ class GameEngine(Thread):
         default_response = f"{player_id}:1:1:Basket:0"
         return default_response
 
+    def extract_action(self,phone_action):
+        return phone_action.split(":")[0]
+
 
     def run(self):
         while True:
@@ -735,12 +738,20 @@ class GameEngine(Thread):
 
                 #TODO: Here there will be a problem for the two player game, bcs for the 1 player game, we know which player
                 #      is doing the action, but for two player game, identifying which player does the action is tricky
-                player1_prev_action = self.process_phone_response_and_return_prev_action(phone1_response)
+                player1_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone1_response)
+
+                player1_ai_predicted_action = self.extract_action(phone_action1)
+                if (player1_ai_predicted_action != player1_prev_action_from_phone):
+                    print_message('Game Engine', 'AI predicted action differ from phone prev action for player 1')
+                    print_message('Game Engine', "Setting prev action to AI predicted action for player 1")
+                    player1_prev_action_from_phone = player1_ai_predicted_action
+            
+                
 
 
 
                 # More code below to handle eval_server response but I left this out
-                eval_server_format = self.prepare_eval_server_format(1, player1_prev_action)
+                eval_server_format = self.prepare_eval_server_format(1, player1_prev_action_from_phone)
                 print("Game Engine: Putting into eval_queue to be sent to eval_server")
                 self.eval_queue.put(eval_server_format)
 
@@ -821,12 +832,19 @@ class GameEngine(Thread):
 
                 #TODO: Here there will be a problem for the two player game, bcs for the 1 player game, we know which player
                 #      is doing the action, but for two player game, identifying which player does the action is tricky
-                player2_prev_action = self.process_phone_response_and_return_prev_action(phone2_response)
+                player2_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone2_response)
+
+
+                player2_ai_predicted_action = self.extract_action(phone_action2)
+                if (player2_ai_predicted_action != player2_prev_action_from_phone):
+                    print_message('Game Engine', 'AI predicted action differ from phone prev action for player 2')
+                    print_message('Game Engine', "Setting prev action to AI predicted action for player 2")
+                    player2_prev_action_from_phone = player2_ai_predicted_action
 
                 ## End of Player 2 Action Code ##
 
                 # More code below to handle eval_server response but I left this out
-                eval_server_format = self.prepare_eval_server_format(2, player2_prev_action)
+                eval_server_format = self.prepare_eval_server_format(2, player2_prev_action_from_phone)
                 print("Game Engine: Putting into eval_queue to be sent to eval_server")
                 self.eval_queue.put(eval_server_format)
 
@@ -891,12 +909,18 @@ class GameEngine(Thread):
 
                 #TODO: Here there will be a problem for the two player game, bcs for the 1 player game, we know which player
                 #      is doing the action, but for two player game, identifying which player does the action is tricky
-                player2_prev_action = self.process_phone_response_and_return_prev_action(phone2_response)
+                player2_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone2_response)
+
+                player2_ai_predicted_action = self.extract_action(phone_action2)
+                if (player2_ai_predicted_action != player2_prev_action_from_phone):
+                    print_message('Game Engine', 'AI predicted action differ from phone prev action for player 2')
+                    print_message('Game Engine', "Setting prev action to AI predicted action for player 2")
+                    player2_prev_action_from_phone = player2_ai_predicted_action
 
                 ## End of Player 2 Action Code ##
 
                 # More code below to handle eval_server response but I left this out
-                eval_server_format = self.prepare_eval_server_format(2, player2_prev_action)
+                eval_server_format = self.prepare_eval_server_format(2, player2_prev_action_from_phone)
                 print("Game Engine: Putting into eval_queue to be sent to eval_server")
                 self.eval_queue.put(eval_server_format)
 
@@ -963,12 +987,18 @@ class GameEngine(Thread):
 
                 #TODO: Here there will be a problem for the two player game, bcs for the 1 player game, we know which player
                 #      is doing the action, but for two player game, identifying which player does the action is tricky
-                player1_prev_action = self.process_phone_response_and_return_prev_action(phone1_response)
+                player1_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone1_response)
+                
+                player1_ai_predicted_action = self.extract_action(phone_action1)
+                if (player1_ai_predicted_action != player1_prev_action_from_phone):
+                    print_message('Game Engine', 'AI predicted action differ from phone prev action for player 1')
+                    print_message('Game Engine', "Setting prev action to AI predicted action for player 1")
+                    player1_prev_action_from_phone = player1_ai_predicted_action
 
 
 
                 # More code below to handle eval_server response but I left this out
-                eval_server_format = self.prepare_eval_server_format(1, player1_prev_action)
+                eval_server_format = self.prepare_eval_server_format(1, player1_prev_action_from_phone)
                 print("Game Engine: Putting into eval_queue to be sent to eval_server")
                 self.eval_queue.put(eval_server_format)
 
@@ -1006,6 +1036,315 @@ class GameEngine(Thread):
                 self.clear_queue(self.P2_action_queue)
 
                 self.game_turns_passed += 1
+
+
+    # def run(self):
+    #     while True:
+            
+
+    #         # Change this tmr    
+    #         # Handle phone action if it's not empty
+    #         if not self.P1_action_queue.empty():
+
+                
+                
+
+    #             ## Start of Player 1 Action Code ##
+    #             phone_action1 = self.P1_action_queue.get()
+
+    #             if (phone_action1 == "logout:1" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
+    #                 print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
+    #                 phone_action1 = "basket:1"
+                
+    #             print_message('Game Engine', f"Received action '{phone_action1}' from phone action queue player 1")
+    #             viz_format1 = self.process_phone_action(phone_action1)
+                
+
+    #             phone1_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format1,max_retries=2,player_id=1)
+                
+    #             # OLD
+    #             # self.viz_queue.put(viz_format1)
+    #             # print("Game Engine: Waiting for phone 1 to reply")
+    #             # phone1_response = self.phone_response_queue.get()
+
+
+
+    #             # There should be two phone response but right now, 1 player game so we only put 1 first
+    #             # phone2_response = self.phone_response_queue.get()
+
+    #             #TODO: Here there will be a problem for the two player game, bcs for the 1 player game, we know which player
+    #             #      is doing the action, but for two player game, identifying which player does the action is tricky
+    #             player1_prev_action = self.process_phone_response_and_return_prev_action(phone1_response)
+
+
+
+    #             # More code below to handle eval_server response but I left this out
+    #             eval_server_format = self.prepare_eval_server_format(1, player1_prev_action)
+    #             print("Game Engine: Putting into eval_queue to be sent to eval_server")
+    #             self.eval_queue.put(eval_server_format)
+
+
+    #             print("Game Engine: Waiting for from_eval_queue")
+    #             updated_game_state = self.from_eval_queue.get()
+    #             print("updated game state:")
+    #             print(updated_game_state)
+
+    #             # # Check if the eval server's game state differs from the current game state
+    #             if self.is_curr_game_state_diff_from_updated(updated_game_state):
+
+    #                 print("Game Engine: curr game state diff from eval game state")
+
+    #                 print("Game Engine: updating curr game state to eval game state")
+    #                 self.update_current_game_state(updated_game_state)
+                    
+    #                 # Put "update_ui" into the phone response queue to update the UI without triggering an action
+    #                 viz_format = self.process_phone_action("update_ui")
+    #                 self.viz_queue.put(viz_format)
+
+
+    #             # Sending packets back to vest and gun
+    #             self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))
+    #             print_message('Game Engine',"Sending info back to relay client")
+    #             self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
+    #             print_message('Game Engine',"Sending info back to relay client")
+
+
+    #             ## End of Player 1 Action Code ##
+
+
+    #             ## Start of Player 2 Action Code ##
+                
+                
+    #             # FOR SINGLE PHONE TESTING
+    #             # HERE WE JUST PUT A RANDOM ACTION INTO THE PHONE. I MADE IT ALWAYS BASKETBALL
+
+
+
+    #             # phone_action2 = self.P2_action_queue.get()
+    #             # #phone_action2 = "basket:2"
+                
+    #             # print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
+    #             # viz_format2 = self.process_phone_action(phone_action2)
+
+
+    #             # Set a timer for Player 2 action
+    #             try:
+    #                 # Wait for Player 2 action with a timeout of 30 seconds
+    #                 phone_action2 = self.P2_action_queue.get(timeout=self.ACTIONTIMEOUT)
+
+    #                 if (phone_action2 == "logout:2" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
+    #                     print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
+    #                     phone_action2 = "basket:2"
+
+                    
+    #                 print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
+    #             except queue.Empty:
+    #                 # Timeout reached: set Player 2 action to a default value
+    #                 phone_action2 = "basket:2"
+    #                 print_message('Game Engine', "Player 2 action timeout, setting to default action.")
+
+
+    #             viz_format2 = self.process_phone_action(phone_action2)
+
+                
+    
+    #             # self.viz_queue.put(viz_format2)
+
+    #             # print("Game Engine: Waiting for phone 2 to reply")
+    #             # phone2_response = self.phone_response_queue.get()
+    #             phone2_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format2,max_retries=2,player_id=2)
+
+
+    #             # There should be two phone response but right now, 1 player game so we only put 1 first
+    #             # phone2_response = self.phone_response_queue.get()
+
+    #             #TODO: Here there will be a problem for the two player game, bcs for the 1 player game, we know which player
+    #             #      is doing the action, but for two player game, identifying which player does the action is tricky
+    #             player2_prev_action = self.process_phone_response_and_return_prev_action(phone2_response)
+
+    #             ## End of Player 2 Action Code ##
+
+    #             # More code below to handle eval_server response but I left this out
+    #             eval_server_format = self.prepare_eval_server_format(2, player2_prev_action)
+    #             print("Game Engine: Putting into eval_queue to be sent to eval_server")
+    #             self.eval_queue.put(eval_server_format)
+
+
+    #             print("Game Engine: Waiting for from_eval_queue")
+    #             updated_game_state = self.from_eval_queue.get()
+    #             print("updated game state:")
+    #             print(updated_game_state)
+
+    #             # # Check if the eval server's game state differs from the current game state
+    #             if self.is_curr_game_state_diff_from_updated(updated_game_state):
+
+    #                 print("Game Engine: curr game state diff from eval game state")
+
+    #                 print("Game Engine: updating curr game state to eval game state")
+    #                 self.update_current_game_state(updated_game_state)
+                    
+    #                 # Put "update_ui" into the phone response queue to update the UI without triggering an action
+    #                 viz_format = self.process_phone_action("update_ui")
+    #                 self.viz_queue.put(viz_format)
+
+
+    #             # Sending packets back to vest and gun
+    #             self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))
+    #             print_message('Game Engine',"Sending info back to relay client")
+    #             self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
+    #             print_message('Game Engine',"Sending info back to relay client")
+
+    #             # Clear queue to prevent duplicate
+    #             self.clear_queue(self.P1_action_queue)
+    #             self.clear_queue(self.P2_action_queue)
+
+    #             self.game_turns_passed += 1
+
+
+
+
+
+    #         if not self.P2_action_queue.empty():
+
+    #             ## Start of Player 2 Action Code ##
+    #             phone_action2 = self.P2_action_queue.get()
+
+
+    #             if (phone_action2 == "logout:2" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
+    #                 print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
+    #                 phone_action2 = "basket:2"
+                
+    #             print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
+    #             viz_format2 = self.process_phone_action(phone_action2)
+                
+    #             phone2_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format2,max_retries=2,player_id=2)
+    #             # self.viz_queue.put(viz_format2)
+
+    #             # print("Game Engine: Waiting for phone 2 to reply")
+    #             # phone2_response = self.phone_response_queue.get()
+
+
+
+    #             # There should be two phone response but right now, 1 player game so we only put 1 first
+    #             # phone2_response = self.phone_response_queue.get()
+
+    #             #TODO: Here there will be a problem for the two player game, bcs for the 1 player game, we know which player
+    #             #      is doing the action, but for two player game, identifying which player does the action is tricky
+    #             player2_prev_action = self.process_phone_response_and_return_prev_action(phone2_response)
+
+    #             ## End of Player 2 Action Code ##
+
+    #             # More code below to handle eval_server response but I left this out
+    #             eval_server_format = self.prepare_eval_server_format(2, player2_prev_action)
+    #             print("Game Engine: Putting into eval_queue to be sent to eval_server")
+    #             self.eval_queue.put(eval_server_format)
+
+
+    #             print("Game Engine: Waiting for from_eval_queue")
+    #             updated_game_state = self.from_eval_queue.get()
+    #             print("updated game state:")
+    #             print(updated_game_state)
+
+    #             # # Check if the eval server's game state differs from the current game state
+    #             if self.is_curr_game_state_diff_from_updated(updated_game_state):
+
+    #                 print("Game Engine: curr game state diff from eval game state")
+
+    #                 print("Game Engine: updating curr game state to eval game state")
+    #                 self.update_current_game_state(updated_game_state)
+                    
+    #                 # Put "update_ui" into the phone response queue to update the UI without triggering an action
+    #                 viz_format = self.process_phone_action("update_ui")
+    #                 self.viz_queue.put(viz_format)
+
+
+    #             # Sending packets back to vest and gun
+    #             self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))
+    #             print_message('Game Engine',"Sending info back to relay client")
+    #             self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
+    #             print_message('Game Engine',"Sending info back to relay client")
+
+                
+
+
+                
+
+    #             ## Start of Player 1 Action Code ##
+    #             try:
+    #                 # Wait for Player 1 action with a timeout of 30 seconds
+    #                 phone_action1 = self.P1_action_queue.get(timeout=self.ACTIONTIMEOUT)
+
+
+    #                 if (phone_action1 == "logout:1" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
+    #                     print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
+    #                     phone_action1 = "basket:1"
+
+    #                 print_message('Game Engine', f"Received action '{phone_action1}' from phone action queue player 1")
+    #             except queue.Empty:
+    #                 # Timeout reached: set Player 1 action to a default value
+    #                 phone_action1 = "basket:1"
+    #                 print_message('Game Engine', "Player 1 action timeout, setting to default action.")
+                
+    #             print_message('Game Engine', f"Received action '{phone_action1}' from phone action queue player 1")
+    #             viz_format1 = self.process_phone_action(phone_action1)
+                
+
+    #             phone1_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format1,max_retries=2,player_id=1)
+    #             # self.viz_queue.put(viz_format1)
+
+    #             # print("Game Engine: Waiting for phone 1 to reply")
+    #             # phone1_response = self.phone_response_queue.get()
+
+
+
+    #             # There should be two phone response but right now, 1 player game so we only put 1 first
+    #             # phone2_response = self.phone_response_queue.get()
+
+    #             #TODO: Here there will be a problem for the two player game, bcs for the 1 player game, we know which player
+    #             #      is doing the action, but for two player game, identifying which player does the action is tricky
+    #             player1_prev_action = self.process_phone_response_and_return_prev_action(phone1_response)
+
+
+
+    #             # More code below to handle eval_server response but I left this out
+    #             eval_server_format = self.prepare_eval_server_format(1, player1_prev_action)
+    #             print("Game Engine: Putting into eval_queue to be sent to eval_server")
+    #             self.eval_queue.put(eval_server_format)
+
+
+    #             print("Game Engine: Waiting for from_eval_queue")
+    #             updated_game_state = self.from_eval_queue.get()
+    #             print("updated game state:")
+    #             print(updated_game_state)
+
+    #             # # Check if the eval server's game state differs from the current game state
+    #             if self.is_curr_game_state_diff_from_updated(updated_game_state):
+
+    #                 print("Game Engine: curr game state diff from eval game state")
+
+    #                 print("Game Engine: updating curr game state to eval game state")
+    #                 self.update_current_game_state(updated_game_state)
+                    
+    #                 # Put "update_ui" into the phone response queue to update the UI without triggering an action
+    #                 viz_format = self.process_phone_action("update_ui")
+    #                 self.viz_queue.put(viz_format)
+
+
+    #             # Sending packets back to vest and gun
+    #             self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))
+    #             print_message('Game Engine',"Sending info back to relay client")
+    #             self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
+    #             print_message('Game Engine',"Sending info back to relay client")
+
+
+    #             ## End of Player 1 Action Code ##
+
+
+    #             # Clear queue to prevent duplicate
+    #             self.clear_queue(self.P1_action_queue)
+    #             self.clear_queue(self.P2_action_queue)
+
+    #             self.game_turns_passed += 1
 
            
 

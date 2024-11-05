@@ -20,7 +20,7 @@ unsigned long lastReadPacketTime = 0;
 
 /* IR Transmitter */
 /* Gun state */
-uint8_t bulletCount = 6;
+uint8_t bulletCount = GUN_MAGAZINE_SIZE;
 bool isReloading = false;
 bool isFiring = false;
 bool isFired = false;

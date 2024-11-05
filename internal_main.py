@@ -2,7 +2,7 @@ import queue
 import sys
 import threading
 import traceback
-from beetle import AnkleUnreliableBeetle, GloveUnreliableBeetle, GunBeetle, ImuUnreliableBeetle, VestBeetle
+from beetle import AnkleUnreliableBeetle, GloveUnreliableBeetle, GunBeetle, VestBeetle
 from internal_utils import BEETLE_MAC_ADDR, GAME_STATE_QUEUE_TIMEOUT, GunUpdatePacket, VestUpdatePacket, bcolors
 
 class GameStateHandler(threading.Thread):

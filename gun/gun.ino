@@ -230,8 +230,9 @@ void handleGamePacket(const BlePacket &gamePacket) {
   uint8_t newBulletCount = getBulletCountFrom(gamePacket);
   if (bulletCount == 0 && newBulletCount > bulletCount) {
     reload();
+  } else if (newBulletCount >= 0 && newBulletCount <= GUN_MAGAZINE_SIZE) {
+    bulletCount = newBulletCount;
   }
-  bulletCount = GUN_MAGAZINE_SIZE;
   visualiseBulletCount();
 }
 

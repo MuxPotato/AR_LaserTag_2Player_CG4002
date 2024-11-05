@@ -38,9 +38,13 @@ void loop() {
   if (!hasHandshake()) {
     handshakeStatus = doHandshake();
   }
+  unsigned long currentTime = millis();
   // Retransmit last sent packet on timeout
-  if (isWaitingForAck && (millis() - lastSentPacketTime) > BLE_TIMEOUT) {
+  if (isWaitingForAck && (currentTime - lastRetransmitTime) >= RETRANSMIT_DELAY
+      && (currentTime - lastSentPacketTime) >= BLE_TIMEOUT) { 
+    // Maintain at least RETRANSMIT_DELAY millisecs in between consecutive retransmits
     if (numRetries < MAX_RETRANSMITS) {
+      // Retransmit only if numRetries less than max limit
       retransmitLastPacket();
       numRetries += 1;
     } else {
@@ -55,13 +59,10 @@ void loop() {
       handshakeStatus = STAT_NONE;
       numRetries = 0;
     }
-  } else if (!isWaitingForAck && hasRawData()) { // Send raw data packets(if any)
+  } else if (!isWaitingForAck && (currentTime - lastSentPacketTime) >= TRANSMIT_DELAY
+      && hasRawData()) { // Send raw data packets(if any)
     // Only send new packet if previous packet has been ACK-ed and there's new sensor data to send
-    unsigned long transmitPeriod = millis() - lastSentPacketTime;
-    if (transmitPeriod < TRANSMIT_DELAY) {
-      // Maintain at least (TRANSMIT_DELAY) ms delay between transmissions to avoid overwhelming the Beetle
-      delay(TRANSMIT_DELAY - transmitPeriod);
-    }
+    //   but maintain TRANSMIT_DELAY millisecs in between sensor data packet transmissions
     // Read sensor data and generate a BlePacket encapsulating that data
     BlePacket mRawDataPacket = createRawDataPacket();
     // Send updated sensor data to laptop
@@ -71,8 +72,10 @@ void loop() {
     // Update last packet sent time to track timeout
     lastSentPacketTime = millis();
     isWaitingForAck = true;
-  } else if (Serial.available() >= PACKET_SIZE) { // Handle incoming packets
-    // Received some bytes from laptop, process them
+  } else if ((currentTime - lastReadPacketTime) >= READ_PACKET_DELAY
+      && Serial.available() >= PACKET_SIZE) { // Handle incoming packets
+    // Received some bytes from laptop, process them wwhile maintaining at least READ_PACKET_DELAY
+    //   in between reading of 2 consecutive packets 
     processIncomingPacket();
   }
 }
@@ -350,10 +353,6 @@ void processIncomingPacket() {
     // Don't read from serial input buffer unless 1 complete packet is received
     return;
   }
-  unsigned long readPacketPeriod = millis() - lastReadPacketTime;
-  if (readPacketPeriod < READ_PACKET_DELAY) {
-    delay(READ_PACKET_DELAY - readPacketPeriod);
-  }
   // Complete 20-byte packet received, read 20 bytes from receive buffer as packet
   BlePacket receivedPacket = readPacket();
   if (!isPacketValid(receivedPacket)) {
@@ -390,11 +389,6 @@ int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer) {
 
 void retransmitLastPacket() {
   if (isPacketValid(lastSentPacket)) {
-    unsigned long retransmitPeriod = millis() - lastRetransmitTime;
-    if (retransmitPeriod < RETRANSMIT_DELAY) {
-      // Maintain at least (RETRANSMIT_DELAY) ms delay between retransmissions to avoid overwhelming the Beetle
-      delay(RETRANSMIT_DELAY - retransmitPeriod);
-    }
     sendPacket(lastSentPacket);
     lastRetransmitTime = millis();
     // Update sent time and wait for ACK again

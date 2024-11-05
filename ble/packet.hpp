@@ -2,7 +2,8 @@
 
 #define BAUDRATE 115200
 #define BITS_PER_BYTE 8
-#define BLE_TIMEOUT 250
+// Given average RTT 100ms and 15ms receive/transmit delay
+#define BLE_TIMEOUT 115
 #define INITIAL_SEQ_NUM 0
 #define INVALID_PACKET_ID -1
 #define LOWER_4BIT_MASK 0x0F

@@ -235,7 +235,7 @@ void handleGamePacket(const BlePacket &gamePacket) {
   if (newIsHit) {
     doGunshotHit();
   }
-  if (newPlayerHp != playerHp) {
+  if (newPlayerHp != INVALID_HP && newPlayerHp != playerHp) {
     updateHpLed(newPlayerHp);
     if (newPlayerHp > playerHp) {
       doRespawn();

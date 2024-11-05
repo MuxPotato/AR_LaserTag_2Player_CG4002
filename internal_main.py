@@ -3,7 +3,7 @@ import sys
 import threading
 import traceback
 from beetle import AnkleUnreliableBeetle, GloveUnreliableBeetle, GunBeetle, VestBeetle
-from internal_utils import BEETLE_MAC_ADDR, GAME_STATE_QUEUE_TIMEOUT, GunUpdatePacket, VestUpdatePacket, bcolors
+from internal_utils import BEETLE_MAC_ADDR, GAME_STATE_QUEUE_TIMEOUT, INVALID_HP, GunUpdatePacket, VestUpdatePacket, bcolors
 
 class GameStateHandler(threading.Thread):
     def __init__(self, incoming_game_state_queue: queue.Queue,
@@ -33,7 +33,7 @@ class GameStateHandler(threading.Thread):
                     continue
                 # TODO: Add parser that checks player ID to determine which queue to put the update in
                 player_id = new_game_state["id"]
-                if self.is_gun_game_state(new_game_state):
+                if self.has_gun_game_state(new_game_state):
                     # TODO: Remove debug printing line below
                     print(f"""{bcolors.BRIGHT_YELLOW}Gun game state update received{bcolors.ENDC}""")
                     gun_update_packet = GunUpdatePacket(player_id = player_id,
@@ -44,11 +44,13 @@ class GameStateHandler(threading.Thread):
                         self.p2_gun_update_queue.put(gun_update_packet)
                     else:
                         print(f"""{bcolors.BRIGHT_YELLOW}ERROR: Gun game state update received without player ID{bcolors.ENDC}""")
-                elif self.is_vest_game_state(new_game_state):
+                if self.has_vest_game_state(new_game_state):
                     # TODO: Remove debug printing line below
                     print(f"""{bcolors.BRIGHT_YELLOW}Vest game state update received{bcolors.ENDC}""")
-                    vest_update_packet = VestUpdatePacket(player_id = player_id, 
-                            is_hit = new_game_state["isHit"], player_hp = new_game_state["hp"])
+                    new_is_hit: bool = new_game_state["isHit"] if "isHit" in new_game_state.keys() else False
+                    new_hp: int = new_game_state["hp"] if "hp" in new_game_state.keys() else INVALID_HP
+                    vest_update_packet = VestUpdatePacket(player_id = player_id,
+                            is_hit = new_is_hit, player_hp = new_hp)
                     if player_id == 1:
                         self.p1_vest_update_queue.put(vest_update_packet)
                     elif player_id == 2:
@@ -65,11 +67,11 @@ class GameStateHandler(threading.Thread):
             except Exception as exc:
                 traceback.print_exception(exc)
         
-    def is_gun_game_state(self, game_state: dict):
+    def has_gun_game_state(self, game_state: dict):
         return 'bullets' in game_state.keys()
     
-    def is_vest_game_state(self, game_state: dict):
-        return 'isHit' in game_state.keys()
+    def has_vest_game_state(self, game_state: dict):
+        return 'isHit' in game_state.keys() or 'hp' in game_state.keys()
 
 class InternalMainThread(threading.Thread):
     MAIN_BLUNO_MAC_ADDR_LIST = [

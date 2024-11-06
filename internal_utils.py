@@ -7,6 +7,7 @@ BAUDRATE = 115200
 INITIAL_SEQ_NUM = 0
 ERROR_VALUE = -1
 BLE_TIMEOUT = 0.115
+TRANSMIT_DELAY = 0.015
 ## Timeout value below should match the delay() value for sending packets on the Beetle
 BLE_WAIT_TIMEOUT = 0.01
 PACKET_SIZE = 20

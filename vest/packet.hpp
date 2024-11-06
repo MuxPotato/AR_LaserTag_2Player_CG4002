@@ -15,7 +15,7 @@
 #define PLACEHOLDER_METADATA 0x0F
 #define READ_PACKET_DELAY 15
 #define RETRANSMIT_DELAY 25
-#define TRANSMIT_DELAY 5
+#define TRANSMIT_DELAY 15
 
 struct BlePacket {
 	/* Start packet header */

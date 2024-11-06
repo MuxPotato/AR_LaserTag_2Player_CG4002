@@ -158,10 +158,14 @@ void createAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
 }
 
-void createNackPacket(BlePacket &nackPacket, uint16_t givenSeqNum) {
+void createNackPacket(BlePacket &nackPacket, uint16_t givenSeqNum, String nackReason) {
   byte packetData[PACKET_DATA_SIZE] = {};
-  createDataFrom("NACK", packetData);
+  createDataFrom(nackReason, packetData);
   createPacket(nackPacket, PacketType::NACK, givenSeqNum, packetData);
+}
+
+void createNackPacket(BlePacket &nackPacket, uint16_t givenSeqNum) {
+  createNackPacket(nackPacket, givenSeqNum, "NACK");
 }
 
 void createDataFrom(String givenStr, byte packetData[PACKET_DATA_SIZE]) {

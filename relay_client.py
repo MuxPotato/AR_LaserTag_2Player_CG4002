@@ -11,6 +11,8 @@ import traceback
 from external_utils import COOLDOWN_PERIOD, PACKETS_PER_ACTION, QUEUE_GET_TIMEOUT, ImuRelayState
 from internal_utils import bcolors
 
+IS_DEBUG_PRINTING = True
+
 class ReceiverThread(threading.Thread):
     def __init__(self, my_socket: socket.SocketType, server_ip: str, stop_event: threading.Event, to_ble_game_state_queue: queue.Queue):
         super().__init__()
@@ -54,7 +56,8 @@ class ReceiverThread(threading.Thread):
                 print("Packet length does not match, packet dropped")
                 return None
             else:
-                print(f"Received message from server: {received_msg}")
+                if IS_DEBUG_PRINTING:
+                    print(f"Received message from server: {received_msg}")
                 return received_msg 
 
         except (ConnectionResetError, socket.error) as e:
@@ -100,7 +103,8 @@ class SenderThread(threading.Thread):
         while not self.stop_event.is_set():
             try:
                 imu_packet = self.from_ble_IMU_queue.get(timeout = QUEUE_GET_TIMEOUT)  
-                print(f"""{self.my_data_type} data received from int comms: {imu_packet}""")
+                if IS_DEBUG_PRINTING:
+                    print(f"""{self.my_data_type} data received from int comms: {imu_packet}""")
                 # Here, you would parse the data and send it to the server
                 self.send_beetle_data(imu_packet)
 
@@ -117,7 +121,8 @@ class SenderThread(threading.Thread):
             # Incoming IMU data from Beetle has not crossed threshold yet
             accel_analytics: float = self.get_analytics_for(imu_packet)
             if accel_analytics >= self.data_threshold:
-                print(f"""{bcolors.RED}DEBUG: Threshold exceeded, sending data{bcolors.ENDC}""")
+                if IS_DEBUG_PRINTING:
+                    print(f"""{bcolors.RED}DEBUG: Threshold exceeded, sending data{bcolors.ENDC}""")
                 # Current packet exceeds threshold for action(potential action packet),
                 #   send it to relay server for AI inference
                 self.sender_state = ImuRelayState.SENDING_ACTION
@@ -135,12 +140,14 @@ class SenderThread(threading.Thread):
                 self.num_action_packets_sent = 0
                 # Cooldown period starts now, record the start time
                 self.cooldown_period_start = time.time()
-                print(f"""{bcolors.RED}DEBUG: Cooldown period start{bcolors.ENDC}""")
+                if IS_DEBUG_PRINTING:
+                    print(f"""{bcolors.RED}DEBUG: Cooldown period start{bcolors.ENDC}""")
                 return
         elif self.sender_state == ImuRelayState.COOLDOWN:
             # Currently in cooldown period
             if (time.time() - self.cooldown_period_start) > COOLDOWN_PERIOD:
-                print(f"""{bcolors.RED}DEBUG: Cooldown period end, waiting for threshold{bcolors.ENDC}""")
+                if IS_DEBUG_PRINTING:
+                    print(f"""{bcolors.RED}DEBUG: Cooldown period end, waiting for threshold{bcolors.ENDC}""")
                 # Cooldown period is now over, return to waiting for action state
                 self.sender_state = ImuRelayState.WAITING_FOR_ACTION
                 return
@@ -156,7 +163,8 @@ class SenderThread(threading.Thread):
         self.relay_socket.sendall(given_data.encode("utf-8"))
         # Allow the other thread to send data now that we're done
         self.mutex_lock.release()
-        print(f"""Sent {given_data} for {self.my_packet_type} to relay server""")
+        if IS_DEBUG_PRINTING:
+            print(f"""Sent {given_data} for {self.my_packet_type} to relay server""")
 
     # Begin helper functions section
     def get_analytics_for(self, imu_packet):
@@ -192,7 +200,8 @@ def handle_IMU_data(terminate_event, from_ble_IMU_queue, send_func):
     while not terminate_event.is_set():
         try:
             IMU_data = from_ble_IMU_queue.get(timeout = QUEUE_GET_TIMEOUT)  
-            print(f'IMU data received from int comms: {IMU_data}')
+            if IS_DEBUG_PRINTING:
+                print(f'IMU data received from int comms: {IMU_data}')
             serialized_imu_data = f"""'IMUPacket': {IMU_data._asdict()}"""
             # Here, you would parse the data and send it to the server
             send_func(serialized_imu_data)
@@ -210,7 +219,8 @@ def handle_shoot_data(terminate_event, from_ble_shoot_queue, send_func):
     while not terminate_event.is_set():
         try:
             shoot_data = from_ble_shoot_queue.get(timeout = QUEUE_GET_TIMEOUT)  
-            print(f'Shoot data received from int comms: {shoot_data}')
+            if IS_DEBUG_PRINTING:
+                print(f'Shoot data received from int comms: {shoot_data}')
             serialized_shoot_data = f"""'ShootPacket': {shoot_data._asdict()}"""
             send_func(serialized_shoot_data)
 
@@ -233,7 +243,8 @@ def get_send_func(socket, mutex):
         socket.sendall(given_msg.encode("utf-8"))
         # Allow the other thread to send data now that we're done
         mutex.release()
-        print(f'Sent {given_msg} to relay server')
+        if IS_DEBUG_PRINTING:
+            print(f'Sent {given_msg} to relay server')
     
     return send_func
 
@@ -320,7 +331,8 @@ class RelayClient(threading.Thread):
                 print("Packet length does not match, packet dropped")
                 return None
             else:
-                print(f"Received message from server: {msg}")
+                if IS_DEBUG_PRINTING:
+                    print(f"Received message from server: {msg}")
                 return msg 
 
         except (ConnectionResetError, socket.error) as e:

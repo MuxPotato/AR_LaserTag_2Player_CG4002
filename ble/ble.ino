@@ -256,11 +256,12 @@ bool oldDoHandshake() {
  * Setup for the BLE internal communications-related logic and variables
  */
 void setupBle() {
-  // Clear the serial input buffer
-  clearSerialInputBuffer();
   // Clear the serial output buffer
   //   WARNING: This sends out all existing data in the output buffer over BLE though
   Serial.flush();
+
+  // Clear the serial input buffer
+  clearSerialInputBuffer();
 
   /* Initialise lastSentPacket with invalid metadata
     to ensure it's detected as corrupted if ever

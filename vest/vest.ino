@@ -420,13 +420,18 @@ void irReceiverSetup() {
 
 bool getIsHitFromIr() {
   bool mIsHit = false;
-  if (IrReceiver.decode()) {  // Check if an IR signal is received
+  // Check if an IR signal is received
+  if (IrReceiver.decode()) {  
+    // Only detect signals from our own IR address and command
     if (IrReceiver.decodedIRData.protocol == NEC && 
-        IrReceiver.decodedIRData.address == EXPECTED_IR_ADDRESS) {  // Compare with expected address
-      digitalWrite(LED_PIN, HIGH);  // Turn on the LED if address matches
+        IrReceiver.decodedIRData.address == GET_OUR_IR_ADDRESS() &&
+        IrReceiver.decodedIRData.command == IR_COMMAND) {
+      // Turn on the LED if address matches
+      digitalWrite(LED_PIN, HIGH);  
       mIsHit = true;
     }
-    IrReceiver.resume();  // Clear the buffer for the next IR signal
+    // Clear the IR receiver buffer to receive the next IR signal
+    IrReceiver.resume();  
   }
   return mIsHit;
 }

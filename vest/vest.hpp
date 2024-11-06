@@ -4,15 +4,20 @@
 #include <Adafruit_NeoPixel.h>
 #include "packet.hpp"
 
-#define EXPECTED_IR_ADDRESS 0x0102
 #define BUZZER_PIN 4
 #define GUNSHOT_HIT_BUZZER_FREQ 400
 #define INVALID_HP 255
 #define PLAYER_FULL_HP 100
+#define IR_COMMAND 0x34
 #define IR_RECV_PIN 5
 #define LED_PIN LED_BUILTIN
 #define LED_STRIP_PIN 3
 #define NUM_HP_LED 10
+// Player-specific macros
+#define PLAYER_ID 1
+#define IR_ADDRESS_PLAYER_1 0x1234
+#define IR_ADDRESS_PLAYER_2 0xABCD
+#define GET_OUR_IR_ADDRESS() ((PLAYER_ID == 1) ? IR_ADDRESS_PLAYER_1 : IR_ADDRESS_PLAYER_2)
 
 void irReceiverSetup();
 void checkHealth();

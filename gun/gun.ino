@@ -465,7 +465,8 @@ bool getIsFired() {
  * @returns boolean indicating whether or not gun is successfully fired
  */
 void fireGun() {
-  IrSender.sendNEC(IR_ADDRESS, IR_COMMAND, 0);  // the address 0x0102 with the command 0x34 is sent
+  // Send IR signal using our own IR address and command(only our own IR receiver should detect)
+  IrSender.sendNEC(GET_OUR_IR_ADDRESS(), IR_COMMAND, 0);
   if (bulletCount > 0) {
     bulletCount -= 1;
     // Gun trigger is pressed and gun has ammo, set isFired to true

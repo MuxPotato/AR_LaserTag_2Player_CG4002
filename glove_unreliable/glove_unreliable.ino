@@ -34,13 +34,13 @@ void setup() {
 
   // Set built-in LED to OUTPUT so it can be turned on
   pinMode(LED_BUILTIN, OUTPUT);
-
-  // Set up internal comms 
-  setupBle();
   
   // Setup IMU
   delay(SETUP_DELAY);
   setupImu();
+
+  // Set up internal comms 
+  setupBle();
 }
 
 void loop() {

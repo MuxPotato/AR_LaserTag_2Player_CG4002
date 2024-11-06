@@ -5,7 +5,7 @@ import time
 import traceback
 import anycrc
 from ble_delegate import BlePacketDelegate, NewBlePacketDelegate
-from internal_utils import ACC_LSB_SCALE, BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_COMMAND_CHARACTERISTIC_UUID, GATT_MODEL_NUMBER_CHARACTERISTIC_UUID, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, GYRO_LSB_SCALE, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, BlePacket, BlePacketType, GunPacket, GunUpdatePacket, HandshakeStatus, ImuPacket, VestPacket, VestUpdatePacket, bcolors, get_player_id_for, metadata_to_packet_type
+from internal_utils import ACC_LSB_SCALE, BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_COMMAND_CHARACTERISTIC_UUID, GATT_MODEL_NUMBER_CHARACTERISTIC_UUID, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, GYRO_LSB_SCALE, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, TRANSMIT_DELAY, BlePacket, BlePacketType, GunPacket, GunUpdatePacket, HandshakeStatus, ImuPacket, VestPacket, VestUpdatePacket, bcolors, get_player_id_for, metadata_to_packet_type
 import external_utils
 from bluepy.btle import BTLEException, Peripheral
 
@@ -371,7 +371,9 @@ class Beetle(threading.Thread):
         self.mDataBuffer.clear()
         # Below 2 variables handle time out retransmission
         m_last_packet_sent = None
-        m_last_packet_sent_time = time.time()
+        m_last_packet_sent_time: float = 0.0
+        # Variable below is used to check for invalid packets
+        m_num_invalid_packets_received: int = 0
         # Variable below enables retransmitting SYN+ACK
         m_has_sent_syn = False
         m_seq_num = INITIAL_SEQ_NUM
@@ -379,8 +381,11 @@ class Beetle(threading.Thread):
 
         while self.handshake_status != HandshakeStatus.COMPLETE and not self.terminateEvent.is_set():
             try:
-                if self.handshake_status == HandshakeStatus.HELLO:
+                if (self.handshake_status == HandshakeStatus.HELLO
+                        and (time.time() - m_last_packet_sent_time) >= TRANSMIT_DELAY):
                     m_seq_num = INITIAL_SEQ_NUM
+                    # Reset invalid packet count for every change in handshake stage
+                    m_num_invalid_packets_received = 0
                     m_last_packet_sent = self.send_hello(m_seq_num)
                     m_last_packet_sent_time = time.time()
                     self.handshake_status = HandshakeStatus.ACK
@@ -399,7 +404,18 @@ class Beetle(threading.Thread):
                             # Invalid packet: Send NACK and remain in ACK state
                             self.sendNack(m_seq_num)
                             self.mPrint(bcolors.BRIGHT_YELLOW, f"""Invalid packet received from {self.beetle_mac_addr}, expected ACK""")
+                            m_num_invalid_packets_received += 1
+                            if (m_num_invalid_packets_received == MAX_RETRANSMITS):
+                                m_num_invalid_packets_received = 0
+                                self.mPrint(bcolors.BRIGHT_YELLOW, 
+                                        f"""ERROR: Max retransmits reached for {self.beetle_mac_addr}, resetting""")
+                                time.sleep(BLE_TIMEOUT * (MAX_RETRANSMITS + 1))
+                                self.reconnect()
+                                continue
+                            self.sendNack(m_seq_num)
                             continue
+                        # Reset invalid packet count whenever a valid packet is received
+                        m_num_invalid_packets_received = 0
                         # Packet is valid, parse the packet type
                         received_packet = self.parsePacket(packet_bytes)
                         packet_id = self.getPacketTypeOf(received_packet)
@@ -422,7 +438,9 @@ class Beetle(threading.Thread):
                             self.mPrint(bcolors.BRIGHT_YELLOW, f"Received NACK from {self.beetle_mac_addr}, resending HELLO")
                     # If time out occurs, the Beetle is supposed to detect and retransmit, so we don't handle it
                 elif self.handshake_status == HandshakeStatus.SYN:
-                    if not m_has_sent_syn:
+                    if not m_has_sent_syn and (time.time() - m_last_packet_sent_time) >= TRANSMIT_DELAY:
+                        # Reset invalid packet count before sending new packet
+                        m_num_invalid_packets_received = 0
                         # Send both the sender seq num and the receiver seq num, the latter of which confirms that beetle's sender seq num
                         ##  is parsed successfully if it matches Beetle's internal sender seq num
                         # TODO: Send laptop sender seq num to beetle to synchronise laptop sender seq num too
@@ -445,7 +463,15 @@ class Beetle(threading.Thread):
                                 # Inform Beetle that incoming packet is corrupted
                                 self.mPrint(bcolors.BRIGHT_YELLOW, "Invalid packet received from {}"
                                         .format(self.beetle_mac_addr))
-                                self.sendNack(self.getSeqNumFrom(packetBytes))
+                                m_num_invalid_packets_received += 1
+                                if (m_num_invalid_packets_received == MAX_RETRANSMITS):
+                                    m_num_invalid_packets_received = 0
+                                    self.mPrint(bcolors.BRIGHT_YELLOW, 
+                                            f"""ERROR: Max retransmits reached for {self.beetle_mac_addr}, resetting""")
+                                    time.sleep(BLE_TIMEOUT * (MAX_RETRANSMITS + 1))
+                                    self.reconnect()
+                                    continue
+                                self.sendNack(m_seq_num)
                                 continue
                             # Parse valid packet
                             received_packet = self.parsePacket(packetBytes)

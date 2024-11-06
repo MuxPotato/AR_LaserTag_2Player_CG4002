@@ -9,10 +9,10 @@ import csv
 import os
 import queue
 from beetle import VestBeetle
-from internal_utils import bcolors
+from internal_utils import BEETLE_MAC_ADDR, bcolors
 
 # Constants
-VEST_BEETLE = "F4:B8:5E:42:6D:75"
+VEST_BEETLE = BEETLE_MAC_ADDR.P2_VEST.value
 
 def dump_vest_data_to_csv(vest_queue):
     filename = input("Enter the filename to dump IMU data to: ")

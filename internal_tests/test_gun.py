@@ -5,10 +5,10 @@ import csv
 import os
 import queue
 from beetle import GunBeetle
-from internal_utils import bcolors
+from internal_utils import BEETLE_MAC_ADDR, bcolors
 
 # Constants
-GUN_BEETLE = "D0:39:72:DF:CA:F2"
+GUN_BEETLE = BEETLE_MAC_ADDR.P2_GUN.value
 
 def dump_gun_data_to_csv(gun_queue):
     filename = input("Enter the filename to dump IMU data to: ")

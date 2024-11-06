@@ -19,7 +19,7 @@ relayhost = '172.26.191.210'
 relayport = 5055
 
 evalhost = '127.0.0.1'
-evalport = 8888
+evalport = 9999
 
 #evalport = 41363
 

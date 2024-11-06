@@ -125,17 +125,17 @@ HandshakeStatus doHandshake() {
           }
           // TODO: Add read packet delay like in main loop()
           BlePacket receivedPacket = readPacket();
-          if (!isPacketValid(receivedPacket) || receivedPacket.seqNum != mSeqNum) {
+          if (!isPacketValid(receivedPacket)) {
             // TODO: Add retransmit delay like in main loop()
             BlePacket nackPacket;
-            createNackPacket(nackPacket, mSeqNum);
+            createNackPacket(nackPacket, mSeqNum, "Corrupted");
             sendPacket(nackPacket);
           } else if (getPacketTypeOf(receivedPacket) == PacketType::ACK) {
             if (receivedPacket.seqNum > mSeqNum) {
               // TODO: Add retransmit delay like in main loop()
               BlePacket nackPacket;
               // Use existing seqNum for NACK packet to indicate current packet is not received
-              createNackPacket(nackPacket, mSeqNum);
+              createNackPacket(nackPacket, mSeqNum, "Over seqNum");
               sendPacket(nackPacket);
               continue;
             }

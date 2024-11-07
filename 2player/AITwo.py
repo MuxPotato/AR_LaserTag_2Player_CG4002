@@ -45,7 +45,7 @@ class AITwo(Thread):
                 print("AITwo: Received item from fire queue")
                 
                 # If there's a gun message and it's a fired action
-                if message_Shoot and message_Shoot['isFired']:
+                if message_Shoot:
                     action = 'gun'
                     combined_action = action + ":2"
                     self.P2_action_queue.put(combined_action)
@@ -98,56 +98,7 @@ class AITwo(Thread):
                 continue
                 #print("No item received from IMU queue; continuing to next loop")
               
-            
 
-
-
-
-            # # Only for local testing 
-            # messages_IMU.append(message_IMU)
-            # print("IMU data appended to messages")
-            # print("current IMU message count: ", len(messages_IMU))
-            # #if time.time() - self.last_activity_time > 3 and len(messages_IMU) > 30 and not message_Shoot['isFire']:
-            # if len(messages_IMU) > 0:
-            #     print("Sending data for prediction")
-            #     data = {
-            #         'Accel X': [message['accel'][0] for message in messages_IMU],
-            #         'Accel Y': [message['accel'][1] for message in messages_IMU],
-            #         'Accel Z': [message['accel'][2] for message in messages_IMU],
-            #         'Gyro X': [message['gyro'][0] for message in messages_IMU],
-            #         'Gyro Y': [message['gyro'][1] for message in messages_IMU],
-            #         'Gyro Z': [message['gyro'][2] for message in messages_IMU],
-            #     }
-
-            #     # Mapping of accel values to actions
-            #     accel_to_action = {
-            #         (0, 0, 0): "basket",
-            #         (0, 0, 1): "volley",
-            #         (0, 1, 0): "gun",
-            #         (0, 1, 1): "reload",
-            #         (1, 0, 0): "shield",
-            #         (1, 0, 1): "bomb",
-            #         (1, 1, 0): "bowl",
-            #         (1, 1, 1): "logout",
-            #     }
-
-            #     # Extract the accel values from the first message in messages_IMU for action mapping
-            #     accel_values = (data['Accel X'][0], data['Accel Y'][0], data['Accel Z'][0])
-            #     action = accel_to_action.get(accel_values, "unknown")  # Default to "unknown" if not found
-
-            #     if action == "unknown":
-            #         print("Warning: Unrecognized accel values. Defaulting to random action.")
-            #         action = self.random_action()
-            #     else:
-            #         print(f"Mapped action based on accel values: {action}")
-
-            #     # Combine the action with player ID and put it in the queue
-            #     combined_action = f"{action}:2"
-            #     self.P2_action_queue.put(combined_action)
-
-            #     # Clear messages_IMU after processing
-            #     messages_IMU = []
-            
             # Proper Code, uncomment for real testing    
             messages_IMU.append(message_IMU)
             print("AITwo: IMU data appended to messages")

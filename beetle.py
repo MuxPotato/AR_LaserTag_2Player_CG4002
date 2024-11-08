@@ -13,7 +13,7 @@ class Beetle(threading.Thread):
     def __init__(self, beetle_mac_addr, outgoing_queue, incoming_queue, color = bcolors.BRIGHT_WHITE):
         super().__init__()
         self.beetle_mac_addr = beetle_mac_addr
-        self.mBeetle: Peripheral = Peripheral()
+        self.mBeetle: Peripheral | None = None
         self.color = color
         self.terminateEvent = threading.Event()
         # Runtime variables
@@ -39,8 +39,7 @@ class Beetle(threading.Thread):
         self.sender_seq_num = INITIAL_SEQ_NUM
         self.incoming_queue = incoming_queue
         # Configure Peripheral
-        self.ble_delegate = BlePacketDelegate(self.mDataBuffer)
-        self.mBeetle = self.mBeetle.withDelegate(self.ble_delegate)
+        self.ble_delegate: BlePacketDelegate = BlePacketDelegate(self.mDataBuffer)
         # Debug printing(more verbose)
         self.is_debug_printing = True
 
@@ -48,6 +47,10 @@ class Beetle(threading.Thread):
         while not self.terminateEvent.is_set():
             try:
                 self.mPrint(bcolors.BRIGHT_YELLOW, "Connecting to {}".format(self.beetle_mac_addr))
+                # Initialise bluepy objects
+                self.mBeetle = Peripheral()
+                self.mBeetle = self.mBeetle.withDelegate(self.ble_delegate)
+                # Connect to Beetle via its MAC address
                 self.mBeetle.connect(self.beetle_mac_addr)
                 self.mService = self.mBeetle.getServiceByUUID(GATT_SERIAL_SERVICE_UUID)
                 self.serial_char = self.mService.getCharacteristics(GATT_SERIAL_CHARACTERISTIC_UUID)[0]
@@ -61,6 +64,9 @@ class Beetle(threading.Thread):
                 self.mPrint(bcolors.BRIGHT_YELLOW, f"""Exception in connect() for Beetle: {self.beetle_mac_addr}""")
                 stacktrace_str = f"""{self.beetle_mac_addr} """ + ''.join(traceback.format_exception(ble_exc))
                 self.mPrint2(stacktrace_str)
+                if self.mBeetle is not None:
+                    # Disconnect before clearing input buffer to avoid having lingering data in buffer
+                    self.mBeetle.disconnect()
                 self.mDataBuffer.clear()
             except KeyboardInterrupt as exc:
                 # Catch and rethrow the exception so that caller can handle CTRL+C
@@ -68,7 +74,8 @@ class Beetle(threading.Thread):
 
     def disconnect(self):
         self.mPrint(bcolors.BRIGHT_YELLOW, "Disconnecting {}".format(self.beetle_mac_addr))
-        self.mBeetle.disconnect()
+        if self.mBeetle is not None:
+            self.mBeetle.disconnect()
         # self.clear_state()
         self.mDataBuffer.clear()
         self.handshake_status = HandshakeStatus.HELLO
@@ -82,6 +89,10 @@ class Beetle(threading.Thread):
         self.connect()
 
     def setup_bluetooth(self):
+        if self.mBeetle is None:
+            self.mPrint(bcolors.BRIGHT_YELLOW, 
+                    f"""FATAL: {self.beetle_mac_addr} has not been connected before setup_bluetooth() is called""")
+            return
         m_services = self.mBeetle.getServices()
         for m_service in m_services:
             for m_characteristic in m_service.getCharacteristics():
@@ -160,7 +171,7 @@ class Beetle(threading.Thread):
                         self.sendPacket(self.lastPacketSent)
                         self.lastPacketSentTime = time.time()  
                         self.num_retransmits += 1  
-                elif self.mBeetle.waitForNotifications(BLE_WAIT_TIMEOUT):
+                elif self.mBeetle.waitForNotifications(BLE_WAIT_TIMEOUT): # type: ignore
                     if len(self.mDataBuffer) < PACKET_SIZE:
                         continue
                     # bytearray for 20-byte packet
@@ -294,7 +305,7 @@ class Beetle(threading.Thread):
                             mLastPacketSent = self.send_hello(mSeqNum)
                             mSentHelloTime = time.time()
                         # Has not timed out yet, wait for ACK from Beetle
-                        if self.mBeetle.waitForNotifications(BLE_WAIT_TIMEOUT):
+                        if self.mBeetle.waitForNotifications(BLE_WAIT_TIMEOUT): # type: ignore
                             if len(self.mDataBuffer) < PACKET_SIZE:
                                 continue
                             # bytearray for 20-byte packet
@@ -326,7 +337,7 @@ class Beetle(threading.Thread):
                     # Just in case Beetle NACK the SYN+ACK, we want to retransmit
                     while (time.time() - mSynTime) < BLE_TIMEOUT:
                         # Wait for incoming packets
-                        if self.mBeetle.waitForNotifications(BLE_WAIT_TIMEOUT):
+                        if self.mBeetle.waitForNotifications(BLE_WAIT_TIMEOUT): # type: ignore
                             if len(self.mDataBuffer) < PACKET_SIZE:
                                 continue
                             # bytearray for 20-byte packet
@@ -378,6 +389,12 @@ class Beetle(threading.Thread):
         m_has_sent_syn = False
         m_seq_num = INITIAL_SEQ_NUM
         beetle_seq_num = INITIAL_SEQ_NUM
+
+        if self.mBeetle is None:
+            self.mPrint(bcolors.BRIGHT_YELLOW, 
+                    f"""FATAL: {self.beetle_mac_addr} has not been connected before do_handshake() is called""")
+            self.handshake_status = HandshakeStatus.HELLO
+            return
 
         while self.handshake_status != HandshakeStatus.COMPLETE and not self.terminateEvent.is_set():
             try:
@@ -707,7 +724,7 @@ class ImuUnreliableBeetle(Beetle):
                     # Perform 3-way handshake
                     self.do_handshake()
                 # Handshake already completed
-                elif self.mBeetle.waitForNotifications(BLE_TIMEOUT):
+                elif self.mBeetle.waitForNotifications(BLE_TIMEOUT): # type: ignore
                     if len(self.mDataBuffer) < PACKET_SIZE:
                         continue
                     # bytearray for 20-byte packet

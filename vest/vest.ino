@@ -72,6 +72,17 @@ void loop() {
     // Update last packet sent time to track timeout
     lastSentPacketTime = millis();
     isWaitingForAck = true;
+  } else if (!isWaitingForAck && (currentTime - lastSentPacketTime) >= KEEP_ALIVE_INTERVAL) {
+    // Keep alive interval has passed since the last sensor/keep alive packet transmission but no sensor data is available to transmit
+    // -> Send keep alive packet periodically when no sensor packet is transmitted so laptop knows Beetle is responding
+    BlePacket keepAlivePacket = createKeepAlivePacket(senderSeqNum);
+    sendPacket(keepAlivePacket);
+    // Update lastSentPacket to allow keep alive packet to be retransmitted
+    lastSentPacket = keepAlivePacket;
+    // Update lastSentPacketTime to support retransmit on timeout and regular keep alive packets
+    lastSentPacketTime = millis();
+    // Require acknowledgement for keep alive packet
+    isWaitingForAck = true;
   } else if ((currentTime - lastReadPacketTime) >= READ_PACKET_DELAY
       && Serial.available() >= PACKET_SIZE) { // Handle incoming packets
     // Received some bytes from laptop, process them wwhile maintaining at least READ_PACKET_DELAY

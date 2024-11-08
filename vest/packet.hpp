@@ -6,6 +6,9 @@
 #define BLE_TIMEOUT 115
 #define INITIAL_SEQ_NUM 0
 #define INVALID_PACKET_ID -1
+// Duration after last sensor packet transmission when keep alive packet is transmitted
+//   Equal to MAX_RETRANSMITS * BLE_TIMEOUT
+#define KEEP_ALIVE_INTERVAL 1150
 #define LOWER_4BIT_MASK 0x0F
 #define MAX_BUFFER_SIZE 40
 #define MAX_INVALID_PACKETS_RECEIVED 5
@@ -49,7 +52,8 @@ enum PacketType {
   IR_TRANS = 5,
   GAME_STAT = 6,
   GAME_ACTION = 7,
-  INFO = 8
+  KEEP_ALIVE = 8,
+  INFO = 9
 };
 
 template <typename T> class MyQueue {
@@ -156,6 +160,13 @@ void createAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum) {
   byte packetData[PACKET_DATA_SIZE] = {};
   createDataFrom("ACK", packetData);
   createPacket(ackPacket, PacketType::ACK, givenSeqNum, packetData);
+}
+
+BlePacket createKeepAlivePacket(uint16_t givenSeqNum) {
+  BlePacket keepAlivePacket = {};
+  byte packetData[PACKET_DATA_SIZE] = {};
+  createPacket(keepAlivePacket, PacketType::KEEP_ALIVE, givenSeqNum, packetData);
+  return keepAlivePacket;
 }
 
 void createNackPacket(BlePacket &nackPacket, uint16_t givenSeqNum, String nackReason) {

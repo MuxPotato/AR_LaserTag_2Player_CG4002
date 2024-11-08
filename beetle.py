@@ -483,12 +483,13 @@ class Beetle(threading.Thread):
                                 continue
                             # Get 20-byte packet from buffer
                             packetBytes = self.get_packet_from(self.mDataBuffer)
-                            if not self.isValidPacket(packetBytes):
+                            # Only handle invalid packets if they are handshake packets
+                            if self.is_handshake_packet(packetBytes) and not self.isValidPacket(packetBytes):
                                 # Inform Beetle that incoming packet is corrupted
                                 self.mPrint(bcolors.BRIGHT_YELLOW, "Invalid packet received from {}"
                                         .format(self.beetle_mac_addr))
                                 m_num_invalid_packets_received += 1
-                                if (m_num_invalid_packets_received == MAX_RETRANSMITS):
+                                if (m_num_invalid_packets_received >= MAX_RETRANSMITS):
                                     m_num_invalid_packets_received = 0
                                     self.mPrint(bcolors.BRIGHT_YELLOW, 
                                             f"""ERROR: Max retransmits reached for {self.beetle_mac_addr}, resetting""")
@@ -497,10 +498,25 @@ class Beetle(threading.Thread):
                                     continue
                                 self.sendNack(m_seq_num)
                                 continue
-                            # Parse valid packet
+                            # Assertion: At this point, packet is either not a handshake packet or is a valid handshake packet
+                            # Check whether to terminate handshake early
+                            if not self.is_handshake_packet(packetBytes):
+                                if self.isValidPacket(packetBytes):
+                                    # Parse valid packet
+                                    received_packet = self.parsePacket(packetBytes)
+                                    # Handle raw data packet to avoid dropping a valid packet
+                                    self.handle_beetle_packet(received_packet)
+                                else:
+                                    # Drop invalid non-handshake packet
+                                    # TODO: Consider how to handle when invalid packet count exceedsd max tolerable threshold
+                                    self.num_invalid_packets_received += 1
+                                # Beetle has began transmitting raw data, handshake is complete
+                                return self.do_handshake_completed()
+                            # Assertion: At this point, packet must be a valid handshake packet
+                            # Parse valid handshake packet
                             received_packet = self.parsePacket(packetBytes)
                             packet_id = self.getPacketTypeOf(received_packet)
-                            # Process packet according to packet type
+                            # Process handshake packet according to packet type
                             if (packet_id == BlePacketType.NACK.value or 
                                         (packet_id == BlePacketType.ACK.value and 
                                                 received_packet.seq_num < m_seq_num)):
@@ -517,12 +533,6 @@ class Beetle(threading.Thread):
                                 # Resend new SYN+ACK
                                 m_has_sent_syn = False
                                 continue
-                            if (packet_id != BlePacketType.NACK.value and packet_id != BlePacketType.ACK.value
-                                    and packet_id != BlePacketType.INFO.value):
-                                # Handle raw data packet to avoid dropping a valid packet
-                                self.handle_beetle_packet(received_packet)
-                                # Beetle has began transmitting raw data, handshake is complete
-                                return self.do_handshake_completed()
             except Exception as exc:
                 raise exc
             
@@ -627,6 +637,13 @@ class Beetle(threading.Thread):
     
     def has_handshake(self):
         return self.handshake_status == HandshakeStatus.COMPLETE
+    
+    def is_handshake_packet(self, given_packet: bytearray):
+        if given_packet is None or len(given_packet) < PACKET_SIZE:
+            return False
+        packet_type = self.getPacketTypeOfBytes(given_packet)
+        return (packet_type == BlePacketType.HELLO.value or packet_type == BlePacketType.ACK.value
+                or packet_type == BlePacketType.NACK.value)
     
     def isValidPacket(self, given_packet):
         # Check for NULL packet or incomplete packet
@@ -745,7 +762,7 @@ class ImuUnreliableBeetle(Beetle):
                     packetBytes = self.get_packet_from(self.mDataBuffer)
                     if not self.isValidPacket(packetBytes):
                         self.num_invalid_packets_received += 1
-                        if (self.num_invalid_packets_received == MAX_RETRANSMITS):
+                        if (self.num_invalid_packets_received >= MAX_RETRANSMITS):
                             self.num_invalid_packets_received = 0
                             self.reconnect()
                             continue

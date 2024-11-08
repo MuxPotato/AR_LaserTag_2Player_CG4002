@@ -480,6 +480,12 @@ class Beetle(threading.Thread):
                             # Received NACK: Resend HELLO
                             self.handshake_status = HandshakeStatus.HELLO
                             self.mPrint(bcolors.BRIGHT_YELLOW, f"Received NACK from {self.beetle_mac_addr}, resending HELLO")
+                        else:
+                            # Beetle likely thinks handshake is completed but laptop doesn't
+                            ##  Synchronise the handshake status of laptop and Beetle by restarting handshake
+                            self.handshake_status = HandshakeStatus.HELLO
+                            self.mPrint(bcolors.BRIGHT_YELLOW, 
+                                    f"""Received non-handshake packet type {packet_id} from {self.beetle_mac_addr}, restarting handshake""")
                     # If time out occurs, the Beetle is supposed to detect and retransmit, so we don't handle it
                 elif self.handshake_status == HandshakeStatus.SYN:
                     if not m_has_sent_syn and (time.time() - m_last_packet_sent_time) >= TRANSMIT_DELAY:

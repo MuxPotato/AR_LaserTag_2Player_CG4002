@@ -163,7 +163,7 @@ class Beetle(threading.Thread):
                         # Attempt to rescue unresponsive Beetle by disconnecting and reconnecting it
                         self.reconnect()
                         continue
-                    # Beetle is responding, reset has Beetle transmitted flag for the next keep alive interval
+                    # Beetle is responding, reset has_beetle_transmitted flag for the next keep alive interval
                     self.has_beetle_transmitted = False
                 # Only send packets to Beetle if the previous sent packet has been ACK-ed
                 if not self.is_waiting_for_ack and not self.incoming_queue.empty():
@@ -779,8 +779,19 @@ class ImuUnreliableBeetle(Beetle):
                         self.mPrint(bcolors.BRIGHT_YELLOW, 
                                 f"""ERROR: Handshake with {self.beetle_mac_addr} failed, reconnecting""")
                         continue
-                # Handshake already completed
-                elif self.mBeetle.waitForNotifications(BLE_TIMEOUT): # type: ignore
+                # At this point, handshake is now complete
+                if self.last_receive_time > 0 and (time.time() - self.last_receive_time) >= BEETLE_KEEP_ALIVE_INTERVAL:
+                    # Keep alive interval has elapsed since last sensor/keep alive packet transmitted by Beetle
+                    if not self.is_beetle_alive():
+                        # Beetle is not responding
+                        self.mPrint(bcolors.BRIGHT_YELLOW, 
+                                f"""ERROR: {bcolors.ENDC}{self.color}{self.beetle_mac_addr}{bcolors.ENDC}{bcolors.BRIGHT_YELLOW} is not responding, reconnecting""")
+                        # Attempt to rescue unresponsive Beetle by disconnecting and reconnecting it
+                        self.reconnect()
+                        continue
+                    # Beetle is responding, reset has_beetle_transmitted flag for the next keep alive interval
+                    self.has_beetle_transmitted = False
+                if self.mBeetle.waitForNotifications(BLE_TIMEOUT): # type: ignore
                     if len(self.mDataBuffer) < PACKET_SIZE:
                         continue
                     # bytearray for 20-byte packet
@@ -831,6 +842,10 @@ class ImuUnreliableBeetle(Beetle):
             else:
                 # Increment seq_num since received packet is valid
                 self.receiver_seq_num += 1
+            # Indicate that Beetle has transmitted sensor/keep alive packet
+            self.has_beetle_transmitted = True
+            # Save last sensor/keep alive packet received time to maintain keep alive interval
+            self.last_receive_time = time.time()
 
     def handle_raw_data_packet(self, raw_data_packet):
         x1, y1, z1, x2, y2, z2 = self.getDataFrom(raw_data_packet.data)

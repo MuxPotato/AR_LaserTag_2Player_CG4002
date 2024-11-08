@@ -3,26 +3,29 @@ from enum import Enum
 from typing import NamedTuple
 
 # Constants
+## Stop-and-wait protocol config
 BAUDRATE = 115200
-INITIAL_SEQ_NUM = 0
-ERROR_VALUE = -1
 BLE_TIMEOUT = 0.115
-TRANSMIT_DELAY = 0.015
-## Timeout value below should match the delay() value for sending packets on the Beetle
 BLE_WAIT_TIMEOUT = 0.01
+INITIAL_SEQ_NUM = 0
+MAX_SEQ_NUM = 65535
+MAX_RETRANSMITS = 5
+TRANSMIT_DELAY = 0.015
+## Packet config
+BITS_PER_BYTE = 8
+ERROR_VALUE = -1
+LOWER_4BITS_MASK = 0x0f
+### Timeout value below should match the delay() value for sending packets on the Beetle
 PACKET_SIZE = 20
 PACKET_DATA_SIZE = 16
 PACKET_TYPE_ID_LENGTH = 4
 PACKET_FORMAT = "=BH16sB"
-BITS_PER_BYTE = 8
-LOWER_4BITS_MASK = 0x0f
-IMU_DIMENSION = 3
-MAX_SEQ_NUM = 65535
-MAX_RETRANSMITS = 5
+## IMU constants
 ACC_LSB_SCALE = 16384.0
 GYRO_LSB_SCALE = 131.0
-GAME_STATE_QUEUE_TIMEOUT = 1
+IMU_DIMENSION = 3
 ## Game state constants
+GAME_STATE_QUEUE_TIMEOUT = 1
 INVALID_HP = 255
 
 BLUNO_MAC_ADDR_LIST = [

@@ -120,7 +120,7 @@ HandshakeStatus doHandshake() {
         }
       case HandshakeStatus::STAT_ACK:
         {
-          if (mIsWaitingForAck && (millis() - mLastPacketSentTime) >= BLE_TIMEOUT && isPacketValid(mLastSentPacket)) {
+          if (mIsWaitingForAck && (millis() - mLastPacketSentTime) >= BLE_TIMEOUT) {
             handshakeStatus = STAT_HELLO;
             mSeqNum = INITIAL_SEQ_NUM;
             // TODO: Consider if there's a need to clear serial input buffer here(after retransmitting)

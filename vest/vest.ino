@@ -287,7 +287,7 @@ void processGivenPacket(const BlePacket &packet) {
       // Have been waiting for an ACK and we received it
       if (packet.seqNum > senderSeqNum) {
         BlePacket nackPacket;
-        createNackPacket(nackPacket, senderSeqNum);
+        createNackPacket(nackPacket, senderSeqNum, "seqNum too high");
         // Inform laptop about seq num mismatch by sending a NACK with our current seq num
         sendPacket(nackPacket);
         return;
@@ -349,7 +349,7 @@ void processGivenPacket(const BlePacket &packet) {
     default:
       // All other packet types are unsupported, inform sender that packet is rejected
       BlePacket nackPacket;
-      createNackPacket(nackPacket, receiverSeqNum);
+      createNackPacket(nackPacket, receiverSeqNum, "Invalid type");
       sendPacket(nackPacket);
   } // switch (receivedPacketType)
 }
@@ -370,7 +370,7 @@ void processIncomingPacket() {
       return;
     }
     BlePacket nackPacket;
-    createNackPacket(nackPacket, receiverSeqNum);
+    createNackPacket(nackPacket, receiverSeqNum, "Corrupted");
     // Received invalid packet, request retransmit with NACK
     sendPacket(nackPacket);
   } else {

@@ -5,7 +5,7 @@ import time
 import traceback
 import anycrc
 from ble_delegate import BlePacketDelegate, NewBlePacketDelegate
-from internal_utils import ACC_LSB_SCALE, BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_COMMAND_CHARACTERISTIC_UUID, GATT_MODEL_NUMBER_CHARACTERISTIC_UUID, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, GYRO_LSB_SCALE, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, TRANSMIT_DELAY, BlePacket, BlePacketType, GunPacket, GunUpdatePacket, HandshakeStatus, ImuPacket, VestPacket, VestUpdatePacket, bcolors, get_player_id_for, metadata_to_packet_type
+from internal_utils import ACC_LSB_SCALE, BEETLE_KEEP_ALIVE_INTERVAL, BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_COMMAND_CHARACTERISTIC_UUID, GATT_MODEL_NUMBER_CHARACTERISTIC_UUID, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, GYRO_LSB_SCALE, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, TRANSMIT_DELAY, BlePacket, BlePacketType, GunPacket, GunUpdatePacket, HandshakeStatus, ImuPacket, VestPacket, VestUpdatePacket, bcolors, get_player_id_for, metadata_to_packet_type
 import external_utils
 from bluepy.btle import BTLEException, Peripheral
 
@@ -18,12 +18,14 @@ class Beetle(threading.Thread):
         self.terminateEvent = threading.Event()
         # Runtime variables
         self.handshake_status: HandshakeStatus = HandshakeStatus.HELLO
+        self.has_beetle_transmitted: bool = False
         ## Receiver variables
         self.mDataBuffer = deque()
         self.mService = None
         self.serial_char = None
         self.command_char = None
         self.model_num_char = None
+        self.last_receive_time: float = -1
         self.start_transmit_time = 0
         self.num_invalid_packets_received = 0
         ### Sequence number for packets created by Beetle to send to laptop
@@ -152,6 +154,17 @@ class Beetle(threading.Thread):
                                 f"""ERROR: Handshake with {self.beetle_mac_addr} failed, reconnecting""")
                         continue
                 # At this point, handshake is now completed
+                if self.last_receive_time > 0 and (time.time() - self.last_receive_time) >= BEETLE_KEEP_ALIVE_INTERVAL:
+                    # Keep alive interval has elapsed since last sensor/keep alive packet transmitted by Beetle
+                    if not self.is_beetle_alive():
+                        # Beetle is not responding
+                        self.mPrint(bcolors.BRIGHT_YELLOW, 
+                                f"""ERROR: {bcolors.ENDC}{self.color}{self.beetle_mac_addr}{bcolors.ENDC}{bcolors.BRIGHT_YELLOW} is not responding, reconnecting""")
+                        # Attempt to rescue unresponsive Beetle by disconnecting and reconnecting it
+                        self.reconnect()
+                        continue
+                    # Beetle is responding, reset has Beetle transmitted flag for the next keep alive interval
+                    self.has_beetle_transmitted = False
                 # Only send packets to Beetle if the previous sent packet has been ACK-ed
                 if not self.is_waiting_for_ack and not self.incoming_queue.empty():
                     # Send outgoing packet to Beetle
@@ -268,7 +281,9 @@ class Beetle(threading.Thread):
                 self.lastPacketSent = self.sendNack(incoming_packet.seq_num)
                 continue """
             elif self.receiver_seq_num == incoming_packet.seq_num:
-                self.handle_raw_data_packet(incoming_packet)
+                if packet_id != BlePacketType.KEEP_ALIVE.value:
+                    # Only process sensor packets, keep alive packets are acknowledged without processing
+                    self.handle_raw_data_packet(incoming_packet)
                 # Increment receiver seq num
                 if self.receiver_seq_num == MAX_SEQ_NUM:
                     # On the Beetle, seq num is 16-bit and overflows. So we 'overflow' by
@@ -281,6 +296,10 @@ class Beetle(threading.Thread):
                     self.num_invalid_packets_received = 0
             # ACK the received packet
             self.sendAck(seq_num_to_ack)
+            # Indicate that Beetle has transmitted sensor/keep alive packet
+            self.has_beetle_transmitted = True
+            # Save last sensor/keep alive packet received time to maintain keep alive interval
+            self.last_receive_time = time.time()
 
     def handle_raw_data_packet(self, raw_data_packet):
         pass
@@ -542,6 +561,8 @@ class Beetle(threading.Thread):
             self.start_transmit_time = time.time()
         # Clear input buffer after handshake is completed to start data transmission from clean state
         self.mDataBuffer.clear()
+        # Reset has_beetle_transmitted to False to clear previous transmission's state
+        self.has_beetle_transmitted = False
         self.mPrint2(inputString = "Handshake completed with {}".format(self.beetle_mac_addr))
         return self.handshake_status
 
@@ -637,6 +658,11 @@ class Beetle(threading.Thread):
     def has_handshake(self):
         return self.handshake_status == HandshakeStatus.COMPLETE
     
+    def is_beetle_alive(self):
+        return (self.last_receive_time < 0
+                or (time.time() - self.last_receive_time) < BEETLE_KEEP_ALIVE_INTERVAL
+                or self.has_beetle_transmitted)
+
     def is_handshake_packet(self, given_packet: bytearray):
         if given_packet is None or len(given_packet) < PACKET_SIZE:
             return False

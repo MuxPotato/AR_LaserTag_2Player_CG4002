@@ -425,8 +425,6 @@ class Beetle(threading.Thread):
                             continue
                         packet_bytes = self.get_packet_from(self.mDataBuffer)
                         if not self.isValidPacket(packet_bytes):
-                            # Invalid packet: Send NACK and remain in ACK state
-                            self.sendNack(m_seq_num)
                             self.mPrint(bcolors.BRIGHT_YELLOW, f"""Invalid packet received from {self.beetle_mac_addr}, expected ACK""")
                             m_num_invalid_packets_received += 1
                             if (m_num_invalid_packets_received == MAX_RETRANSMITS):
@@ -436,6 +434,7 @@ class Beetle(threading.Thread):
                                 time.sleep(BLE_TIMEOUT * (MAX_RETRANSMITS + 1))
                                 self.reconnect()
                                 continue
+                            # Invalid packet: Send NACK and remain in ACK state
                             self.sendNack(m_seq_num)
                             continue
                         # Reset invalid packet count whenever a valid packet is received

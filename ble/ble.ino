@@ -120,7 +120,8 @@ HandshakeStatus doHandshake() {
         }
       case HandshakeStatus::STAT_ACK:
         {
-          if (mIsWaitingForAck && (millis() - mLastPacketSentTime) >= BLE_TIMEOUT) {
+          unsigned long mCurrentTime = millis();
+          if (mIsWaitingForAck && (mCurrentTime - mLastPacketSentTime) >= BLE_TIMEOUT) {
             handshakeStatus = STAT_HELLO;
             mSeqNum = INITIAL_SEQ_NUM;
             // TODO: Consider if there's a need to clear serial input buffer here(after retransmitting)
@@ -156,9 +157,13 @@ HandshakeStatus doHandshake() {
             mIsWaitingForAck = false;
             // Return from doHandshake() since handshake process is complete
             return HandshakeStatus::STAT_SYN;
-          } else if (getPacketTypeOf(receivedPacket) == PacketType::HELLO) {
+          } else if (getPacketTypeOf(receivedPacket) == PacketType::HELLO &&
+              (mCurrentTime - mLastPacketSentTime) >= (READ_PACKET_DELAY + TRANSMIT_DELAY)) {
+            // Return to HELLO state only if we sent ACK a sufficiently long time ago(handshake has restarted or timeout occurred)
             handshakeStatus = STAT_HELLO;
             mSeqNum = INITIAL_SEQ_NUM;
+            // Drop the HELLO packet if we just sent an ACK to avoid cycling between HELLO and ACK states
+            //   This should clear the Serial input buffer of duplicate HELLO packets
           } else if (getPacketTypeOf(receivedPacket) == PacketType::NACK &&
               receivedPacket.seqNum == (mSeqNum - 1) && isPacketValid(mLastSentPacket)) {
             /* TODO: Consider if this block is ever entered, since we only accept NACK

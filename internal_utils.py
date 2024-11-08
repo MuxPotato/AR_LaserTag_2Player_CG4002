@@ -11,6 +11,7 @@ INITIAL_SEQ_NUM = 0
 MAX_SEQ_NUM = 65535
 MAX_RETRANSMITS = 5
 TRANSMIT_DELAY = 0.015
+BEETLE_KEEP_ALIVE_INTERVAL = MAX_RETRANSMITS * BLE_TIMEOUT
 ## Packet config
 BITS_PER_BYTE = 8
 ERROR_VALUE = -1
@@ -138,7 +139,8 @@ class BlePacketType(Enum):
     IR_TRANS = 5
     GAME_STAT = 6
     GAME_ACTION = 7
-    INFO = 8
+    KEEP_ALIVE = 8
+    INFO = 9
 
 class HandshakeStatus(Enum):
     # Laptop has not sent HELLO packet, will send HELLO

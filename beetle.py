@@ -144,6 +144,13 @@ class Beetle(threading.Thread):
                 if not self.has_handshake():
                     # Perform 3-way handshake
                     self.do_handshake()
+                    if not self.has_handshake():
+                        # Handshake failed, reconnect and try again
+                        ##  This ensures that packet reading below is only done after successful handshake
+                        self.reconnect()
+                        self.mPrint(bcolors.BRIGHT_YELLOW, 
+                                f"""ERROR: Handshake with {self.beetle_mac_addr} failed, reconnecting""")
+                        continue
                 # At this point, handshake is now completed
                 # Only send packets to Beetle if the previous sent packet has been ACK-ed
                 if not self.is_waiting_for_ack and not self.incoming_queue.empty():
@@ -723,6 +730,13 @@ class ImuUnreliableBeetle(Beetle):
                 if not self.has_handshake():
                     # Perform 3-way handshake
                     self.do_handshake()
+                    if not self.has_handshake():
+                        # Handshake failed, reconnect and try again
+                        ##  This ensures that packet reading below is only done after successful handshake
+                        self.reconnect()
+                        self.mPrint(bcolors.BRIGHT_YELLOW, 
+                                f"""ERROR: Handshake with {self.beetle_mac_addr} failed, reconnecting""")
+                        continue
                 # Handshake already completed
                 elif self.mBeetle.waitForNotifications(BLE_TIMEOUT): # type: ignore
                     if len(self.mDataBuffer) < PACKET_SIZE:

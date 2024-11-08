@@ -158,7 +158,7 @@ HandshakeStatus doHandshake() {
             // Return from doHandshake() since handshake process is complete
             return HandshakeStatus::STAT_SYN;
           } else if (getPacketTypeOf(receivedPacket) == PacketType::HELLO &&
-              (mCurrentTime - mLastPacketSentTime) >= (READ_PACKET_DELAY + TRANSMIT_DELAY)) {
+              (mCurrentTime - mLastPacketSentTime) >= BLE_TIMEOUT) {
             // Return to HELLO state only if we sent ACK a sufficiently long time ago(handshake has restarted or timeout occurred)
             handshakeStatus = STAT_HELLO;
             mSeqNum = INITIAL_SEQ_NUM;

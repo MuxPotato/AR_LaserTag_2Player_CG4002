@@ -417,9 +417,11 @@ class Beetle(threading.Thread):
         beetle_seq_num = INITIAL_SEQ_NUM
 
         if self.mBeetle is None:
+            # Beetle has not been initialised, unable to continue handshake
             self.mPrint(bcolors.BRIGHT_YELLOW, 
                     f"""FATAL: {self.beetle_mac_addr} has not been connected before do_handshake() is called""")
-            self.handshake_status = HandshakeStatus.HELLO
+            # Reconnect Beetle to initialise self.mBeetle correctly
+            self.reconnect()
             return
 
         while self.handshake_status != HandshakeStatus.COMPLETE and not self.terminateEvent.is_set():

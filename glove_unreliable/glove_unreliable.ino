@@ -61,7 +61,7 @@ void loop() {
   } else if ((currentTime - lastReadPacketTime) >= READ_PACKET_DELAY
       && Serial.available() >= PACKET_SIZE) { // Handle incoming packets
     // Received some bytes from laptop, process them
-    processIncomingPacket();
+    processAllIncomingPackets();
   }
 }
 
@@ -232,6 +232,22 @@ void processGivenPacket(BlePacket &packet) {
     case PacketType::HELLO:
       handshakeStatus = STAT_HELLO;
       break;
+  }
+}
+
+void processAllIncomingPackets() {
+  int numBytesAvailable = Serial.available();
+  // Read as many packets as are available in the serial input buffer at the moment processAllIncomingPackets() is called
+  while (numBytesAvailable >= PACKET_SIZE) {
+    // Complete packet received, read packet bytes from receive buffer as BlePacket
+    BlePacket receivedPacket = readPacket();
+    // Read PACKET_SIZE number of bytes, decrease number of bytes available accordingly
+    numBytesAvailable -= PACKET_SIZE;
+    if (isPacketValid(receivedPacket)) {
+      // Process valid packet
+      processGivenPacket(receivedPacket);
+    }
+    // Unreliable communication, so drop packet if incoming packet is invalid
   }
 }
 

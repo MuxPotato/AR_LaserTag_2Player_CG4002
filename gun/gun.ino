@@ -1,6 +1,7 @@
 #include "gun.hpp"
 
 /* Internal comms */
+void processAllIncomingPackets();
 void processIncomingPacket();
 void retransmitLastPacket();
 
@@ -88,7 +89,7 @@ void loop() {
       && Serial.available() >= PACKET_SIZE) { // Handle incoming packets
     // Received some bytes from laptop, process them wwhile maintaining at least READ_PACKET_DELAY
     //   in between reading of 2 consecutive packets 
-    processIncomingPacket();
+    processAllIncomingPackets();
   }
 }
 
@@ -366,6 +367,37 @@ void processGivenPacket(const BlePacket &packet) {
       createNackPacket(nackPacket, receiverSeqNum, "Invalid type");
       sendPacket(nackPacket);
   } // switch (receivedPacketType)
+}
+
+void processAllIncomingPackets() {
+  int numBytesAvailable = Serial.available();
+  // Read as many packets as are available in the serial input buffer at the moment processAllIncomingPackets() is called
+  while (numBytesAvailable >= PACKET_SIZE) {
+    // Complete packet received, read packet bytes from receive buffer as BlePacket
+    BlePacket receivedPacket = readPacket();
+    // Read PACKET_SIZE number of bytes, decrease number of bytes available accordingly
+    numBytesAvailable -= PACKET_SIZE;
+    if (!isPacketValid(receivedPacket)) {
+      numInvalidPacketsReceived += 1;
+      if (numInvalidPacketsReceived == MAX_INVALID_PACKETS_RECEIVED) {
+        // Clear serial input buffer as an attempt to recover from unusual amount of packet corruption
+        clearSerialInputBuffer();
+        numInvalidPacketsReceived = 0;
+        // Cleared all received packets, nothing left to parse
+        numBytesAvailable = 0;
+      }
+      BlePacket nackPacket;
+      createNackPacket(nackPacket, receiverSeqNum, "Corrupted");
+      // Received invalid packet, request retransmit with NACK
+      sendPacket(nackPacket);
+      continue;
+    } else {
+      // Valid packet received, reset invalid packet count
+      numInvalidPacketsReceived = 0;
+      // Process valid packet
+      processGivenPacket(receivedPacket);
+    }
+  }
 }
 
 void processIncomingPacket() {

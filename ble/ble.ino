@@ -166,8 +166,12 @@ HandshakeStatus doHandshake() {
             handshakeStatus = HandshakeStatus::STAT_SYN;
             mSeqNum += 1;
             mIsWaitingForAck = false;
-            // Return from doHandshake() since handshake process is complete
-            return HandshakeStatus::STAT_SYN;
+            // Drop duplicate SYN+ACK packets received from laptop so transmission logic 
+            //   in loop() doesn't process leftover SYN+ACK packets from handshake
+            clearSerialInputBuffer();
+            // Break switch block since handshake process is complete
+            //   This would also terminate the outer while() loop since handshake status is now STAT_SYN
+            break;
           } else if (getPacketTypeOf(receivedPacket) == PacketType::HELLO &&
               (mCurrentTime - mLastPacketSentTime) >= BLE_TIMEOUT) {
             // Return to HELLO state only if we sent ACK a sufficiently long time ago(handshake has restarted or timeout occurred)

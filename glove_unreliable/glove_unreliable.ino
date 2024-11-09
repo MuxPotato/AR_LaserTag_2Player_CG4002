@@ -234,10 +234,6 @@ void processIncomingPacket() {
     // Don't read from serial input buffer unless 1 complete packet is received
     return;
   }
-  unsigned long readPacketPeriod = millis() - lastReadPacketTime;
-  if (readPacketPeriod < READ_PACKET_DELAY) {
-    delay(READ_PACKET_DELAY - readPacketPeriod);
-  }
   // Complete 20-byte packet received, read 20 bytes from receive buffer as packet
   BlePacket receivedPacket = readPacket();
   if (isPacketValid(receivedPacket)) {

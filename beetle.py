@@ -271,15 +271,19 @@ class Beetle(threading.Thread):
                 seq_num_to_ack = incoming_packet.seq_num
                 self.mPrint(bcolors.BRIGHT_YELLOW, "ACK for packet num {} lost, expected seq num {}, synchronising seq num with {}"
                         .format(incoming_packet.seq_num, self.receiver_seq_num, self.beetle_mac_addr))
-                # Don't handle raw data packet again since we've already done that
+                # Just ACK, don't process raw data packet again since we've already done that
             elif self.receiver_seq_num < incoming_packet.seq_num:
-                # TODO: Remove line below and perform SYN of seq num(via handshake?) instead
-                seq_num_to_ack = incoming_packet.seq_num
-                self.mPrint(bcolors.BRIGHT_YELLOW, "WARNING: Received packet with seq num {} from {}, expected seq num {}"
+                # Out of order packet received, DO NOT ACK but send NACK instead to notify sender of seq num issue
+                self.sendNack(self.receiver_seq_num)
+                self.mPrint(bcolors.BRIGHT_YELLOW, "WARNING: Received out-of-order packet with seq num {} from {}, expected seq num {}"
                         .format(incoming_packet.seq_num, self.beetle_mac_addr, self.receiver_seq_num))
+                # Indicate that Beetle has transmitted sensor/keep alive packet
+                self.has_beetle_transmitted = True
+                # Save last sensor/keep alive packet received time to maintain keep alive interval
+                self.last_receive_time = time.time()
                 """self.receiver_seq_num = incoming_packet.seq_num
-                self.lastPacketSent = self.sendNack(incoming_packet.seq_num)
-                continue """
+                self.lastPacketSent = self.sendNack(incoming_packet.seq_num) """
+                return
             elif self.receiver_seq_num == incoming_packet.seq_num:
                 if packet_id != BlePacketType.KEEP_ALIVE.value:
                     # Only process sensor packets, keep alive packets are acknowledged without processing

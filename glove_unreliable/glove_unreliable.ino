@@ -1,8 +1,6 @@
 #include "imu.hpp"
 #include "packet.hpp"
 
-#define SETUP_DELAY 5000
-
 void createHandshakeAckPacket(BlePacket &ackPacket, uint16_t givenSeqNum);
 
 /* Internal comms */
@@ -36,7 +34,7 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   
   // Setup IMU
-  delay(SETUP_DELAY);
+  delay(IMU_SETUP_DELAY);
   setupImu();
 
   // Set up internal comms 

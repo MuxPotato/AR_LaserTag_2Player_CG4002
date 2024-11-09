@@ -275,7 +275,7 @@ class Beetle(threading.Thread):
             elif self.receiver_seq_num < incoming_packet.seq_num:
                 # TODO: Remove line below and perform SYN of seq num(via handshake?) instead
                 seq_num_to_ack = incoming_packet.seq_num
-                self.mPrint(bcolors.BRIGHT_YELLOW, "Received packet with seq num {} from {}, expected seq num {}"
+                self.mPrint(bcolors.BRIGHT_YELLOW, "WARNING: Received packet with seq num {} from {}, expected seq num {}"
                         .format(incoming_packet.seq_num, self.beetle_mac_addr, self.receiver_seq_num))
                 """self.receiver_seq_num = incoming_packet.seq_num
                 self.lastPacketSent = self.sendNack(incoming_packet.seq_num)

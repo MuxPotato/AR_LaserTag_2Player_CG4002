@@ -5,7 +5,7 @@ from typing import NamedTuple
 # Constants
 ## Stop-and-wait protocol config
 BAUDRATE = 115200
-BLE_TIMEOUT = 0.115
+BLE_TIMEOUT = 0.165
 BLE_WAIT_TIMEOUT = 0.01
 INITIAL_SEQ_NUM = 0
 MAX_SEQ_NUM = 65535

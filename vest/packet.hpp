@@ -139,11 +139,18 @@ BlePacket sendDummyPacket();
 void sendPacket(BlePacket &packetToSend);
 
 uint8_t clearSerialInputBuffer() {
+  // Count the number of bytes removed to return to the caller(if useful)
   uint8_t numBytesRemoved = 0;
-  while (Serial.available() > 0) {
+  // Only clear the input buffer up to the number of bytes available at the moment clearSerialInputBuffer() is called
+  int numBytesAvailable = Serial.available();
+  // Keep removing data from the serial input up to (numBytesAvailable) bytes
+  while (numBytesAvailable > 0) {
+    // Remove the next byte from serial input and drop it
     byte nextByte = (byte) Serial.read();
     numBytesRemoved += 1;
+    numBytesAvailable -= 1;
   }
+  // Return the number of bytes removed from serial input buffer
   return numBytesRemoved;
 }
 

@@ -142,6 +142,10 @@ HandshakeStatus doHandshake() {
           if (mIsWaitingForAck && (mCurrentTime - mLastPacketSentTime) >= BLE_TIMEOUT) {
             handshakeStatus = STAT_HELLO;
             mSeqNum = INITIAL_SEQ_NUM;
+            // Invalidate mLastSentPacket to prevent retransmission in any edge case
+            mLastSentPacket.metadata = PLACEHOLDER_METADATA;
+            // Reset mIsWaitingForAck as well to fully reset transmission state
+            mIsWaitingForAck = false;
             // TODO: Consider if there's a need to clear serial input buffer here(after retransmitting)
             continue;
           }

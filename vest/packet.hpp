@@ -3,7 +3,7 @@
 #define BAUDRATE 115200
 #define BITS_PER_BYTE 8
 // Given average RTT 100ms and 15ms receive/transmit delay
-#define BLE_TIMEOUT 115
+#define BLE_TIMEOUT 165
 #define INITIAL_SEQ_NUM 0
 #define INVALID_PACKET_ID -1
 // Duration after last sensor packet transmission when keep alive packet is transmitted

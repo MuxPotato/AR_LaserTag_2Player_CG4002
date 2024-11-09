@@ -95,21 +95,37 @@ HandshakeStatus doHandshake() {
     switch (handshakeStatus) {
       case HandshakeStatus::STAT_NONE:
         {
-          if (Serial.available() < PACKET_SIZE) {
-            // Skip this iteration since we haven't received a full 20-byte packet
-            continue;
+          // Whether at least 1 HELLO packet has been received
+          bool mHasHello = false;
+          int mNumBytesAvailable = Serial.available();
+          // Process all HELLO packets received so far at once
+          // -> This should minimise cycling between NONE and HELLO handshake states
+          //      when laptop transmits multiple HELLO packets
+          while (mNumBytesAvailable >= PACKET_SIZE) {
+            // TODO: Add read packet delay like in main loop()
+            // At least 1 complete packet in serial input buffer, read it
+            BlePacket mReceivedPacket = readPacket();
+            // Decrease the number of bytes left to read from serial input
+            mNumBytesAvailable -= PACKET_SIZE;
+            if (!isPacketValid(mReceivedPacket) || mReceivedPacket.seqNum != mSeqNum) {
+              // TODO: Add retransmit delay like in main loop()
+              BlePacket mNackPacket;
+              // Create NACK packet indicating that packet received is invalid or has wrong seq num
+              createNackPacket(mNackPacket, mSeqNum, "Invalid/seqNum");
+              // Notify the laptop by transmitting the NACK packet
+              sendPacket(mNackPacket);
+            } else if (getPacketTypeOf(mReceivedPacket) == PacketType::HELLO) {
+              // Indicate that at least 1 valid HELLO packet has been received
+              mHasHello = true;
+            }
+            // Drop all non-HELLO packets received
+            // Continue processing the other remaining HELLO packets in serial input
           }
-          // TODO: Add read packet delay like in main loop()
-          // At least 1 20-byte packet in serial input buffer, read it
-          BlePacket receivedPacket = readPacket();
-          if (!isPacketValid(receivedPacket) || receivedPacket.seqNum != mSeqNum) {
-            // TODO: Add retransmit delay like in main loop()
-            BlePacket nackPacket;
-            createNackPacket(nackPacket, mSeqNum, "Invalid/seqNum");
-            sendPacket(nackPacket);
-          } else if (getPacketTypeOf(receivedPacket) == PacketType::HELLO) {
+          if (mHasHello) {
+            // Progress to the next handshake stage as long as at least 1 HELLO packet is received
             handshakeStatus = STAT_HELLO;
           }
+          // Continue waiting for HELLO packet from laptop in the next iteration of while() if none is received so far
           break;
         }
       case HandshakeStatus::STAT_HELLO:
@@ -172,7 +188,7 @@ HandshakeStatus doHandshake() {
             mIsWaitingForAck = false;
             // Drop duplicate SYN+ACK packets received from laptop so transmission logic 
             //   in loop() doesn't process leftover SYN+ACK packets from handshake
-            clearSerialInputBuffer();
+            clearSerialInputBuffer(); // TODO: Replace this with while loop that reads until non-handshake packet is received or serial input is empty
             // Break switch block since handshake process is complete
             //   This would also terminate the outer while() loop since handshake status is now STAT_SYN
             break;

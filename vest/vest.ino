@@ -511,16 +511,17 @@ bool getIsHitFromIr() {
 
 void doDamage() {
   // TODO: Implement visualisation/feedback when actions are triggered
-  TimerFreeTone(BUZZER_PIN, GUNSHOT_HIT_BUZZER_FREQ, 200);
+  //TimerFreeTone(BUZZER_PIN, GUNSHOT_HIT_BUZZER_FREQ, 200);
 }
 
 void doGunshotHit() {
   // TODO: Implement visualisation/feedback when vest is shot
-  TimerFreeTone(BUZZER_PIN, GUNSHOT_HIT_BUZZER_FREQ, 200);
+  TimerFreeTone(BUZZER_PIN, GUNSHOT_HIT_BUZZER_FREQ, GUNSHOT_HIT_BUZZER_DURATION);
 }
 
 void doRespawn() {
   // TODO: Implement visualisation/feedback when player respawns
+  TimerFreeTone(BUZZER_PIN, RESPAWN_BUZZER_FREQ, RESPAWN_BUZZER_DURATION);
 }
 
 void updateHpLed(uint8_t givenPlayerHp) {

@@ -575,6 +575,8 @@ void fireGun() {
     // Gun trigger is pressed and gun has ammo, set isFired to true
     isFired = true;
     TimerFreeTone(BUZZER_PIN, GUNFIRE_BUZZER_FREQ, GUNFIRE_BUZZER_DURATION);
+  } else {
+    TimerFreeTone(BUZZER_PIN, GUN_MAGAZINE_EMPTY_BUZZER_FREQ, GUN_MAGAZINE_EMPTY_BUZZER_DURATION);
   }
   visualiseBulletCount();
 }

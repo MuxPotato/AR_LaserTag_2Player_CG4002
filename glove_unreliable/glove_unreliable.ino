@@ -26,6 +26,9 @@ int16_t GyroZ = 0;
 int16_t GyroErrorX = 0;
 int16_t GyroErrorY = 0;
 int16_t GyroErrorZ = 0;
+// IMU data transmission state tracking
+ImuTransmissionState imuTransmissionState = ImuTransmissionState::WAITING_FOR_ACTION;
+unsigned long imuTransmissionStateStart = 0;
 
 void setup() {
   Serial.begin(BAUDRATE);
@@ -239,6 +242,36 @@ bool hasHandshake() {
  * -Override this in device-specific Beetles to return true only when there's raw data to transmit(e.g. gun fire)
  */
 bool hasRawData() {
+  if (IS_GLOVE) {
+    switch (imuTransmissionState) {
+      case ImuTransmissionState::WAITING_FOR_ACTION:
+        {
+          float imuAnalytics = getAnalyticsFor(AccX, AccY, AccZ, GyroX, GyroY, GyroZ);
+          if (imuAnalytics >= ACCELEROMETER_THRESHOLD) {
+            imuTransmissionState = ImuTransmissionState::TRANSMITTING_ACTION;
+            imuTransmissionStateStart = millis();
+            TimerFreeTone(BUZZER_PIN, THRESHOLD_START_TONE, THRESHOLD_TONE_DURATION);
+          }
+          break;
+        }
+      case ImuTransmissionState::TRANSMITTING_ACTION:
+        {
+          if ((millis() - imuTransmissionStateStart) >= IMU_TRANSMISSION_COOLDOWN_PERIOD) {
+            imuTransmissionState = ImuTransmissionState::COOLDOWN;
+            imuTransmissionStateStart = millis();
+          }
+          break;
+        }
+      case ImuTransmissionState::COOLDOWN:
+        {
+          if ((millis() - imuTransmissionStateStart) >= IMU_TRANSMISSION_COOLDOWN_PERIOD) {
+            imuTransmissionState = ImuTransmissionState::WAITING_FOR_ACTION;
+            TimerFreeTone(BUZZER_PIN, THRESHOLD_END_TONE, THRESHOLD_TONE_DURATION);
+          }
+          break;
+        }
+    }
+  }
   return true;
 }
 

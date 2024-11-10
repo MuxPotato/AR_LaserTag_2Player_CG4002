@@ -85,8 +85,8 @@ void loop() {
     lastSentPacketTime = millis();
     // Require acknowledgement for keep alive packet
     isWaitingForAck = true;
-  } else if ((currentTime - lastReadPacketTime) >= READ_PACKET_DELAY
-      && Serial.available() >= PACKET_SIZE) { // Handle incoming packets
+  }
+  if ((millis() - lastReadPacketTime) >= READ_PACKET_DELAY) { // Handle incoming packets
     // Received some bytes from laptop, process them wwhile maintaining at least READ_PACKET_DELAY
     //   in between reading of 2 consecutive packets 
     processAllIncomingPackets();
@@ -391,6 +391,8 @@ void processAllIncomingPackets() {
   while (numBytesAvailable >= PACKET_SIZE) {
     // Complete packet received, read packet bytes from receive buffer as BlePacket
     BlePacket receivedPacket = readPacket();
+    // Update lastReadPackeTime to maintain read packet delay in loop()
+    lastReadPacketTime = millis();
     // Read PACKET_SIZE number of bytes, decrease number of bytes available accordingly
     numBytesAvailable -= PACKET_SIZE;
     if (!isPacketValid(receivedPacket)) {
@@ -423,6 +425,8 @@ void processIncomingPacket() {
   }
   // Complete 20-byte packet received, read 20 bytes from receive buffer as packet
   BlePacket receivedPacket = readPacket();
+  // Update lastReadPackeTime to maintain read packet delay in loop()
+  lastReadPacketTime = millis();
   if (!isPacketValid(receivedPacket)) {
     numInvalidPacketsReceived += 1;
     if (numInvalidPacketsReceived == MAX_INVALID_PACKETS_RECEIVED) {

@@ -544,9 +544,9 @@ void fireGun() {
     bulletCount -= 1;
     // Gun trigger is pressed and gun has ammo, set isFired to true
     isFired = true;
+    TimerFreeTone(BUZZER_PIN, GUNFIRE_BUZZER_FREQ, GUNFIRE_BUZZER_FREQ);
   }
   visualiseBulletCount();
-  tone(BUZZER_PIN, BUZZER_FREQ, BUZZER_DURATION);
 }
 
 void reload() {
@@ -555,12 +555,10 @@ void reload() {
   pixels.show();
   pixels.fill(pixels.Color(0, 0, 0), 0, 6);
   pixels.show();
-  TimerFreeTone(BUZZER_PIN, RELOAD_BUZZER_FREQ, RELOAD_BUZZER_DURATION);
   pixels.fill(pixels.Color(255, 0, 0), 0, 6);
   pixels.show();
   pixels.fill(pixels.Color(0, 0, 0), 0, 6);
   pixels.show();
-  TimerFreeTone(BUZZER_PIN, RELOAD_BUZZER_FREQ, RELOAD_BUZZER_DURATION);
   pixels.fill(pixels.Color(255, 0, 0), 0, 6);
   pixels.show();
   pixels.fill(pixels.Color(0, 0, 0), 0, 6);

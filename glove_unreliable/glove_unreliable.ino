@@ -73,6 +73,7 @@ HandshakeStatus doHandshake() {
   BlePacket mLastSentPacket;
   byte mSeqNum = INITIAL_SEQ_NUM;
   bool mIsWaitingForAck = false;
+  uint8_t mNumInvalidPacketsReceived = 0;
   while (handshakeStatus != STAT_SYN) {
     // No packet sent yet or not yet timed out or last packet sent is invalid
     switch (handshakeStatus) {
@@ -90,14 +91,28 @@ HandshakeStatus doHandshake() {
             BlePacket mReceivedPacket = readPacket();
             // Decrease the number of bytes left to read from serial input
             mNumBytesAvailable -= PACKET_SIZE;
-            if (!isPacketValid(mReceivedPacket) || mReceivedPacket.seqNum != mSeqNum) {
+            if (!isPacketValid(mReceivedPacket)) {
               // TODO: Add retransmit delay like in main loop()
+              mNumInvalidPacketsReceived += 1;
+              if (mNumInvalidPacketsReceived == MAX_INVALID_PACKETS_RECEIVED) {
+                // Clear serial input buffer as an attempt to recover from unusual amount of packet corruption
+                clearSerialInputBuffer();
+                mNumInvalidPacketsReceived = 0;
+                mSeqNum = INITIAL_SEQ_NUM;
+              }
               BlePacket mNackPacket;
               // Create NACK packet indicating that packet received is invalid or has wrong seq num
               createNackPacket(mNackPacket, mSeqNum, "Invalid/seqNum");
               // Notify the laptop by transmitting the NACK packet
               sendPacket(mNackPacket);
             } else if (getPacketTypeOf(mReceivedPacket) == PacketType::HELLO) {
+              // Reset invalid packet count when a valid packet is received
+              mNumInvalidPacketsReceived = 0;
+              if (mReceivedPacket.seqNum != mSeqNum) {
+                // Drop packet if seq num does not match
+                // TODO: Consider if there's a proper way to handle this
+                continue;
+              }
               // Indicate that at least 1 valid HELLO packet has been received
               mHasHello = true;
             }
@@ -149,46 +164,57 @@ HandshakeStatus doHandshake() {
           BlePacket receivedPacket = readPacket();
           if (!isPacketValid(receivedPacket)) {
             // TODO: Add retransmit delay like in main loop()
+            mNumInvalidPacketsReceived += 1;
+            if (mNumInvalidPacketsReceived == MAX_INVALID_PACKETS_RECEIVED) {
+              // Clear serial input buffer as an attempt to recover from unusual amount of packet corruption
+              clearSerialInputBuffer();
+              mNumInvalidPacketsReceived = 0;
+              mSeqNum = INITIAL_SEQ_NUM;
+            }
             BlePacket nackPacket;
             createNackPacket(nackPacket, mSeqNum, "Corrupted");
             sendPacket(nackPacket);
-          } else if (getPacketTypeOf(receivedPacket) == PacketType::ACK) {
-            if (receivedPacket.seqNum > mSeqNum) {
+          } else { // Packet received is valid
+            // Reset invalid packet count when a valid packet is received
+            mNumInvalidPacketsReceived = 0;
+            if (getPacketTypeOf(receivedPacket) == PacketType::ACK) {
+              if (receivedPacket.seqNum > mSeqNum) {
+                // TODO: Add retransmit delay like in main loop()
+                BlePacket nackPacket;
+                // Use existing seqNum for NACK packet to indicate current packet is not received
+                createNackPacket(nackPacket, mSeqNum, "Over seqNum");
+                sendPacket(nackPacket);
+                continue;
+              }
+              if (receivedPacket.seqNum < mSeqNum) {
+                // Likely a delayed ACK packet, drop it
+                continue;
+              }
+              // TODO: Handle seq num update if laptop seq num != beetle seq num
+              handshakeStatus = HandshakeStatus::STAT_SYN;
+              mSeqNum += 1;
+              mIsWaitingForAck = false;
+              // Drop duplicate SYN+ACK packets received from laptop so transmission logic 
+              //   in loop() doesn't process leftover SYN+ACK packets from handshake
+              clearSerialInputBuffer(); // TODO: Replace this with while loop that reads until non-handshake packet is received or serial input is empty
+              // Break switch block since handshake process is complete
+              //   This would also terminate the outer while() loop since handshake status is now STAT_SYN
+              break;
+            } else if (getPacketTypeOf(receivedPacket) == PacketType::HELLO &&
+                (mCurrentTime - mLastPacketSentTime) >= BLE_TIMEOUT) {
+              // Return to HELLO state only if we sent ACK a sufficiently long time ago(handshake has restarted or timeout occurred)
+              handshakeStatus = STAT_HELLO;
+              mSeqNum = INITIAL_SEQ_NUM;
+              // Drop the HELLO packet if we just sent an ACK to avoid cycling between HELLO and ACK states
+              //   This should clear the Serial input buffer of duplicate HELLO packets
+            } else if (getPacketTypeOf(receivedPacket) == PacketType::NACK &&
+                receivedPacket.seqNum == (mSeqNum - 1) && isPacketValid(mLastSentPacket)) {
+              /* TODO: Consider if this block is ever entered, since we only accept NACK
+                for our ACK to a HELLO, which means receivedPacket.seqNum = 0 and mSeqNum = 1 */
               // TODO: Add retransmit delay like in main loop()
-              BlePacket nackPacket;
-              // Use existing seqNum for NACK packet to indicate current packet is not received
-              createNackPacket(nackPacket, mSeqNum, "Over seqNum");
-              sendPacket(nackPacket);
-              continue;
+              sendPacket(mLastSentPacket);
+              mIsWaitingForAck = true;
             }
-            if (receivedPacket.seqNum < mSeqNum) {
-              // Likely a delayed ACK packet, drop it
-              continue;
-            }
-            // TODO: Handle seq num update if laptop seq num != beetle seq num
-            handshakeStatus = HandshakeStatus::STAT_SYN;
-            mSeqNum += 1;
-            mIsWaitingForAck = false;
-            // Drop duplicate SYN+ACK packets received from laptop so transmission logic 
-            //   in loop() doesn't process leftover SYN+ACK packets from handshake
-            clearSerialInputBuffer();
-            // Break switch block since handshake process is complete
-            //   This would also terminate the outer while() loop since handshake status is now STAT_SYN
-            break;
-          } else if (getPacketTypeOf(receivedPacket) == PacketType::HELLO &&
-              (mCurrentTime - mLastPacketSentTime) >= BLE_TIMEOUT) {
-            // Return to HELLO state only if we sent ACK a sufficiently long time ago(handshake has restarted or timeout occurred)
-            handshakeStatus = STAT_HELLO;
-            mSeqNum = INITIAL_SEQ_NUM;
-            // Drop the HELLO packet if we just sent an ACK to avoid cycling between HELLO and ACK states
-            //   This should clear the Serial input buffer of duplicate HELLO packets
-          } else if (getPacketTypeOf(receivedPacket) == PacketType::NACK &&
-              receivedPacket.seqNum == (mSeqNum - 1) && isPacketValid(mLastSentPacket)) {
-            /* TODO: Consider if this block is ever entered, since we only accept NACK
-               for our ACK to a HELLO, which means receivedPacket.seqNum = 0 and mSeqNum = 1 */
-            // TODO: Add retransmit delay like in main loop()
-            sendPacket(mLastSentPacket);
-            mIsWaitingForAck = true;
           }
         }
     }

@@ -18,38 +18,31 @@ class GameEngine(Thread):
         self.shot_queue = shot_queue
         self.to_rs_queue = to_rs_queue # queue for sending back hp and ammo to relay server
 
-
-     # Player 1 Variables
         self.hp_p1 = 100
         self.shieldHp_p1 = 0
         self.shieldCharges_p1 = 3
         self.bullets_p1 = 6
         self.bomb_p1 = 2
         self.deaths_p1 = 0
-
-        # Player 2 Variables
         self.hp_p2 = 100
         self.shieldHp_p2 = 0
         self.shieldCharges_p2 = 3
         self.bullets_p2 = 6
         self.bomb_p2 = 2
         self.deaths_p2 = 0
-
-        # Damage constants
         self.hp_bullet = 5
         self.hp_bomb = 5
-
         self.ACTIONTIMEOUT = 20
         self.LOGOUT_FAILSAFE_TURNS = 20
         self.PHONE_RESPONSE_TIMEOUT = 5
-
-
         self.game_turns_passed = 0
         self.P1_ai_predicted_action = ""
         self.P2_ai_predicted_action = ""
 
-
-
+    
+    ###########################
+    ### Start of Game Logic ###
+    ###########################
     def get_player_state(self, player_id):
         if player_id == 1:
             return [self.hp_p1, self.shieldHp_p1, self.shieldCharges_p1, self.bullets_p1, self.bomb_p1, self.deaths_p1,
@@ -64,22 +57,22 @@ class GameEngine(Thread):
     def shoot(self, player_id):
         if player_id == 1 and self.bullets_p1 > 0:
             self.bullets_p1 -= 1
-            self.update_both_players_game_state()
+            self.log_game_state()
             return True
         elif player_id == 2 and self.bullets_p2 > 0:
             self.bullets_p2 -= 1
-            self.update_both_players_game_state()
+            self.log_game_state()
             return True
         return False
     
     def bomb(self, player_id):
         if player_id == 1 and self.bomb_p1 > 0:
             self.bomb_p1 -= 1
-            self.update_both_players_game_state()
+            self.log_game_state()
             return True
         elif player_id == 2 and self.bomb_p1 > 0:
             self.bomb_p2 -= 1
-            self.update_both_players_game_state()
+            self.log_game_state()
             return True
         return False
 
@@ -88,14 +81,14 @@ class GameEngine(Thread):
         if player_id == 1:
             if self.bullets_p1 == 0:  # Only reload if bullets are empty
                 self.bullets_p1 = 6
-                self.update_both_players_game_state()
+                self.log_game_state()
                 return True
             else:
                 return False  # Cannot reload if bullets are not empty
         elif player_id == 2:
             if self.bullets_p2 == 0:  # Only reload if bullets are empty
                 self.bullets_p2 = 6
-                self.update_both_players_game_state()
+                self.log_game_state()
                 return True
             else:
                 return False  # Cannot reload if bullets are not empty
@@ -117,21 +110,7 @@ class GameEngine(Thread):
                 self.hp_p2 = max(0, self.hp_p2 - 10)
             if self.hp_p2 <= 0:
                 self.respawn(player_id)
-        self.update_both_players_game_state()
-
-
-    # Right now this function does nth
-    def update_both_players_game_state(self):
         self.log_game_state()
-
-    def log_game_state(self):
-        game_state_info = (
-            "[Game State Log] Player 1 Stats:\n"
-            f"HP: {self.hp_p1}, Shield HP: {self.shieldHp_p1}, Shield Charges: {self.shieldCharges_p1}, Bullets: {self.bullets_p1}, Bombs: {self.bomb_p1}, Deaths: {self.deaths_p1}\n"
-            "[Game State Log] Player 2 Stats:\n"
-            f"HP: {self.hp_p2}, Shield HP: {self.shieldHp_p2}, Shield Charges: {self.shieldCharges_p2}, Bullets: {self.bullets_p2}, Bombs: {self.bomb_p2}, Deaths: {self.deaths_p2}\n"
-        )
-        print(game_state_info)
 
     def respawn(self, player_id):
         if player_id == 1:
@@ -158,7 +137,7 @@ class GameEngine(Thread):
 
             if self.hp_p1 <= 0:
                 self.respawn(player_id)
-            self.update_both_players_game_state()
+            self.log_game_state()
             return True
         elif player_id == 2:
             if self.shieldHp_p2 > 0:
@@ -168,7 +147,7 @@ class GameEngine(Thread):
 
             if self.hp_p2 <= 0:
                 self.respawn(player_id)
-            self.update_both_players_game_state()
+            self.log_game_state()
             return True
         return False
 
@@ -181,7 +160,7 @@ class GameEngine(Thread):
 
             if self.hp_p1 <= 0:
                 self.respawn(player_id)
-            self.update_both_players_game_state()
+            self.log_game_state()
             return True
         elif player_id == 2:
             if self.shieldHp_p2 > 0:
@@ -191,51 +170,33 @@ class GameEngine(Thread):
 
             if self.hp_p2 <= 0:
                 self.respawn(player_id)
-            self.update_both_players_game_state()
+            self.log_game_state()
             return True
         return False
 
     def charge_shield(self, player_id):
         if player_id == 1:
-            # Check if there are charges left and if the shield is not already active
             if self.shieldCharges_p1 > 0 and self.shieldHp_p1 <= 0:
                 self.shieldHp_p1 = 30
                 self.shieldCharges_p1 -= 1
-                self.update_both_players_game_state()
+                self.log_game_state()
                 return True
         elif player_id == 2:
-            # Check if there are charges left and if the shield is not already active
             if self.shieldCharges_p2 > 0 and self.shieldHp_p2 <= 0:
                 self.shieldHp_p2 = 30
                 self.shieldCharges_p2 -= 1
-                self.update_both_players_game_state()
+                self.log_game_state()
                 return True
         return False
 
     def format_relayclient_packet_isHit(self, id, isHit):
-        # Note here isHit is just 0 or 1, but 0 never happens bcs we will never need to send a packet to 
-        # the vest if we do not need to ring the buzzere
-
-        # Retrieve hp and bullets based on the player ID
-        if id == 1:
-            hp = self.hp_p1
-            bullets = self.bullets_p1
-        elif id == 2:
-            hp = self.hp_p2
-            bullets = self.bullets_p2
-        else:
-            raise ValueError(f"Invalid player ID: {id}")
-
-        # Format the packet as requested
         packet = {
-            'id': id,
-            'isHit': isHit
+            'id': id, 
+            'isHit': isHit # isHit is always 1; 0 never happens, we will never need to send a packet to the vest if we do not need to ring the buzzer
         }
-
         return packet
     
     def format_relayclient_packet_hp_bullets(self,id):
-        # Retrieve hp and bullets based on the player ID
         if id == 1:
             hp = self.hp_p1
             bullets = self.bullets_p1
@@ -251,191 +212,185 @@ class GameEngine(Thread):
             'hp' : hp,
             'bullets' : bullets
         }
-
         return packet
+    
+    def log_game_state(self):
+        game_state_info = (
+            "[Game State Log] Player 1 Stats:\n"
+            f"HP: {self.hp_p1}, Shield HP: {self.shieldHp_p1}, Shield Charges: {self.shieldCharges_p1}, Bullets: {self.bullets_p1}, Bombs: {self.bomb_p1}, Deaths: {self.deaths_p1}\n"
+            "[Game State Log] Player 2 Stats:\n"
+            f"HP: {self.hp_p2}, Shield HP: {self.shieldHp_p2}, Shield Charges: {self.shieldCharges_p2}, Bullets: {self.bullets_p2}, Bombs: {self.bomb_p2}, Deaths: {self.deaths_p2}\n"
+        )
+        print(game_state_info)
+    
+    #########################
+    ### END OF GAME LOGIC ###
+    #########################
 
 
+    def get_action_type_and_player_id(self, action):
+        parts = action.split(":")
+        if len(parts) != 2:
+            print_message('Game Engine', f"Invalid action format: {action}")
+            return None, None
+        return parts
+        
 
-
-
-    def random_game_state(self):
-        return {
-            'player': 1,
-            'hp': random.randint(10, 90),
-            'bullets': random.randint(0, 6),
-            'bombs': random.randint(0, 2),
-            'shield_hp': random.randint(0, 30),
-            'deaths': random.randint(0, 3),
-            'shields': random.randint(0, 3)
-        }
-
-
-    def process_phone_action(self, action):
+    def process_phone_action_and_get_viz_format(self, action):
         print_message('Game Engine', f"Processing phone action: {action}")
 
         
-
-        # If not an FOV response, proceed with regular action processing
         action_p1 = "none"  # Default action for player 1
         action_p2 = "none"  # Default action for player 2
 
-        # Validate and split the action string (e.g., "shoot:1", "reload:2")
-        if ":" in action:
-            parts = action.split(":")
-            if len(parts) != 2:
-                print_message('Game Engine', f"Invalid action format: {action}")
-                return None
+        if ":" not in action: 
+            print_message('Game Engine', f"Invalid action format: {action}")
+            return None
 
-            action_type, player_id = parts
-            player_id = int(player_id)
-
-            
-            if action_type == "gun":
-                success = self.shoot(player_id)
-                if success:
-                    if player_id == 1:
-                        action_p1 = "gun"
-
-
-
-                        # Now check the shot_queue for Player 2 (opponent)
-                        shot_result = self.check_shot_queue_for_hit(1) # func takes in shooting player's id
-                        if shot_result:
-                            print_message('Game Engine', "Player 1's shot hit Player 2!")
-                            self.take_bullet_damage(2)
-                            self.to_rs_queue.put(self.format_relayclient_packet_isHit(2, 1)) # player 2 got shot
-                        else:
-                            print_message('Game Engine', "Player 1's shot missed Player 2!")
-                    else: # player_id = 2
-                        action_p2 = "gun"
-                        # Now check the shot_queue for Player 1 (opponent)
-                        shot_result = self.check_shot_queue_for_hit(2) # func takes in shooting player's id
-                        if shot_result:
-                            print_message('Game Engine', "Player 2's shot hit Player 1!")
-                            self.take_bullet_damage(1)
-                            self.to_rs_queue.put(self.format_relayclient_packet_isHit(1, 1)) # player 1 got shot
-                        else:
-                            print_message('Game Engine', "Player 2's shot missed Player 1!")
-                else:
-                    # Indicate failure directly by setting action_p1 or action_p2
-                    if player_id == 1:
-                        action_p1 = "gun_fail"
-                        action_p2 = "none"  # For clarity, explicitly set the other action to "none"
-                    else:
-                        action_p2 = "gun_fail"
-                        action_p1 = "none"
-
-                print_message('Game Engine', f"Player {player_id} attempted to shoot: {'Success' if success else 'Failed'}")
-
-            elif action_type == "reload":
-                success = self.reload(player_id)
-                if success:
-                    if player_id == 1:
-                        action_p1 = "reload"
-                    else:
-                        action_p2 = "reload"
-                else:
-                    # Indicate failure directly by setting action_p1 or action_p2
-                    if player_id == 1:
-                        action_p1 = "reload_fail"
-                        action_p2 = "none"
-                    else:
-                        action_p2 = "reload_fail"
-                        action_p1 = "none"
-
-                print_message('Game Engine', f"Player {player_id} attempted to reload: {'Success' if success else 'Failed'}")
-
-
-
-            elif action_type in ["basket", "soccer", "volley", "bowl"]:
-                # Handle the AI actions for sports or bomb
-                print_message('Game Engine', f"Player {player_id} performed AI action: {action_type}")
-                if player_id == 1:
-                    action_p1 = action_type
-                else:
-                    action_p2 = action_type
-                print_message('Game Engine', f"Player {player_id} performed {action_type}")
-            
-            elif action_type == "bomb":
-                success = self.bomb(player_id)
-                if success:
-                    if player_id == 1:
-                        action_p1 = "bomb"
-                    else:
-                        action_p2 = "bomb"
-                else:
-                    # Indicate failure directly by setting action_p1 or action_p2
-                    if player_id == 1:
-                        action_p1 = "bomb_fail"
-                        action_p2 = "none"  # For clarity, explicitly set the other action to "none"
-                    else:
-                        action_p2 = "bomb_fail"
-                        action_p1 = "none"
-
-            elif action_type == "ai_damage":
-                self.take_ai_damage(player_id)
-                if player_id == 1:
-                    action_p1 = "ai_damage"
-                else:
-                    action_p2 = "ai_damage"
-                print_message('Game Engine', f"Player {player_id} took AI damage")
-
-            elif action_type == "bullet_damage":
-                success = self.take_bullet_damage(player_id)
-                if success:
-                    if player_id == 1:
-                        action_p1 = "bullet_damage"
-                    else:
-                        action_p2 = "bullet_damage"
-                print_message('Game Engine', f"Player {player_id} took bullet damage: {'Success' if success else 'Failed'}")
-
-            elif action_type == "rain_bomb_damage":
-                success = self.take_rain_bomb_damage(player_id)
-                if success:
-                    if player_id == 1:
-                        action_p1 = "rain_bomb_damage"
-                    else:
-                        action_p2 = "rain_bomb_damage"
-                print_message('Game Engine', f"Player {player_id} took rain bomb damage: {'Success' if success else 'Failed'}")
-
-            elif action_type == "shield":
-                success = self.charge_shield(player_id)
-                if success:
-                    if player_id == 1:
-                        action_p1 = "shield"
-                    else:
-                        action_p2 = "shield"
-                else:
-                    # Indicate failure directly by setting action_p1 or action_p2
-                    if player_id == 1:
-                        action_p1 = "shield_fail"
-                        action_p2 = "none"  # Explicitly set the other action to "none" for clarity
-                    else:
-                        action_p2 = "shield_fail"
-                        action_p1 = "none"
-
-                print_message('Game Engine', f"Player {player_id} attempted to charge their shield: {'Success' if success else 'Failed'}")
-
-
-            elif action_type == "update_ui":
-                # Set both player actions to "update_ui" so that both players update their UI
-                action_p1 = "update_ui"
-                action_p2 = "update_ui"
-                print_message('Game Engine', f"UI update requested for both players.")
-
-
-            elif action_type == "logout":
-                if player_id == 1:
-                    action_p1 = "logout"
-                else:
-                    action_p2 = "logout"
         
-                print_message('Game Engine', f"Player {player_id} logout")
+        
+        action_type, player_id = self.get_action_type_and_player_id(action)
+        player_id = int(player_id)
+
             
-            
-                
+        if action_type == "gun":
+            success = self.shoot(player_id)
+            if success:
+                if player_id == 1:
+                    action_p1 = "gun"
+                    shot_result = self.check_shot_queue_for_hit(1) # func takes in shooting player's id
+                    if shot_result:
+                        print_message('Game Engine', "Player 1's shot hit Player 2!")
+                        self.take_bullet_damage(2)
+                        self.to_rs_queue.put(self.format_relayclient_packet_isHit(2, 1)) # player 2 got shot
+                    else:
+                        print_message('Game Engine', "Player 1's shot missed Player 2!")
+                else: # player_id = 2
+                    action_p2 = "gun"
+                    shot_result = self.check_shot_queue_for_hit(2) # func takes in shooting player's id
+                    if shot_result:
+                        print_message('Game Engine', "Player 2's shot hit Player 1!")
+                        self.take_bullet_damage(1)
+                        self.to_rs_queue.put(self.format_relayclient_packet_isHit(1, 1)) # player 1 got shot
+                    else:
+                        print_message('Game Engine', "Player 2's shot missed Player 1!")
             else:
-                print_message('Game Engine', f"Unknown action type: {action_type}")
+                # Indicate failure directly by setting action_p1 or action_p2
+                if player_id == 1:
+                    action_p1 = "gun_fail"
+                    action_p2 = "none"  # For clarity, explicitly set the other action to "none"
+                else:
+                    action_p2 = "gun_fail"
+                    action_p1 = "none"
+
+            print_message('Game Engine', f"Player {player_id} attempted to shoot: {'Success' if success else 'Failed'}")
+
+        elif action_type == "reload":
+            success = self.reload(player_id)
+            if success:
+                if player_id == 1:
+                    action_p1 = "reload"
+                else:
+                    action_p2 = "reload"
+            else:
+                # Indicate failure directly by setting action_p1 or action_p2
+                if player_id == 1:
+                    action_p1 = "reload_fail"
+                    action_p2 = "none"
+                else:
+                    action_p2 = "reload_fail"
+                    action_p1 = "none"
+
+            print_message('Game Engine', f"Player {player_id} attempted to reload: {'Success' if success else 'Failed'}")
+
+
+
+        elif action_type in ["basket", "soccer", "volley", "bowl"]:
+            # Handle the AI actions for sports or bomb
+            print_message('Game Engine', f"Player {player_id} performed AI action: {action_type}")
+            if player_id == 1:
+                action_p1 = action_type
+            else:
+                action_p2 = action_type
+            print_message('Game Engine', f"Player {player_id} performed {action_type}")
+        
+        elif action_type == "bomb":
+            success = self.bomb(player_id)
+            if success:
+                if player_id == 1:
+                    action_p1 = "bomb"
+                else:
+                    action_p2 = "bomb"
+            else:
+                # Indicate failure directly by setting action_p1 or action_p2
+                if player_id == 1:
+                    action_p1 = "bomb_fail"
+                    action_p2 = "none"  # For clarity, explicitly set the other action to "none"
+                else:
+                    action_p2 = "bomb_fail"
+                    action_p1 = "none"
+
+        elif action_type == "ai_damage":
+            self.take_ai_damage(player_id)
+            if player_id == 1:
+                action_p1 = "ai_damage"
+            else:
+                action_p2 = "ai_damage"
+            print_message('Game Engine', f"Player {player_id} took AI damage")
+
+        elif action_type == "bullet_damage":
+            success = self.take_bullet_damage(player_id)
+            if success:
+                if player_id == 1:
+                    action_p1 = "bullet_damage"
+                else:
+                    action_p2 = "bullet_damage"
+            print_message('Game Engine', f"Player {player_id} took bullet damage: {'Success' if success else 'Failed'}")
+
+        elif action_type == "rain_bomb_damage":
+            success = self.take_rain_bomb_damage(player_id)
+            if success:
+                if player_id == 1:
+                    action_p1 = "rain_bomb_damage"
+                else:
+                    action_p2 = "rain_bomb_damage"
+            print_message('Game Engine', f"Player {player_id} took rain bomb damage: {'Success' if success else 'Failed'}")
+
+        elif action_type == "shield":
+            success = self.charge_shield(player_id)
+            if success:
+                if player_id == 1:
+                    action_p1 = "shield"
+                else:
+                    action_p2 = "shield"
+            else:
+                # Indicate failure directly by setting action_p1 or action_p2
+                if player_id == 1:
+                    action_p1 = "shield_fail"
+                    action_p2 = "none"  # Explicitly set the other action to "none" for clarity
+                else:
+                    action_p2 = "shield_fail"
+                    action_p1 = "none"
+
+            print_message('Game Engine', f"Player {player_id} attempted to charge their shield: {'Success' if success else 'Failed'}")
+
+
+        elif action_type == "update_ui":
+            # Set both player actions to "update_ui" so that both players update their UI
+            action_p1 = "update_ui"
+            action_p2 = "update_ui"
+            print_message('Game Engine', f"UI update requested for both players.")
+
+
+        elif action_type == "logout":
+            if player_id == 1:
+                action_p1 = "logout"
+            else:
+                action_p2 = "logout"
+    
+            print_message('Game Engine', f"Player {player_id} logout")
+            
+        
         else:
             print_message('Game Engine', "Invalid action format received from phone")
 
@@ -450,9 +405,7 @@ class GameEngine(Thread):
 
         return viz_format
 
-    def format_relayclient_packet(self, shooting_player_id):
-        
-        pass
+   
 
 
 
@@ -557,7 +510,7 @@ class GameEngine(Thread):
                     self.take_rain_bomb_damage(opponent_id)
 
             # Update game state after processing the response
-            self.update_both_players_game_state()
+            self.log_game_state()
 
         except ValueError as e:
             print_message('Game Engine', f"Error: {e}")
@@ -699,9 +652,7 @@ class GameEngine(Thread):
     def extract_action(self,phone_action):
         return phone_action.split(":")[0]
     
-    # TODO: Add hasReceivedP1Action Signal AIOne Thread not to put anything into P1_action_queue
-    # TODO: Add hasReceivedP2Action Signal AITwo Thread not to put anything into P2_action_queue
-
+ 
 
 
     def send_to_phone_and_wait_for_phone_response_with_retries(self, viz_queue, phone_response_queue, viz_format, max_retries, player_id):
@@ -725,66 +676,33 @@ class GameEngine(Thread):
         # string Response = $"{player_id}:{isPrevActionAnAIAction}:{isPrevActionHit}:{prevActionString}:{rainBombHitCount}"
         # I assume that the probabilty of hitting an AI action i.e. players see each other is a lot higher than not seeing
         # Also i assume rain bomb is 0
-        default_response = f"{player_id}:1:1:Basket:0"
+        default_response = f"{player_id}:1:1:basket:0"
         return default_response
 
 
     def run(self):
         while True:
-            
-
-            # Change this tmr    
-            # Handle phone action if it's not empty
             if not self.P1_action_queue.empty():
-
                 
                 
 
-                ## Start of Player 1 Action Code ##
+
+                #####################################
+                ### Start of Player 1 Action Code ###
+                #####################################
                 phone_action1 = self.P1_action_queue.get()
-
-                
 
                 if (phone_action1 == "logout:1" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
                     print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
                     phone_action1 = "basket:1"
                 
                 print_message('Game Engine', f"Received action '{phone_action1}' from phone action queue player 1")
-                viz_format1 = self.process_phone_action(phone_action1)
-                
-
+                viz_format1 = self.process_phone_action_and_get_viz_format(phone_action1)
                 phone1_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format1,max_retries=2,player_id=1)
-                
-                # OLD
-                # self.viz_queue.put(viz_format1)
-                # print("Game Engine: Waiting for phone 1 to reply")
-                # phone1_response = self.phone_response_queue.get()
-
-
-
-                # There should be two phone response but right now, 1 player game so we only put 1 first
-                # phone2_response = self.phone_response_queue.get()
-
-                #TODO: Here there will be a problem for the two player game, bcs for the 1 player game, we know which player
-                #      is doing the action, but for two player game, identifying which player does the action is tricky
-
-
                 player1_ai_predicted_action = self.extract_action(phone_action1) 
                 self.P1_ai_predicted_action = player1_ai_predicted_action
-
                 player1_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone1_response)
                 
-
-
-                
-                
-                
-            
-                
-
-
-
-                # More code below to handle eval_server response but I left this out
                 eval_server_format = self.prepare_eval_server_format(1, player1_prev_action_from_phone)
                 print("Game Engine: Putting into eval_queue to be sent to eval_server")
                 self.eval_queue.put(eval_server_format)
@@ -795,54 +713,40 @@ class GameEngine(Thread):
                 print("updated game state:")
                 print(updated_game_state)
 
-                # # Check if the eval server's game state differs from the current game state
+                # Check if the eval server's game state differs from the current game state
                 if self.is_curr_game_state_diff_from_updated(updated_game_state):
-
                     print("Game Engine: curr game state diff from eval game state")
-
                     print("Game Engine: updating curr game state to eval game state")
                     self.update_current_game_state(updated_game_state)
                     
                     # Put "update_ui" into the phone response queue to update the UI without triggering an action
-                    viz_format = self.process_phone_action("update_ui:1")
+                    viz_format = self.process_phone_action_and_get_viz_format("update_ui:1")
                     self.viz_queue.put(viz_format)
 
 
                 # Sending packets back to vest and gun
-                self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))
                 print_message('Game Engine',"Sending info back to relay client")
+                self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))       
                 self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
-                print_message('Game Engine',"Sending info back to relay client")
-
-
-                ## End of Player 1 Action Code ##
-
-
-                ## Start of Player 2 Action Code ##
                 
+                #####################################
+                ###  End of Player 1 Action Code  ###
+                #####################################
+
                 
-                # FOR SINGLE PHONE TESTING
-                # HERE WE JUST PUT A RANDOM ACTION INTO THE PHONE. I MADE IT ALWAYS BASKETBALL
 
 
-
-                # phone_action2 = self.P2_action_queue.get()
-                # #phone_action2 = "basket:2"
+                #####################################
+                ### Start of Player 2 Action Code ###
+                #####################################
                 
-                # print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
-                # viz_format2 = self.process_phone_action(phone_action2)
-
-
                 # Set a timer for Player 2 action
                 try:
                     # Wait for Player 2 action with a timeout of 30 seconds
                     phone_action2 = self.P2_action_queue.get(timeout=self.ACTIONTIMEOUT)
-
                     if (phone_action2 == "logout:2" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
                         print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
                         phone_action2 = "basket:2"
-
-                    
                     print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
                 except queue.Empty:
                     # Timeout reached: set Player 2 action to a default value
@@ -850,33 +754,14 @@ class GameEngine(Thread):
                     print_message('Game Engine', "Player 2 action timeout, setting to default action.")
 
 
-                viz_format2 = self.process_phone_action(phone_action2)
-
-                
-    
-                # self.viz_queue.put(viz_format2)
-
-                # print("Game Engine: Waiting for phone 2 to reply")
-                # phone2_response = self.phone_response_queue.get()
+                viz_format2 = self.process_phone_action_and_get_viz_format(phone_action2)
                 phone2_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format2,max_retries=2,player_id=2)
-
-
-                # There should be two phone response but right now, 1 player game so we only put 1 first
-                # phone2_response = self.phone_response_queue.get()
-
-                #TODO: Here there will be a problem for the two player game, bcs for the 1 player game, we know which player
-                #      is doing the action, but for two player game, identifying which player does the action is tricky
-
 
                 player2_ai_predicted_action = self.extract_action(phone_action2) 
                 self.P2_ai_predicted_action = player2_ai_predicted_action
                 player2_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone2_response)
 
-
-                
-                ## End of Player 2 Action Code ##
-
-                # More code below to handle eval_server response but I left this out
+           
                 eval_server_format = self.prepare_eval_server_format(2, player2_prev_action_from_phone)
                 print("Game Engine: Putting into eval_queue to be sent to eval_server")
                 self.eval_queue.put(eval_server_format)
@@ -896,21 +781,25 @@ class GameEngine(Thread):
                     self.update_current_game_state(updated_game_state)
                     
                     # Put "update_ui" into the phone response queue to update the UI without triggering an action
-                    viz_format = self.process_phone_action("update_ui:1")
+                    viz_format = self.process_phone_action_and_get_viz_format("update_ui:1")
                     self.viz_queue.put(viz_format)
 
 
                 # Sending packets back to vest and gun
-                self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))
                 print_message('Game Engine',"Sending info back to relay client")
+                self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))      
                 self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
-                print_message('Game Engine',"Sending info back to relay client")
+   
 
                 # Clear queue to prevent duplicate
                 self.clear_queue(self.P1_action_queue)
                 self.clear_queue(self.P2_action_queue)
 
                 self.game_turns_passed += 1
+            
+            #####################################
+            ###  End of Player 2 Action Code  ###
+            #####################################
 
 
 
@@ -918,7 +807,9 @@ class GameEngine(Thread):
 
             if not self.P2_action_queue.empty():
 
-                ## Start of Player 2 Action Code ##
+                #####################################
+                ### Start of Player 2 Action Code ###
+                #####################################
                 phone_action2 = self.P2_action_queue.get()
 
 
@@ -927,21 +818,10 @@ class GameEngine(Thread):
                     phone_action2 = "basket:2"
                 
                 print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
-                viz_format2 = self.process_phone_action(phone_action2)
+                viz_format2 = self.process_phone_action_and_get_viz_format(phone_action2)
                 
                 phone2_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format2,max_retries=2,player_id=2)
-                # self.viz_queue.put(viz_format2)
-
-                # print("Game Engine: Waiting for phone 2 to reply")
-                # phone2_response = self.phone_response_queue.get()
-
-
-
-                # There should be two phone response but right now, 1 player game so we only put 1 first
-                # phone2_response = self.phone_response_queue.get()
-
-                #TODO: Here there will be a problem for the two player game, bcs for the 1 player game, we know which player
-                #      is doing the action, but for two player game, identifying which player does the action is tricky
+    
 
 
                 player2_ai_predicted_action = self.extract_action(phone_action2) 
@@ -952,7 +832,7 @@ class GameEngine(Thread):
 
                 ## End of Player 2 Action Code ##
 
-                # More code below to handle eval_server response but I left this out
+              
                 eval_server_format = self.prepare_eval_server_format(2, player2_prev_action_from_phone)
                 print("Game Engine: Putting into eval_queue to be sent to eval_server")
                 self.eval_queue.put(eval_server_format)
@@ -972,7 +852,7 @@ class GameEngine(Thread):
                     self.update_current_game_state(updated_game_state)
                     
                     # Put "update_ui" into the phone response queue to update the UI without triggering an action
-                    viz_format = self.process_phone_action("update_ui:1")
+                    viz_format = self.process_phone_action_and_get_viz_format("update_ui:1")
                     self.viz_queue.put(viz_format)
 
 
@@ -982,12 +862,18 @@ class GameEngine(Thread):
                 self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
                 print_message('Game Engine',"Sending info back to relay client")
 
+                #####################################
+                ###  End of Player 2 Action Code  ###
+                #####################################
+
                 
 
 
                 
 
-                ## Start of Player 1 Action Code ##
+                #####################################
+                ### Start of Player 1 Action Code ###
+                #####################################
                 try:
                     # Wait for Player 1 action with a timeout of 30 seconds
                     phone_action1 = self.P1_action_queue.get(timeout=self.ACTIONTIMEOUT)
@@ -1004,29 +890,21 @@ class GameEngine(Thread):
                     print_message('Game Engine', "Player 1 action timeout, setting to default action.")
                 
                 print_message('Game Engine', f"Received action '{phone_action1}' from phone action queue player 1")
-                viz_format1 = self.process_phone_action(phone_action1)
+                viz_format1 = self.process_phone_action_and_get_viz_format(phone_action1)
                 
 
                 phone1_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format1,max_retries=2,player_id=1)
-                # self.viz_queue.put(viz_format1)
-
-                # print("Game Engine: Waiting for phone 1 to reply")
-                # phone1_response = self.phone_response_queue.get()
+              
 
 
 
-                # There should be two phone response but right now, 1 player game so we only put 1 first
-                # phone2_response = self.phone_response_queue.get()
-
-                #TODO: Here there will be a problem for the two player game, bcs for the 1 player game, we know which player
-                #      is doing the action, but for two player game, identifying which player does the action is tricky
                 player1_ai_predicted_action = self.extract_action(phone_action1) 
                 self.P1_ai_predicted_action = player1_ai_predicted_action
                 player1_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone1_response)
 
 
 
-                # More code below to handle eval_server response but I left this out
+             
                 eval_server_format = self.prepare_eval_server_format(1, player1_prev_action_from_phone)
                 print("Game Engine: Putting into eval_queue to be sent to eval_server")
                 self.eval_queue.put(eval_server_format)
@@ -1046,7 +924,7 @@ class GameEngine(Thread):
                     self.update_current_game_state(updated_game_state)
                     
                     # Put "update_ui" into the phone response queue to update the UI without triggering an action
-                    viz_format = self.process_phone_action("update_ui:1")
+                    viz_format = self.process_phone_action_and_get_viz_format("update_ui:1")
                     self.viz_queue.put(viz_format)
 
 
@@ -1057,7 +935,9 @@ class GameEngine(Thread):
                 print_message('Game Engine',"Sending info back to relay client")
 
 
-                ## End of Player 1 Action Code ##
+                #####################################
+                ###  End of Player 1 Action Code  ###
+                #####################################
 
 
                 # Clear queue to prevent duplicate
@@ -1066,62 +946,4 @@ class GameEngine(Thread):
 
                 self.game_turns_passed += 1
 
-           
-
-                
-                
-
-                
-
-
-
- 
-          
-            # temp_viz_format = self.process_phone_action(phone_action) # viz format returned not used as need eval server response to send updated info to viz 
-            # time.sleep(5)
-            # updated_game_state = self.from_eval_queue.get()
-            # print_message('Game Engine',f"Received {updated_game_state} from eval server")
-
-            #     #TODO make new game state with response from eval server and then put in viz queue 
-            ''' 
-            maybe a new function to update_game_state() 
-            viz_format = update_game_state(updated_game_state)
-
-            print_message('Game Engine', f"Sending updated game state to visualizer: {viz_format}")
-            self.viz_queue.put(viz_format)  # Send updated state to the visualizer AFTER eval server replies 
-   
-            '''
-                
-                
-    # # Before
-    # def run(self):
-    #     while True:
-        
-    #         #print("Reached Game Engine Main Loop")
-    #         #print("Checking if phone action queue is empty")
-            
-    #         # Handle phone action if it's not empty
-    #         if not self.phone_action_queue.empty():
-    #             phone_action = self.phone_action_queue.get()
-                
-    #         #print_message('Game Engine', f"Received action '{phone_action}' from phone")
-    #         viz_format = self.process_phone_action(phone_action)
-    #         self.viz_queue.put(viz_format)
-    #         #waiting for phone to reply 
-    #         # TODO we need to think about what happens if MQTT disconnects or anything happens such that phone cannot reply, need to timeout the queue.get() and do what? hardcode a value? reconnect MQTT and? 
-    #         phone_action = self.phone_action_queue.get()
-    #         temp_viz_format = self.process_phone_action(phone_action) # viz format returned not used as need eval server response to send updated info to viz 
-    #         updated_game_state = self.from_eval_queue.get()
-    #         print_message('Game Engine',f"Received {updated_game_state} from eval server")
-
-    #         #TODO make new game state with response from eval server and then put in viz queue 
-    #         ''' 
-    #         maybe a new function to update_game_state() 
-    #         viz_format = update_game_state(updated_game_state)
-
-    #         print_message('Game Engine', f"Sending updated game state to visualizer: {viz_format}")
-    #         self.viz_queue.put(viz_format)  # Send updated state to the visualizer AFTER eval server replies 
-   
-    #         '''
-        
 

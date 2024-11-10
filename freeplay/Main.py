@@ -27,10 +27,10 @@ relayport = 5055
 P1_IMU_queue = queue.Queue()
 P2_IMU_queue = queue.Queue()
 viz_queue = queue.Queue()
-#eval_queue = queue.Queue()
-action_queue = queue.Queue()
 
-#from_eval_queue = queue.Queue()
+P1_action_queue = queue.Queue()
+P2_action_queue = queue.Queue()
+
 phone_response_queue = queue.Queue()
 to_rs_queue = queue.Queue()
 shot_queue = queue.Queue()
@@ -40,9 +40,9 @@ P1_ankle_queue = queue.Queue()
 P2_ankle_queue = queue.Queue()
 
 relay_server = RelayServer(host = relayhost,port = relayport,P1_IMU_queue=P1_IMU_queue,P2_IMU_queue=P2_IMU_queue,shot_queue = shot_queue,P1_fire_queue = P1_fire_queue,P2_fire_queue = P2_fire_queue,P1_ankle_queue = P1_ankle_queue,P2_ankle_queue = P2_ankle_queue,to_rs_queue = to_rs_queue)
-p1_ai = AIOne(P1_IMU_queue=P1_IMU_queue,action_queue=action_queue, P1_fire_queue = P1_fire_queue,P1_ankle_queue = P1_ankle_queue)
-p2_ai = AITwo(P2_IMU_queue=P2_IMU_queue,action_queue=action_queue, P2_fire_queue = P2_fire_queue,P2_ankle_queue = P2_ankle_queue)
-game_engine = GameEngine(action_queue=action_queue,viz_queue=viz_queue, phone_response_queue=phone_response_queue,shot_queue = shot_queue,to_rs_queue = to_rs_queue)
+p1_ai = AIOne(P1_IMU_queue=P1_IMU_queue,action_queue=P1_action_queue, P1_fire_queue = P1_fire_queue,P1_ankle_queue = P1_ankle_queue)
+p2_ai = AITwo(P2_IMU_queue=P2_IMU_queue,action_queue=P2_action_queue, P2_fire_queue = P2_fire_queue,P2_ankle_queue = P2_ankle_queue)
+game_engine = GameEngine(P1_action_queue=P1_action_queue,P2_action_queue=P2_action_queue,viz_queue=viz_queue, phone_response_queue=phone_response_queue,shot_queue = shot_queue,to_rs_queue = to_rs_queue)
 visualizer_mqtt = MQTT(viz_queue=viz_queue,phone_response_queue=phone_response_queue)
 
 

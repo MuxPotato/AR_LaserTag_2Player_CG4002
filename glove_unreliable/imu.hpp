@@ -11,7 +11,7 @@
 #define THRESHOLD_START_TONE 880
 #define THRESHOLD_END_TONE 500
 #define THRESHOLD_TONE_DURATION 500
-#define IS_GLOVE true
+#define IS_GLOVE false
 
 enum ImuTransmissionState {
   WAITING_FOR_ACTION = 0,

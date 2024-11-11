@@ -43,7 +43,7 @@ class Beetle(threading.Thread):
         # Configure Peripheral
         self.ble_delegate: BlePacketDelegate = BlePacketDelegate(self.mDataBuffer)
         # Debug printing(more verbose)
-        self.is_debug_printing = True
+        self.is_debug_printing = False
 
     def connect(self):
         while not self.terminateEvent.is_set():

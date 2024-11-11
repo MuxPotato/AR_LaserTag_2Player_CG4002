@@ -11,7 +11,7 @@ import traceback
 from external_utils import COOLDOWN_PERIOD, PACKETS_PER_ACTION, QUEUE_GET_TIMEOUT, ImuRelayState
 from internal_utils import bcolors
 
-IS_DEBUG_PRINTING = True
+IS_DEBUG_PRINTING = False
 
 class ReceiverThread(threading.Thread):
     def __init__(self, my_socket: socket.SocketType, server_ip: str, stop_event: threading.Event, to_ble_game_state_queue: queue.Queue):

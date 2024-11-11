@@ -121,8 +121,7 @@ class SenderThread(threading.Thread):
             # Incoming IMU data from Beetle has not crossed threshold yet
             accel_analytics: float = self.get_analytics_for(imu_packet)
             if accel_analytics >= self.data_threshold:
-                if IS_DEBUG_PRINTING:
-                    print(f"""{bcolors.RED}DEBUG: Threshold exceeded, sending data{bcolors.ENDC}""")
+                print(f"""{bcolors.RED}NOTE: Player {imu_packet.id} triggered action, sending IMU data{bcolors.ENDC}""")
                 # Current packet exceeds threshold for action(potential action packet),
                 #   send it to relay server for AI inference
                 self.sender_state = ImuRelayState.SENDING_ACTION
@@ -141,13 +140,13 @@ class SenderThread(threading.Thread):
                 # Cooldown period starts now, record the start time
                 self.cooldown_period_start = time.time()
                 if IS_DEBUG_PRINTING:
-                    print(f"""{bcolors.RED}DEBUG: Cooldown period start{bcolors.ENDC}""")
+                    print(f"""{bcolors.RED}DEBUG: Player {imu_packet.id} cooldown period start{bcolors.ENDC}""")
                 return
         elif self.sender_state == ImuRelayState.COOLDOWN:
             # Currently in cooldown period
             if (time.time() - self.cooldown_period_start) > COOLDOWN_PERIOD:
                 if IS_DEBUG_PRINTING:
-                    print(f"""{bcolors.RED}DEBUG: Cooldown period end, waiting for threshold{bcolors.ENDC}""")
+                    print(f"""{bcolors.RED}DEBUG: Player {imu_packet.id} cooldown period end, waiting for threshold{bcolors.ENDC}""")
                 # Cooldown period is now over, return to waiting for action state
                 self.sender_state = ImuRelayState.WAITING_FOR_ACTION
                 return

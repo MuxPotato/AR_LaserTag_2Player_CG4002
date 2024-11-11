@@ -78,13 +78,11 @@ void loop() {
     // -> Send keep alive packet periodically when no sensor packet is transmitted so laptop knows Beetle is responding
     BlePacket keepAlivePacket = createKeepAlivePacket(senderSeqNum);
     sendPacket(keepAlivePacket);
-    // Update lastSentPacket to allow keep alive packet to be retransmitted
-    lastSentPacket = keepAlivePacket;
-    // Update lastSentPacketTime to support retransmit on timeout and regular keep alive packets
+    // Update lastSentPacketTime to support periodic keep alive packet transmission
     lastSentPacketTime = millis();
-    // Require acknowledgement for keep alive packet
-    isWaitingForAck = true;
+    // Don't require ACK for keep alive packets
   }
+  // Always process incoming packets regardless of what sender logic does
   if ((millis() - lastReadPacketTime) >= READ_PACKET_DELAY) { // Handle incoming packets
     // Received some bytes from laptop, process them wwhile maintaining at least READ_PACKET_DELAY
     //   in between reading of 2 consecutive packets 

@@ -5,17 +5,10 @@ import queue
 import sys
 import threading
 from beetle import GloveUnreliableBeetle
-from internal_utils import bcolors
+from internal_utils import BEETLE_MAC_ADDR, bcolors
 
-# Set 1 Glove IMU
-GLOVE_IMU_BEETLE = "F4:B8:5E:42:61:62"
-# Set 1 Ankle strap
-ANKLE_IMU_BEETLE = "D0:39:72:DF:CA:F2"
-
-# Set 2 Glove IMU
-#GLOVE_IMU_BEETLE = "B4:99:4C:89:1B:FD"
-# Set 2 Ankle strap
-#ANKLE_IMU_BEETLE = "34:08:E1:2A:08:61"
+GLOVE_IMU_BEETLE = BEETLE_MAC_ADDR.P1_GLOVE.value
+GLOVE2_IMU_BEETLE = BEETLE_MAC_ADDR.P2_GLOVE.value
 
 def dump_imu_data_to_csv(filename: str, label: str, imu_queue: queue.Queue, imu_type: str = "glove"):
     target_file_path = f"""imu_data/{filename}_{imu_type}.csv"""
@@ -28,21 +21,21 @@ def dump_imu_data_to_csv(filename: str, label: str, imu_queue: queue.Queue, imu_
             csv_writer.writerow([*imu_data.accel, *imu_data.gyro, label])
 
 class QueueSynchroniser(threading.Thread):
-    def __init__(self, glove_queue: queue.Queue, ankle_queue: queue.Queue):
+    def __init__(self, glove_queue: queue.Queue, glove2_queue: queue.Queue):
         super().__init__()
         self.stop_event = threading.Event()
         self.glove_queue = glove_queue
-        self.ankle_queue = ankle_queue
+        self.glove2_queue = glove2_queue
         self.has_synced = False
 
     def run(self):
         while not self.stop_event.is_set():
             try:
-                if not self.has_synced and self.glove_queue.qsize() > 0 and self.ankle_queue.qsize() > 0:
+                if not self.has_synced and self.glove_queue.qsize() > 0 and self.glove2_queue.qsize() > 0:
                     with self.glove_queue.mutex:
                         self.glove_queue.queue.clear()
-                    with self.ankle_queue.mutex:
-                        self.ankle_queue.queue.clear()
+                    with self.glove2_queue.mutex:
+                        self.glove2_queue.queue.clear()
                     print(f"""{bcolors.BRIGHT_YELLOW}Synced both queues{bcolors.ENDC}""")
                     self.has_synced = True
             except queue.Empty:
@@ -53,38 +46,40 @@ class QueueSynchroniser(threading.Thread):
 
 if __name__=="__main__":
     glove_imu_beetle = None
-    ankle_imu_beetle = None
+    glove2_imu_beetle = None
     synchroniser = None
     glove_color = bcolors.BRIGHT_CYAN
-    ankle_color = bcolors.BRIGHT_GREEN
+    glove2_color = bcolors.BRIGHT_GREEN
     dummy_incoming_queue = queue.Queue()
     glove_imu_collector_queue = queue.Queue()
-    ankle_imu_collector_queue = queue.Queue()
+    glove2_imu_collector_queue = queue.Queue()
     try:
-        synchroniser = QueueSynchroniser(glove_imu_collector_queue, ankle_imu_collector_queue)
+        synchroniser = QueueSynchroniser(glove_imu_collector_queue, glove2_imu_collector_queue)
         synchroniser.start()
         glove_imu_beetle = GloveUnreliableBeetle(GLOVE_IMU_BEETLE,
                 glove_imu_collector_queue, dummy_incoming_queue, glove_color)
         glove_imu_beetle.start()
-        ankle_imu_beetle = GloveUnreliableBeetle(ANKLE_IMU_BEETLE, 
-                ankle_imu_collector_queue, dummy_incoming_queue, ankle_color)
-        ankle_imu_beetle.start()
+        glove2_imu_beetle = GloveUnreliableBeetle(GLOVE2_IMU_BEETLE, 
+                glove2_imu_collector_queue, dummy_incoming_queue, glove2_color)
+        glove2_imu_beetle.start()
         while True:
             pass
     except KeyboardInterrupt:
         if glove_imu_beetle:
             glove_imu_beetle.quit()
             glove_imu_beetle.join()
-        if ankle_imu_beetle:
-            ankle_imu_beetle.quit()
-            ankle_imu_beetle.join()
+        if glove2_imu_beetle:
+            glove2_imu_beetle.quit()
+            glove2_imu_beetle.join()
         if synchroniser:
             synchroniser.stop()
             synchroniser.join()
         
-        filename = input("Enter the filename to dump IMU data to: ")
-        label = input("Enter the label for the current data: ")
-        dump_imu_data_to_csv(filename, label, glove_imu_collector_queue, "glove")
-        dump_imu_data_to_csv(filename, label, ankle_imu_collector_queue, "ankle")
+        filename1 = input("Enter the filename to dump IMU data for glove 1: ")
+        label1 = input("Enter the label for glove 1: ")
+        filename2 = input("Enter the filename to dump IMU data for glove 2: ")
+        label2 = input("Enter the label for glove 2: ")
+        dump_imu_data_to_csv(filename1, label1, glove_imu_collector_queue, "glove")
+        dump_imu_data_to_csv(filename2, label2, glove2_imu_collector_queue, "glove2")
     sys.exit(0)
     

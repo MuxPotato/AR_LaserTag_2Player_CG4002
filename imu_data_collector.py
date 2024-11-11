@@ -4,9 +4,9 @@ import os
 import queue
 import sys
 from beetle import GloveUnreliableBeetle
-from internal_utils import bcolors
+from internal_utils import BEETLE_MAC_ADDR, bcolors
 
-IMU_BEETLE = "F4:B8:5E:42:61:62"
+IMU_BEETLE = BEETLE_MAC_ADDR.P1_GLOVE.value
 
 def dump_imu_data_to_csv(imu_queue):
     filename = input("Enter the filename to dump IMU data to: ")

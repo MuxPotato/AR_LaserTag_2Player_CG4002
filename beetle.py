@@ -298,8 +298,9 @@ class Beetle(threading.Thread):
                     self.receiver_seq_num += 1
                 if self.num_invalid_packets_received > 0:
                     self.num_invalid_packets_received = 0
-            # ACK the received packet
-            self.sendAck(seq_num_to_ack)
+            if packet_id != BlePacketType.KEEP_ALIVE.value: # Don't ACK keep alive packets
+                # ACK the received packet
+                self.sendAck(seq_num_to_ack)
             # Indicate that Beetle has transmitted sensor/keep alive packet
             self.has_beetle_transmitted = True
             # Save last sensor/keep alive packet received time to maintain keep alive interval

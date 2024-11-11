@@ -187,7 +187,7 @@ class AnkleSenderThread(SenderThread):
         super().__init__(stop_event, from_ble_IMU_queue, socket, mutex_lock)
         self.my_packet_type: str = "AnklePacket"
         self.my_data_type: str = "Ankle"
-        self.data_threshold: float = 2.5
+        self.data_threshold: float = 2.7
         
 class GloveSenderThread(SenderThread):
     def __init__(self, stop_event: threading.Event, from_ble_IMU_queue: queue.Queue, socket, mutex_lock):

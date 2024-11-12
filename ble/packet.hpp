@@ -8,7 +8,7 @@
 #define INVALID_PACKET_ID -1
 // Duration after last sensor packet transmission when keep alive packet is transmitted
 //   Equal to MAX_RETRANSMITS * BLE_TIMEOUT
-#define KEEP_ALIVE_INTERVAL 1150
+#define KEEP_ALIVE_INTERVAL 1650
 #define LOWER_4BIT_MASK 0x0F
 #define MAX_BUFFER_SIZE 40
 #define MAX_INVALID_PACKETS_RECEIVED 5

@@ -5,7 +5,7 @@ import time
 import traceback
 import anycrc
 from ble_delegate import BlePacketDelegate, NewBlePacketDelegate
-from internal_utils import ACC_LSB_SCALE, BEETLE_KEEP_ALIVE_INTERVAL, BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_COMMAND_CHARACTERISTIC_UUID, GATT_MODEL_NUMBER_CHARACTERISTIC_UUID, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, GYRO_LSB_SCALE, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, TRANSMIT_DELAY, BlePacket, BlePacketType, GunPacket, GunUpdatePacket, HandshakeStatus, ImuPacket, VestPacket, VestUpdatePacket, bcolors, get_player_id_for, metadata_to_packet_type
+from internal_utils import ACC_LSB_SCALE, BEETLE_KEEP_ALIVE_TIMEOUT, BITS_PER_BYTE, BLE_TIMEOUT, BLE_WAIT_TIMEOUT, ERROR_VALUE, GATT_COMMAND_CHARACTERISTIC_UUID, GATT_MODEL_NUMBER_CHARACTERISTIC_UUID, GATT_SERIAL_CHARACTERISTIC_UUID, GATT_SERIAL_SERVICE_UUID, GYRO_LSB_SCALE, INITIAL_SEQ_NUM, MAX_RETRANSMITS, MAX_SEQ_NUM, PACKET_DATA_SIZE, PACKET_FORMAT, PACKET_SIZE, PACKET_TYPE_ID_LENGTH, TRANSMIT_DELAY, BlePacket, BlePacketType, GunPacket, GunUpdatePacket, HandshakeStatus, ImuPacket, VestPacket, VestUpdatePacket, bcolors, get_player_id_for, metadata_to_packet_type
 import external_utils
 from bluepy.btle import BTLEException, Peripheral
 
@@ -154,7 +154,7 @@ class Beetle(threading.Thread):
                                 f"""ERROR: Handshake with {self.beetle_mac_addr} failed, reconnecting""")
                         continue
                 # At this point, handshake is now completed
-                if self.last_receive_time > 0 and (time.time() - self.last_receive_time) >= BEETLE_KEEP_ALIVE_INTERVAL:
+                if self.last_receive_time > 0 and (time.time() - self.last_receive_time) >= BEETLE_KEEP_ALIVE_TIMEOUT:
                     # Keep alive interval has elapsed since last sensor/keep alive packet transmitted by Beetle
                     if not self.is_beetle_alive():
                         # Beetle is not responding
@@ -682,7 +682,7 @@ class Beetle(threading.Thread):
     
     def is_beetle_alive(self):
         return (self.last_receive_time < 0
-                or (time.time() - self.last_receive_time) < BEETLE_KEEP_ALIVE_INTERVAL
+                or (time.time() - self.last_receive_time) < BEETLE_KEEP_ALIVE_TIMEOUT
                 or self.has_beetle_transmitted)
 
     def is_handshake_packet(self, given_packet: bytearray):
@@ -802,7 +802,7 @@ class ImuUnreliableBeetle(Beetle):
                                 f"""ERROR: Handshake with {self.beetle_mac_addr} failed, reconnecting""")
                         continue
                 # At this point, handshake is now complete
-                if self.last_receive_time > 0 and (time.time() - self.last_receive_time) >= BEETLE_KEEP_ALIVE_INTERVAL:
+                if self.last_receive_time > 0 and (time.time() - self.last_receive_time) >= BEETLE_KEEP_ALIVE_TIMEOUT:
                     # Keep alive interval has elapsed since last sensor/keep alive packet transmitted by Beetle
                     if not self.is_beetle_alive():
                         # Beetle is not responding

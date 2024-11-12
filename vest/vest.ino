@@ -19,6 +19,10 @@ uint8_t numInvalidPacketsReceived = 0;
 // Used to maintain (RETRANSMIT_DELAY) ms period of retransmissions
 unsigned long lastRetransmitTime = 0;
 unsigned long lastReadPacketTime = 0;
+// Used to maintain keep alive interval and transmit keep alive packets periodically
+unsigned long lastKeepAliveTime = 0;
+// Used to maintain retransmit interval and retransmit upon timeout
+unsigned long lastRawDataSentTime = 0;
 
 // Vest game state
 bool isHit = false;
@@ -42,7 +46,7 @@ void loop() {
   unsigned long currentTime = millis();
   // Retransmit last sent packet on timeout
   if (isWaitingForAck && (currentTime - lastRetransmitTime) >= RETRANSMIT_DELAY
-      && (currentTime - lastSentPacketTime) >= BLE_TIMEOUT) { 
+      && (currentTime - lastRawDataSentTime) >= BLE_TIMEOUT) { 
     // Maintain at least RETRANSMIT_DELAY millisecs in between consecutive retransmits
     if (numRetries < MAX_RETRANSMITS) {
       // Retransmit only if numRetries less than max limit
@@ -70,16 +74,23 @@ void loop() {
     sendPacket(mRawDataPacket);
     // Update last sent packet to latest sensor data packet
     lastSentPacket = mRawDataPacket;
-    // Update last packet sent time to track timeout
+    // Update last raw data packet sent time to maintain transmit delay
     lastSentPacketTime = millis();
+    // Update last raw data packet sent time to track timeout
+    lastRawDataSentTime = lastSentPacketTime;
     isWaitingForAck = true;
-  } else if (!isWaitingForAck && (currentTime - lastSentPacketTime) >= KEEP_ALIVE_INTERVAL) {
+  } else if (!isWaitingForAck && 
+      (currentTime - lastRawDataSentTime) >= KEEP_ALIVE_INTERVAL &&
+      (currentTime - lastKeepAliveTime) >= KEEP_ALIVE_INTERVAL &&
+      (currentTime - lastSentPacketTime) >= TRANSMIT_DELAY) {
     // Keep alive interval has passed since the last sensor/keep alive packet transmission but no sensor data is available to transmit
     // -> Send keep alive packet periodically when no sensor packet is transmitted so laptop knows Beetle is responding
     BlePacket keepAlivePacket = createKeepAlivePacket(senderSeqNum);
     sendPacket(keepAlivePacket);
-    // Update lastSentPacketTime to support periodic keep alive packet transmission
+    // Update last raw data packet sent time to maintain transmit delay
     lastSentPacketTime = millis();
+    // Update lastSentPacketTime to support periodic keep alive packet transmission
+    lastKeepAliveTime = lastSentPacketTime;
     // Don't require ACK for keep alive packets
   }
   // Always process incoming packets regardless of what sender logic does
@@ -491,9 +502,12 @@ int readIntoRecvBuffer(MyQueue<byte> &mRecvBuffer) {
 void retransmitLastPacket() {
   if (isPacketValid(lastSentPacket)) {
     sendPacket(lastSentPacket);
+    // Update last retransmit time to maintain retransmit delay
     lastRetransmitTime = millis();
+    // Update last sent packet time to maintain transmit delay independently from retransmit delay
+    lastSentPacketTime = lastRetransmitTime;
     // Update sent time and wait for ACK again
-    lastSentPacketTime = millis();
+    lastRawDataSentTime = lastRetransmitTime;
   } else {
     isWaitingForAck = false;
   }

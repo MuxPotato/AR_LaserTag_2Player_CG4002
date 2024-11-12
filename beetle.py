@@ -263,6 +263,12 @@ class Beetle(threading.Thread):
             self.is_waiting_for_ack = False
             self.lastPacketSent = None
             self.num_retransmits = 0
+        elif packet_id == BlePacketType.KEEP_ALIVE.value:
+            # Indicate that Beetle has transmitted keep alive packet
+            self.has_beetle_transmitted = True
+            # Save last sensor/keep alive packet received time to maintain keep alive interval
+            self.last_receive_time = time.time()
+            # Don't ACK keep alive packets or validate seq num
         # TODO: Implement handling of INFO packets for debugging
         elif packet_id != BlePacketType.INFO.value:
             seq_num_to_ack = self.receiver_seq_num
@@ -277,7 +283,7 @@ class Beetle(threading.Thread):
                 self.sendNack(self.receiver_seq_num)
                 self.mPrint(bcolors.BRIGHT_YELLOW, "WARNING: Received out-of-order packet with seq num {} from {}, expected seq num {}"
                         .format(incoming_packet.seq_num, self.beetle_mac_addr, self.receiver_seq_num))
-                # Indicate that Beetle has transmitted sensor/keep alive packet
+                # Indicate that Beetle has transmitted sensor packet
                 self.has_beetle_transmitted = True
                 # Save last sensor/keep alive packet received time to maintain keep alive interval
                 self.last_receive_time = time.time()
@@ -285,9 +291,8 @@ class Beetle(threading.Thread):
                 self.lastPacketSent = self.sendNack(incoming_packet.seq_num) """
                 return
             elif self.receiver_seq_num == incoming_packet.seq_num:
-                if packet_id != BlePacketType.KEEP_ALIVE.value:
-                    # Only process sensor packets, keep alive packets are acknowledged without processing
-                    self.handle_raw_data_packet(incoming_packet)
+                # Only process packets if seq num is valid
+                self.handle_raw_data_packet(incoming_packet)
                 # Increment receiver seq num
                 if self.receiver_seq_num == MAX_SEQ_NUM:
                     # On the Beetle, seq num is 16-bit and overflows. So we 'overflow' by
@@ -298,10 +303,9 @@ class Beetle(threading.Thread):
                     self.receiver_seq_num += 1
                 if self.num_invalid_packets_received > 0:
                     self.num_invalid_packets_received = 0
-            if packet_id != BlePacketType.KEEP_ALIVE.value: # Don't ACK keep alive packets
-                # ACK the received packet
-                self.sendAck(seq_num_to_ack)
-            # Indicate that Beetle has transmitted sensor/keep alive packet
+            # ACK the received packet
+            self.sendAck(seq_num_to_ack)
+            # Indicate that Beetle has transmitted sensor packet
             self.has_beetle_transmitted = True
             # Save last sensor/keep alive packet received time to maintain keep alive interval
             self.last_receive_time = time.time()

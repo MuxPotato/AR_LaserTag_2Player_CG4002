@@ -203,7 +203,7 @@ class Beetle(threading.Thread):
                         if (self.num_invalid_packets_received == MAX_RETRANSMITS):
                             self.num_invalid_packets_received = 0
                             self.mPrint(bcolors.BRIGHT_YELLOW, 
-                                    f"""ERROR: Max retransmits reached for {self.beetle_mac_addr}, resetting""")
+                                    f"""ERROR: Max retransmits reached for {self.beetle_mac_addr}, resetting connection""")
                             self.reconnect()
                             continue
                         self.sendNack(self.receiver_seq_num)
@@ -438,8 +438,6 @@ class Beetle(threading.Thread):
                 if (self.handshake_status == HandshakeStatus.HELLO
                         and (time.time() - m_last_packet_sent_time) >= TRANSMIT_DELAY):
                     m_seq_num = INITIAL_SEQ_NUM
-                    # Reset invalid packet count for every change in handshake stage
-                    m_num_invalid_packets_received = 0
                     m_last_packet_sent = self.send_hello(m_seq_num)
                     m_last_packet_sent_time = time.time()
                     self.handshake_status = HandshakeStatus.ACK
@@ -460,7 +458,7 @@ class Beetle(threading.Thread):
                             if (m_num_invalid_packets_received == MAX_RETRANSMITS):
                                 m_num_invalid_packets_received = 0
                                 self.mPrint(bcolors.BRIGHT_YELLOW, 
-                                        f"""ERROR: Max retransmits reached for {self.beetle_mac_addr}, resetting""")
+                                        f"""ERROR: Max retransmits reached for {self.beetle_mac_addr}, resetting connection""")
                                 time.sleep(BLE_TIMEOUT * (MAX_RETRANSMITS + 1))
                                 self.reconnect()
                                 continue
@@ -497,8 +495,6 @@ class Beetle(threading.Thread):
                                     f"""Received non-handshake packet type {packet_id} from {self.beetle_mac_addr}, restarting handshake""")
                 elif self.handshake_status == HandshakeStatus.SYN:
                     if not m_has_sent_syn and (time.time() - m_last_packet_sent_time) >= TRANSMIT_DELAY:
-                        # Reset invalid packet count before sending new packet
-                        m_num_invalid_packets_received = 0
                         # Send both the sender seq num and the receiver seq num, the latter of which confirms that beetle's sender seq num
                         ##  is parsed successfully if it matches Beetle's internal sender seq num
                         # TODO: Send laptop sender seq num to beetle to synchronise laptop sender seq num too
@@ -526,7 +522,7 @@ class Beetle(threading.Thread):
                                 if (m_num_invalid_packets_received >= MAX_RETRANSMITS):
                                     m_num_invalid_packets_received = 0
                                     self.mPrint(bcolors.BRIGHT_YELLOW, 
-                                            f"""ERROR: Max retransmits reached for {self.beetle_mac_addr}, resetting""")
+                                            f"""ERROR: Max retransmits reached for {self.beetle_mac_addr}, resetting connection""")
                                     time.sleep(BLE_TIMEOUT * (MAX_RETRANSMITS + 1))
                                     self.reconnect()
                                     continue
@@ -544,6 +540,14 @@ class Beetle(threading.Thread):
                                     # Drop invalid non-handshake packet
                                     # TODO: Consider how to handle when invalid packet count exceedsd max tolerable threshold
                                     self.num_invalid_packets_received += 1
+                                    if (self.num_invalid_packets_received >= MAX_RETRANSMITS):
+                                        self.num_invalid_packets_received = 0
+                                        self.mPrint(bcolors.BRIGHT_YELLOW, 
+                                                f"""ERROR: Max retransmits reached for non-handshake packets for {self.beetle_mac_addr}, resetting connection""")
+                                        time.sleep(BLE_TIMEOUT * (MAX_RETRANSMITS + 1))
+                                        self.reconnect()
+                                        continue
+                                    # Don't send NACK since we don't want to receive more non-handshake packets
                                 # Beetle has began transmitting raw data, handshake is complete
                                 return self.do_handshake_completed()
                             # Assertion: At this point, packet must be a valid handshake packet

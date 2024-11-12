@@ -583,6 +583,8 @@ class Beetle(threading.Thread):
         self.mDataBuffer.clear()
         # Reset has_beetle_transmitted to False to clear previous transmission's state
         self.has_beetle_transmitted = False
+        # Update last sensor/keep alive packet received time since Beetle is alive during handshake
+        self.last_receive_time = time.time()
         self.mPrint2(inputString = "Handshake completed with {}".format(self.beetle_mac_addr))
         return self.handshake_status
 

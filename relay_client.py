@@ -205,6 +205,48 @@ class AnkleSenderThread(SenderThread):
         self.my_packet_type: str = "AnklePacket"
         self.my_data_type: str = "Ankle"
         self.data_threshold: float = 2.7
+
+    def send_beetle_data(self, imu_packet):
+        if self.sender_state == ImuRelayState.WAITING_FOR_ACTION:
+            self.imu_packet_window.append(imu_packet)
+            if len(self.imu_packet_window) > self.SLIDING_WINDOW_SIZE:
+                    # Slide the window by removing the earliest received packet
+                    self.imu_packet_window.pop(0)
+            # Incoming IMU data from Beetle has not crossed threshold yet
+            has_exceeded_threshold: bool = self.check_std_dev_for(self.imu_packet_window)
+            if has_exceeded_threshold:
+                print(f"""{bcolors.RED}NOTE: Player {imu_packet.playerID} triggered action, sending IMU data{bcolors.ENDC}""")
+                # Current packet exceeds threshold for action(potential action packet),
+                #   send it to relay server for AI inference
+                self.sender_state = ImuRelayState.SENDING_ACTION
+            # If imu data hasn't crossed threshold, continue waiting for a potential action packet
+        elif self.sender_state == ImuRelayState.SENDING_ACTION:
+            if self.num_action_packets_sent < PACKETS_PER_ACTION:
+                # Incoming IMU data from Beetle crossed threshold, but number of action data packets
+                #   sent is less than PACKETS_PER_ACTION
+                serialized_packet: str = self.serialize(imu_packet)
+                self.send_to_server(serialized_packet)
+                self.num_action_packets_sent += 1
+            if self.num_action_packets_sent >= PACKETS_PER_ACTION:
+                # Target number of actions packets now sent, begin cooldown period
+                self.sender_state = ImuRelayState.COOLDOWN
+                self.num_action_packets_sent = 0
+                # Cooldown period starts now, record the start time
+                self.cooldown_period_start = time.time()
+                # Clear sliding window to reset standard deviation
+                self.imu_packet_window.clear()
+                if IS_DEBUG_PRINTING:
+                    print(f"""{bcolors.RED}DEBUG: Player {imu_packet.playerID} cooldown period start{bcolors.ENDC}""")
+                return
+        elif self.sender_state == ImuRelayState.COOLDOWN:
+            # Currently in cooldown period
+            if (time.time() - self.cooldown_period_start) > COOLDOWN_PERIOD:
+                if IS_DEBUG_PRINTING:
+                    print(f"""{bcolors.RED}DEBUG: Player {imu_packet.playerID} cooldown period end, waiting for threshold{bcolors.ENDC}""")
+                # Cooldown period is now over, return to waiting for action state
+                self.sender_state = ImuRelayState.WAITING_FOR_ACTION
+                return
+            # Still within cooldown period, don't send any data(just drop the given packet)
         
 class GloveSenderThread(SenderThread):
     def __init__(self, stop_event: threading.Event, from_ble_IMU_queue: queue.Queue, socket, mutex_lock):

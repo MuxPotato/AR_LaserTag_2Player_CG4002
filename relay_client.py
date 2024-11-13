@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 import traceback
+import numpy as np
 
 from external_utils import COOLDOWN_PERIOD, PACKETS_PER_ACTION, QUEUE_GET_TIMEOUT, ImuRelayState
 from internal_utils import bcolors
@@ -92,6 +93,10 @@ class SenderThread(threading.Thread):
         # Threshold for accelerometer data before an incoming packet from Beetle is considered
         #   a potential action packet
         self.data_threshold: float = 1.5
+        self.imu_packet_window: list = []
+        self.SLIDING_WINDOW_SIZE: int = 5
+        self.soccer_accel_std_threshold: float = 1.0
+        self.soccer_gyro_std_threshold: float = 165
         self.sender_state: ImuRelayState = ImuRelayState.WAITING_FOR_ACTION
         self.num_action_packets_sent: int = 0
         self.cooldown_period_start: float = 0
@@ -175,6 +180,19 @@ class SenderThread(threading.Thread):
         # Square root the sum of squares
         mean_sq_value = sqrt(mean_sq_value)
         return mean_sq_value
+    
+    def check_std_dev_for(self, imu_packet_window: list):
+        accel_data = np.array([data.accel for data in imu_packet_window])
+        #gyro_data = np.array([data.gyro for data in imu_packet_window])
+
+        # Calculate standard deviation across each axis
+        accel_std = np.std(accel_data, axis=0)
+        #gyro_std = np.std(gyro_data, axis=0)
+
+        # Check if any standard deviation exceeds the threshold
+        """ return bool(np.any(accel_std > self.soccer_accel_std_threshold) 
+                or np.any(gyro_std > self.soccer_gyro_std_threshold)) """
+        return bool(np.any(accel_std > self.soccer_accel_std_threshold))
     
     def serialize(self, imu_packet):
         serialized_imu_data = f"""'{self.my_packet_type}': {imu_packet._asdict()}"""

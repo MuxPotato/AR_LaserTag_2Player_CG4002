@@ -95,8 +95,8 @@ class SenderThread(threading.Thread):
         self.data_threshold: float = 1.5
         self.imu_packet_window: list = []
         self.SLIDING_WINDOW_SIZE: int = 5
-        self.soccer_accel_std_threshold: float = 1.0
-        self.soccer_gyro_std_threshold: float = 165
+        self.accel_sliding_threshold: float = 1.0
+        self.gyro_sliding_threshold: float = 165
         self.sender_state: ImuRelayState = ImuRelayState.WAITING_FOR_ACTION
         self.num_action_packets_sent: int = 0
         self.cooldown_period_start: float = 0
@@ -190,9 +190,9 @@ class SenderThread(threading.Thread):
         #gyro_std = np.std(gyro_data, axis=0)
 
         # Check if any standard deviation exceeds the threshold
-        """ return bool(np.any(accel_std > self.soccer_accel_std_threshold) 
-                or np.any(gyro_std > self.soccer_gyro_std_threshold)) """
-        return bool(np.any(accel_std > self.soccer_accel_std_threshold))
+        """ return bool(np.any(accel_std > self.accel_sliding_threshold) 
+                or np.any(gyro_std > self.gyro_sliding_threshold)) """
+        return bool(np.any(accel_std > self.accel_sliding_threshold))
     
     def serialize(self, imu_packet):
         serialized_imu_data = f"""'{self.my_packet_type}': {imu_packet._asdict()}"""

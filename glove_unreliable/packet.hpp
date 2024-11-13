@@ -6,6 +6,9 @@
 #define BLE_TIMEOUT 165
 #define INITIAL_SEQ_NUM 0
 #define INVALID_PACKET_ID -1
+// Duration after last sensor packet transmission when keep alive packet is transmitted
+//   Equal to MAX_RETRANSMITS * BLE_TIMEOUT
+#define KEEP_ALIVE_INTERVAL 1650
 #define LOWER_4BIT_MASK 0x0F
 #define MAX_INVALID_PACKETS_RECEIVED 5
 #define MAX_RETRANSMITS 10
@@ -47,7 +50,8 @@ enum PacketType {
   IR_TRANS = 5,
   GAME_STAT = 6,
   GAME_ACTION = 7,
-  INFO = 8
+  KEEP_ALIVE = 8,
+  INFO = 9
 };
 
 void createPacket(BlePacket &packet, byte packetType, uint16_t givenSeqNum, byte data[PACKET_DATA_SIZE]);

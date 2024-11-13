@@ -18,12 +18,13 @@ class AIOne(Thread):
     overlay = Overlay(bitstream_path)
     predictor = Predictor(overlay) 
 
-    def __init__(self,P1_IMU_queue,P1_action_queue, P1_fire_queue,P1_ankle_queue):
+    def __init__(self,P1_IMU_queue,P1_action_queue, P1_fire_queue,P1_ankle_queue, viz_queue):
         Thread.__init__(self)
         self.P1_IMU_queue = P1_IMU_queue
         self.P1_fire_queue = P1_fire_queue  
         self.P1_action_queue = P1_action_queue
         self.P1_ankle_queue = P1_ankle_queue 
+        self.viz_queue = viz_queue
         #self.last_activity_time = time.time()
         self.message_ankle_count = 0 
         
@@ -49,6 +50,9 @@ class AIOne(Thread):
                     action = 'gun'
                     combined_action = action + ":1"
                     self.P1_action_queue.put(combined_action)
+
+                    self.viz_queue.put("fovquery:1")
+
                     continue  # Skip to the next loop since gun action takes priority
 
 
@@ -82,6 +86,7 @@ class AIOne(Thread):
                         print_message('AIOne', f"Received '{message_ankle}' from RelayServer")
                         combined_action = action + ":1"
                         self.P1_action_queue.put(combined_action)
+                        self.viz_queue.put("fovquery:1")
                         self.message_ankle_count = 0
 
                     continue  # Skip to the next loop since ankle  takes priority
@@ -129,6 +134,7 @@ class AIOne(Thread):
                     print(f"AIOne: Predicted action is: {action}")
                     combined_action = action + ":1"
                     self.P1_action_queue.put(combined_action)
+                    self.viz_queue.put("fovquery:1")
                 except Exception as e:
                     print(f"AIOne: Error predicting action: {e}")
                 messages_IMU = []

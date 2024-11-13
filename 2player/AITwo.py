@@ -18,12 +18,13 @@ class AITwo(Thread):
     overlay = Overlay(bitstream_path)
     predictor = Predictor(overlay) 
 
-    def __init__(self,P2_IMU_queue,P2_action_queue, P2_fire_queue,P2_ankle_queue):
+    def __init__(self,P2_IMU_queue,P2_action_queue, P2_fire_queue,P2_ankle_queue,viz_queue):
         Thread.__init__(self)
         self.P2_IMU_queue = P2_IMU_queue
         self.P2_fire_queue = P2_fire_queue  
         self.P2_action_queue = P2_action_queue
         self.P2_ankle_queue = P2_ankle_queue 
+        self.viz_queue = viz_queue
         #self.last_activity_time = time.time()
         self.message_ankle_count = 0
         
@@ -49,6 +50,7 @@ class AITwo(Thread):
                     action = 'gun'
                     combined_action = action + ":2"
                     self.P2_action_queue.put(combined_action)
+                    self.viz_queue.put("fovquery:2")
                     continue  # Skip to the next loop since gun action takes priority
 
             except queue.Empty:
@@ -79,6 +81,7 @@ class AITwo(Thread):
                         print_message('AITwo', f"Received '{message_ankle}' from RelayServer")
                         combined_action = action + ":2"
                         self.P2_action_queue.put(combined_action)
+                        self.viz_queue.put("fovquery:2")
                         self.message_ankle_count = 0
 
                     continue  # Skip to the next loop since ankle  takes priority
@@ -123,6 +126,7 @@ class AITwo(Thread):
                     print(f"AITwo: Predicted action is: {action}")
                     combined_action = action + ":2"
                     self.P2_action_queue.put(combined_action)
+                    self.viz_queue.put("fovquery:2")
                 except Exception as e:
                     print(f"AITwo: Error predicting action: {e}")
                 #message_Shoot['isFire'] = False

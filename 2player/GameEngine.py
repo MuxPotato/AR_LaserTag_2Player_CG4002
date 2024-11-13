@@ -6,7 +6,7 @@ import json
 from Color import print_message
 
 class GameEngine(Thread):
-    def __init__(self, P1_action_queue,P2_action_queue,viz_queue, eval_queue, from_eval_queue , phone_response_queue,shot_queue ,to_rs_queue ):
+    def __init__(self, P1_action_queue,P2_action_queue,viz_queue, eval_queue, from_eval_queue , phone1_response_queue, phone2_response_queue,shot_queue ,to_rs_queue ):
         Thread.__init__(self)
         
         self.eval_queue = eval_queue 
@@ -14,7 +14,8 @@ class GameEngine(Thread):
         self.viz_queue = viz_queue 
         self.P1_action_queue = P1_action_queue 
         self.P2_action_queue = P2_action_queue
-        self.phone_response_queue = phone_response_queue
+        self.phone1_response_queue = phone1_response_queue
+        self.phone2_response_queue = phone2_response_queue
         self.shot_queue = shot_queue
         self.to_rs_queue = to_rs_queue # queue for sending back hp and ammo to relay server
 
@@ -32,7 +33,7 @@ class GameEngine(Thread):
         self.deaths_p2 = 0
         self.hp_bullet = 5
         self.hp_bomb = 5
-        self.ACTIONTIMEOUT = 20
+        self.ACTIONTIMEOUT = 5
         self.LOGOUT_FAILSAFE_TURNS = 20
         self.PHONE_RESPONSE_TIMEOUT = 5
         self.game_turns_passed = 0
@@ -387,7 +388,7 @@ class GameEngine(Thread):
                 action_p1 = "logout"
             else:
                 action_p2 = "logout"
-    
+
             print_message('Game Engine', f"Player {player_id} logout")
             
         
@@ -404,6 +405,73 @@ class GameEngine(Thread):
         )
 
         return viz_format
+
+    def get_viz_format(self, action_p1, action_p2):
+        viz_format = (
+                f"p1_hp:{self.hp_p1},p1_bombs:{self.bomb_p1},p1_shieldCharges:{self.shieldCharges_p1},"
+                f"p1_shieldHp:{self.shieldHp_p1},p1_bullets:{self.bullets_p1},p1_deaths:{self.deaths_p1},"
+                f"p2_hp:{self.hp_p2},p2_bombs:{self.bomb_p2},p2_shieldCharges:{self.shieldCharges_p2},"
+                f"p2_shieldHp:{self.shieldHp_p2},p2_bullets:{self.bullets_p2},p2_deaths:{self.deaths_p2},"
+                f"p1_action:{action_p1},p2_action:{action_p2}"
+            )
+
+        return viz_format
+    
+
+    def process_game_engine_logic_for_action_and_put_in_viz_queue(self, action, player_id):
+        success = False
+        if action == "gun":
+            success = self.shoot(player_id)
+            if success:
+                if player_id == 1:
+                    
+                    shot_result = self.check_shot_queue_for_hit(1) # func takes in shooting player's id
+                    if shot_result:
+                        print_message('Game Engine', "Player 1's shot hit Player 2!")
+                        self.take_bullet_damage(2)
+                        self.to_rs_queue.put(self.format_relayclient_packet_isHit(2, 1)) # player 2 got shot
+                    else:
+                        print_message('Game Engine', "Player 1's shot missed Player 2!")
+                else: # player_id = 2
+                    
+                    shot_result = self.check_shot_queue_for_hit(2) # func takes in shooting player's id
+                    if shot_result:
+                        print_message('Game Engine', "Player 2's shot hit Player 1!")
+                        self.take_bullet_damage(1)
+                        self.to_rs_queue.put(self.format_relayclient_packet_isHit(1, 1)) # player 1 got shot
+                    else:
+                        print_message('Game Engine', "Player 2's shot missed Player 1!")
+            print_message('Game Engine', f"Player {player_id} attempted to shoot: {'Success' if success else 'Failed'}")
+
+        elif action == "reload":
+            success = self.reload(player_id)
+            print_message('Game Engine', f"Player {player_id} attempted to reload: {'Success' if success else 'Failed'}")
+
+        elif action == "bomb":
+            success = self.bomb(player_id)
+        elif action == "shield":
+            success = self.charge_shield(player_id)
+
+        elif action in ["basket", "soccer", "bowl", "volley"]:
+            success = True
+
+        viz_format = ""
+        if player_id == 1:
+            if success:
+                viz_format = self.get_viz_format(self.P1_ai_predicted_action, "none")
+            else:
+                viz_format = self.get_viz_format("none", "none")
+            
+        elif player_id == 2:
+            if success:
+                viz_format = self.get_viz_format("none",self.P2_ai_predicted_action)
+            else:
+                viz_format = self.get_viz_format("none", "none")
+        
+        self.viz_queue.put(viz_format)
+
+       
+
 
    
 
@@ -430,6 +498,106 @@ class GameEngine(Thread):
 
         # Timeout expired, no valid shot found
         return False
+
+    def process_fov_response_from_phone(self, response):
+        print_message('Game Engine', f"Processing phone response: {response}")
+
+        # Parse response in the format: "player_id:isPrevActionAnAIAction:isPrevActionHit:PrevAction:isRainBombHit"
+        try:
+            parts = response.split(":")
+            if len(parts) != 5:         
+                raise ValueError("Response does not have the expected number of parts")
+
+            player_id = int(parts[0])
+            is_ai_action = int(parts[1]) # dun care as we are using our own one
+            is_hit = int(parts[2])
+            prev_action = parts[3]  # Keeping this as a string for now
+            is_rain_bomb_hit = int(parts[4])
+
+            prev_action = prev_action.strip()  # Remove leading/trailing whitespace
+            self.P1_ai_predicted_action = self.P1_ai_predicted_action.strip()
+            self.P2_ai_predicted_action = self.P2_ai_predicted_action.strip()  # Do the same for P2_ai_predicted_action
+            
+
+            # Debugging output for verification
+            print_message('Game Engine', f"Received player_id: {player_id}, prev_action: {prev_action}")
+            print_message('Game Engine', f"P1_ai_predicted_action: {self.P1_ai_predicted_action}, P2_ai_predicted_action: {self.P2_ai_predicted_action}")
+
+            # We overwrite whatever phone action gives us with the action predicted from AI
+            if player_id == 1:
+                if prev_action != self.P1_ai_predicted_action:
+                    print_message('Game Engine', f"Mismatch for Player 1: phone prev action: {prev_action} not same as P1_ai_predicted_action: {self.P1_ai_predicted_action}")
+                    prev_action = self.P1_ai_predicted_action
+            elif player_id == 2:
+                if prev_action != self.P2_ai_predicted_action:
+                    print_message('Game Engine', f"Mismatch for Player 2: phone prev action: {prev_action} not same as P2_ai_predicted_action: {self.P2_ai_predicted_action}")
+                    prev_action = self.P2_ai_predicted_action
+            else:
+                print_message('Game Engine', f"Unexpected player_id: {player_id}")
+
+
+            # overcome the is_ai_action bcs we are now doing it on the ultra96 
+            if prev_action in ["basket","bomb","soccer","volley","bowl"]:
+                is_ai_action = 1
+            else: 
+                is_ai_action = 0
+
+            
+
+            # Check if the previous action is not an AI action (e.g., "shoot", "reload", "charge_shield")
+            if prev_action in ["gun", "reload", "charge_shield"]:
+                # Ignore is_ai_action and is_hit for these actions
+                is_ai_action = 0
+                is_hit = 0
+                print_message('Game Engine', f"Non-AI action detected ('{prev_action}'), ignoring is_ai_action and is_hit fields.")
+
+
+
+            # Check if the previous action was an AI action and if it hit the opponent
+            if is_ai_action == 1:
+                if is_hit == 1:
+                    print_message('Game Engine', f"Player {player_id}'s AI action hit the opponent")
+
+                    opponent_id = 2 if player_id == 1 else 1
+                    
+                    # Check if the previous action was a bomb and apply the appropriate damage
+                    if prev_action == "bomb":
+                        if player_id == 1 and self.bomb_p1 > 0:
+                            print_message('Game Engine', f"Player {opponent_id} takes rain bomb damage")
+                            self.take_rain_bomb_damage(opponent_id)
+                        elif player_id == 2 and self.bomb_p2 > 0:
+                            print_message('Game Engine', f"Player {opponent_id} takes rain bomb damage")
+                            self.take_rain_bomb_damage(opponent_id)
+
+                    else:
+                        print_message('Game Engine', f"Player {opponent_id} takes AI damage")
+                        self.take_ai_damage(opponent_id)
+                else:
+                    print_message('Game Engine', f"Player {player_id}'s AI action missed the opponent")
+
+
+            # Check if any rain bomb hit is indicated
+            if is_rain_bomb_hit > 0:
+                print_message('Game Engine', f"Player {player_id}'s rain bomb hit the opponent {is_rain_bomb_hit} time(s)")
+                opponent_id = 2 if player_id == 1 else 1
+
+                # Loop to apply damage based on the number of hits
+                for _ in range(is_rain_bomb_hit):
+                    self.take_rain_bomb_damage(opponent_id)
+
+            # Update game state after processing the response
+            self.log_game_state()
+
+        except ValueError as e:
+            print_message('Game Engine', f"Error: {e}")
+        except Exception as e:
+            print_message('Game Engine', f"Error processing phone response - {e}")
+
+       
+        
+        
+        
+      
 
  
 
@@ -655,29 +823,32 @@ class GameEngine(Thread):
  
 
 
-    def send_to_phone_and_wait_for_phone_response_with_retries(self, viz_queue, phone_response_queue, viz_format, max_retries, player_id):
-        for attempt in range(max_retries):
-            try:
-                print(f"Game Engine: Sending message to phone, attempt {attempt + 1}")
-                viz_queue.put(viz_format)
+    # def send_to_phone_and_wait_for_phone_response_with_retries(self, viz_queue, phone_response_queue, viz_format, max_retries, player_id):
+    #     for attempt in range(max_retries):
+    #         try:
+    #             print(f"Game Engine: Sending message to phone, attempt {attempt + 1}")
+    #             viz_queue.put(viz_format)
 
-                print(f"Game Engine: Waiting for phone reply, attempt {attempt + 1}")
-                phone_response = phone_response_queue.get(timeout=self.PHONE_RESPONSE_TIMEOUT)
-                print("Game Engine: Received response from phone")
-                return phone_response  # Successful response, return it
+    #             print(f"Game Engine: Waiting for phone reply, attempt {attempt + 1}")
+    #             phone_response = phone_response_queue.get(timeout=self.PHONE_RESPONSE_TIMEOUT)
+    #             print("Game Engine: Received response from phone")
+    #             return phone_response  # Successful response, return it
 
-            except queue.Empty:
-                print(f"Game Engine: No response received, attempt {attempt + 1} timed out")
+    #         except queue.Empty:
+    #             print(f"Game Engine: No response received, attempt {attempt + 1} timed out")
 
-        # After max_retries, fallback to the default response
-        print("Game Engine: Max retries reached, using default response")
+    #     # After max_retries, fallback to the default response
+    #     print("Game Engine: Max retries reached, using default response")
 
-        # Format of response is 
-        # string Response = $"{player_id}:{isPrevActionAnAIAction}:{isPrevActionHit}:{prevActionString}:{rainBombHitCount}"
-        # I assume that the probabilty of hitting an AI action i.e. players see each other is a lot higher than not seeing
-        # Also i assume rain bomb is 0
-        default_response = f"{player_id}:1:1:basket:0"
-        return default_response
+    #     # Format of response is 
+    #     # string Response = $"{player_id}:{isPrevActionAnAIAction}:{isPrevActionHit}:{prevActionString}:{rainBombHitCount}"
+    #     # I assume that the probabilty of hitting an AI action i.e. players see each other is a lot higher than not seeing
+    #     # Also i assume rain bomb is 0
+    #     default_response = f"{player_id}:1:1:basket:0"
+    #     return default_response
+
+
+   
 
 
     def run(self):
@@ -688,22 +859,47 @@ class GameEngine(Thread):
 
 
                 #####################################
-                ### Start of Player 1 Action Code ###
+                ### Start of Player 1 Action Code ### 
                 #####################################
-                phone_action1 = self.P1_action_queue.get()
 
+            
+
+
+                phone_action1 = self.P1_action_queue.get()
+                print_message('Game Engine', f"Received action '{phone_action1}' from phone action queue player 1")
                 if (phone_action1 == "logout:1" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
                     print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
                     phone_action1 = "basket:1"
                 
-                print_message('Game Engine', f"Received action '{phone_action1}' from phone action queue player 1")
-                viz_format1 = self.process_phone_action_and_get_viz_format(phone_action1)
-                phone1_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format1,max_retries=2,player_id=1)
+                
                 player1_ai_predicted_action = self.extract_action(phone_action1) 
                 self.P1_ai_predicted_action = player1_ai_predicted_action
-                player1_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone1_response)
                 
-                eval_server_format = self.prepare_eval_server_format(1, player1_prev_action_from_phone)
+                # # TODO: Add a timeout and default value for this, just in case it times out
+                # phone1_fov_response = self.phone1_response_queue.get(self.PHONE_RESPONSE_TIMEOUT)
+
+
+                
+                try:
+                    print_message('Game Engine', "Waiting for phone 1 response queue")
+                    phone1_fov_response = self.phone1_response_queue.get(timeout=self.PHONE_RESPONSE_TIMEOUT)
+                    
+                except queue.Empty:
+                    default_phone1_fov_response = "1:0:1:fovquery:0"
+                    phone1_fov_response = default_phone1_fov_response
+                    print_message('Game Engine', "Player 1 phone response timed out, setting to default fov response.")
+
+
+
+
+                self.process_fov_response_from_phone(phone1_fov_response)
+
+                self.process_game_engine_logic_for_action_and_put_in_viz_queue(self.P1_ai_predicted_action, 1)
+
+                
+
+
+                eval_server_format = self.prepare_eval_server_format(1, self.P1_ai_predicted_action)
                 print("Game Engine: Putting into eval_queue to be sent to eval_server")
                 self.eval_queue.put(eval_server_format)
 
@@ -728,78 +924,103 @@ class GameEngine(Thread):
                 print_message('Game Engine',"Sending info back to relay client")
                 self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))       
                 self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
+
+
+
+
+               
                 
                 #####################################
                 ###  End of Player 1 Action Code  ###
                 #####################################
 
+
+
+
+
+
+                # #####################################
+                # ### Start of Player 2 Action Code ###
+                # #####################################
                 
+                # # Set a timer for Player 2 action
+                # try:
+                #     # Wait for Player 2 action with a timeout of 30 seconds
+                #     phone_action2 = self.P2_action_queue.get(timeout=self.ACTIONTIMEOUT)
+                #     if (phone_action2 == "logout:2" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
+                #         print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
+                #         phone_action2 = "basket:2"
+                #     print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
+                # except queue.Empty:
+                #     # Timeout reached: set Player 2 action to a default value
+                #     phone_action2 = "basket:2"
+                #     self.viz_queue.put("fovquery:2") # So that we get the phone respoinse later
+                #     print_message('Game Engine', "Player 2 action timeout, setting to default action.")
 
 
-                #####################################
-                ### Start of Player 2 Action Code ###
-                #####################################
-                
-                # Set a timer for Player 2 action
-                try:
-                    # Wait for Player 2 action with a timeout of 30 seconds
-                    phone_action2 = self.P2_action_queue.get(timeout=self.ACTIONTIMEOUT)
-                    if (phone_action2 == "logout:2" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
-                        print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
-                        phone_action2 = "basket:2"
-                    print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
-                except queue.Empty:
-                    # Timeout reached: set Player 2 action to a default value
-                    phone_action2 = "basket:2"
-                    print_message('Game Engine', "Player 2 action timeout, setting to default action.")
 
 
-                viz_format2 = self.process_phone_action_and_get_viz_format(phone_action2)
-                phone2_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format2,max_retries=2,player_id=2)
+                # player2_ai_predicted_action = self.extract_action(phone_action2) 
+                # self.P2_ai_predicted_action = player2_ai_predicted_action
 
-                player2_ai_predicted_action = self.extract_action(phone_action2) 
-                self.P2_ai_predicted_action = player2_ai_predicted_action
-                player2_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone2_response)
+                # # # TODO: Add a timeout and default value for this, just in case it times out
+                # # phone2_fov_response = self.phone2_response_queue.get()
 
-           
-                eval_server_format = self.prepare_eval_server_format(2, player2_prev_action_from_phone)
-                print("Game Engine: Putting into eval_queue to be sent to eval_server")
-                self.eval_queue.put(eval_server_format)
+                # try:
+                #     print_message('Game Engine', "Waiting for phone 2 response queue")
+                #     phone2_fov_response = self.phone2_response_queue.get(timeout=self.PHONE_RESPONSE_TIMEOUT)
+                    
+                # except queue.Empty:
+                #     default_phone2_fov_response = "2:0:1:fovquery:0"
+                #     phone2_fov_response = default_phone2_fov_response
+                #     print_message('Game Engine', "Player 2 phone response timed out, setting to default fov response.")
 
 
-                print("Game Engine: Waiting for from_eval_queue")
-                updated_game_state = self.from_eval_queue.get()
-                print("updated game state:")
-                print(updated_game_state)
+                # self.process_fov_response_from_phone(phone2_fov_response)
+
+                # self.process_game_engine_logic_for_action_and_put_in_viz_queue(self.P2_ai_predicted_action, 2)
+
+
+
+
+                # eval_server_format = self.prepare_eval_server_format(2, self.P2_ai_predicted_action)
+                # print("Game Engine: Putting into eval_queue to be sent to eval_server")
+                # self.eval_queue.put(eval_server_format)
+
+
+                # print("Game Engine: Waiting for from_eval_queue")
+                # updated_game_state = self.from_eval_queue.get()
+                # print("updated game state:")
+                # print(updated_game_state)
 
                 # # Check if the eval server's game state differs from the current game state
-                if self.is_curr_game_state_diff_from_updated(updated_game_state):
-
-                    print("Game Engine: curr game state diff from eval game state")
-
-                    print("Game Engine: updating curr game state to eval game state")
-                    self.update_current_game_state(updated_game_state)
+                # if self.is_curr_game_state_diff_from_updated(updated_game_state):
+                #     print("Game Engine: curr game state diff from eval game state")
+                #     print("Game Engine: updating curr game state to eval game state")
+                #     self.update_current_game_state(updated_game_state)
                     
-                    # Put "update_ui" into the phone response queue to update the UI without triggering an action
-                    viz_format = self.process_phone_action_and_get_viz_format("update_ui:1")
-                    self.viz_queue.put(viz_format)
+                #     # Put "update_ui" into the phone response queue to update the UI without triggering an action
+                #     viz_format = self.process_phone_action_and_get_viz_format("update_ui:2")
+                #     self.viz_queue.put(viz_format)
 
 
-                # Sending packets back to vest and gun
-                print_message('Game Engine',"Sending info back to relay client")
-                self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))      
-                self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
-   
+                # # Sending packets back to vest and gun
+                # print_message('Game Engine',"Sending info back to relay client")
+                # self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))       
+                # self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
 
+            
+            
+                #####################################
+                ###  End of Player 2 Action Code  ###
+                #####################################
                 # Clear queue to prevent duplicate
                 self.clear_queue(self.P1_action_queue)
                 self.clear_queue(self.P2_action_queue)
+                self.clear_queue(self.phone1_response_queue)
+                self.clear_queue(self.phone2_response_queue)
 
                 self.game_turns_passed += 1
-            
-            #####################################
-            ###  End of Player 2 Action Code  ###
-            #####################################
 
 
 
@@ -811,29 +1032,40 @@ class GameEngine(Thread):
                 ### Start of Player 2 Action Code ###
                 #####################################
                 phone_action2 = self.P2_action_queue.get()
-
-
+                print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
                 if (phone_action2 == "logout:2" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
                     print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
                     phone_action2 = "basket:2"
-                
-                print_message('Game Engine', f"Received action '{phone_action2}' from phone action queue player 2")
-                viz_format2 = self.process_phone_action_and_get_viz_format(phone_action2)
-                
-                phone2_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format2,max_retries=2,player_id=2)
-    
 
 
+                
                 player2_ai_predicted_action = self.extract_action(phone_action2) 
                 self.P2_ai_predicted_action = player2_ai_predicted_action
-                player2_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone2_response)
 
-               
+                # # TODO: Add a timeout and default value for this, just in case it times out
+                # phone2_fov_response = self.phone2_response_queue.get()
 
-                ## End of Player 2 Action Code ##
+                try:
+                    print_message('Game Engine', "Waiting for phone 2 response queue")
+                    phone2_fov_response = self.phone2_response_queue.get(timeout=self.PHONE_RESPONSE_TIMEOUT)
+                    
+                except queue.Empty:
+                    default_phone2_fov_response = "2:0:1:fovquery:0"
+                    phone2_fov_response = default_phone2_fov_response
+                    print_message('Game Engine', "Player 2 phone response timed out, setting to default fov response.")
 
-              
-                eval_server_format = self.prepare_eval_server_format(2, player2_prev_action_from_phone)
+
+
+
+
+                self.process_fov_response_from_phone(phone2_fov_response)
+
+                self.process_game_engine_logic_for_action_and_put_in_viz_queue(self.P2_ai_predicted_action, 2)
+
+
+
+
+                eval_server_format = self.prepare_eval_server_format(2, self.P2_ai_predicted_action)
                 print("Game Engine: Putting into eval_queue to be sent to eval_server")
                 self.eval_queue.put(eval_server_format)
 
@@ -843,24 +1075,21 @@ class GameEngine(Thread):
                 print("updated game state:")
                 print(updated_game_state)
 
-                # # Check if the eval server's game state differs from the current game state
+                # Check if the eval server's game state differs from the current game state
                 if self.is_curr_game_state_diff_from_updated(updated_game_state):
-
                     print("Game Engine: curr game state diff from eval game state")
-
                     print("Game Engine: updating curr game state to eval game state")
                     self.update_current_game_state(updated_game_state)
                     
                     # Put "update_ui" into the phone response queue to update the UI without triggering an action
-                    viz_format = self.process_phone_action_and_get_viz_format("update_ui:1")
+                    viz_format = self.process_phone_action_and_get_viz_format("update_ui:2")
                     self.viz_queue.put(viz_format)
 
 
                 # Sending packets back to vest and gun
-                self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))
                 print_message('Game Engine',"Sending info back to relay client")
+                self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))       
                 self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
-                print_message('Game Engine',"Sending info back to relay client")
 
                 #####################################
                 ###  End of Player 2 Action Code  ###
@@ -874,38 +1103,52 @@ class GameEngine(Thread):
                 #####################################
                 ### Start of Player 1 Action Code ###
                 #####################################
+                # Set a timer for Player 1 action
                 try:
                     # Wait for Player 1 action with a timeout of 30 seconds
                     phone_action1 = self.P1_action_queue.get(timeout=self.ACTIONTIMEOUT)
-
-
                     if (phone_action1 == "logout:1" and self.game_turns_passed <= self.LOGOUT_FAILSAFE_TURNS):
                         print_message('Game Engine', 'Logout detected before turn 21, reverting to default action')
                         phone_action1 = "basket:1"
-
                     print_message('Game Engine', f"Received action '{phone_action1}' from phone action queue player 1")
                 except queue.Empty:
                     # Timeout reached: set Player 1 action to a default value
                     phone_action1 = "basket:1"
+                    self.viz_queue.put("fovquery:1") # So that we get the phone respoinse later
                     print_message('Game Engine', "Player 1 action timeout, setting to default action.")
                 
-                print_message('Game Engine', f"Received action '{phone_action1}' from phone action queue player 1")
-                viz_format1 = self.process_phone_action_and_get_viz_format(phone_action1)
+            
                 
 
-                phone1_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format1,max_retries=2,player_id=1)
-              
-
+                
 
 
                 player1_ai_predicted_action = self.extract_action(phone_action1) 
                 self.P1_ai_predicted_action = player1_ai_predicted_action
-                player1_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone1_response)
+
+                # # TODO: Add a timeout and default value for this, just in case it times out
+                # phone1_fov_response = self.phone1_response_queue.get()
+
+                try:
+                    print_message('Game Engine', "Waiting for phone 1 response queue")
+                    phone1_fov_response = self.phone1_response_queue.get(timeout=self.PHONE_RESPONSE_TIMEOUT)
+                    
+                except queue.Empty:
+                    default_phone1_fov_response = "1:0:1:fovquery:0"
+                    phone1_fov_response = default_phone1_fov_response
+                    print_message('Game Engine', "Player 1 phone response timed out, setting to default fov response.")
 
 
 
-             
-                eval_server_format = self.prepare_eval_server_format(1, player1_prev_action_from_phone)
+                
+                self.process_fov_response_from_phone(phone1_fov_response)
+
+                self.process_game_engine_logic_for_action_and_put_in_viz_queue(self.P1_ai_predicted_action, 1)
+
+
+
+
+                eval_server_format = self.prepare_eval_server_format(1, self.P1_ai_predicted_action)
                 print("Game Engine: Putting into eval_queue to be sent to eval_server")
                 self.eval_queue.put(eval_server_format)
 
@@ -915,11 +1158,9 @@ class GameEngine(Thread):
                 print("updated game state:")
                 print(updated_game_state)
 
-                # # Check if the eval server's game state differs from the current game state
+                # Check if the eval server's game state differs from the current game state
                 if self.is_curr_game_state_diff_from_updated(updated_game_state):
-
                     print("Game Engine: curr game state diff from eval game state")
-
                     print("Game Engine: updating curr game state to eval game state")
                     self.update_current_game_state(updated_game_state)
                     
@@ -929,10 +1170,9 @@ class GameEngine(Thread):
 
 
                 # Sending packets back to vest and gun
-                self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))
                 print_message('Game Engine',"Sending info back to relay client")
+                self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(1))       
                 self.to_rs_queue.put(self.format_relayclient_packet_hp_bullets(2))
-                print_message('Game Engine',"Sending info back to relay client")
 
 
                 #####################################
@@ -943,6 +1183,8 @@ class GameEngine(Thread):
                 # Clear queue to prevent duplicate
                 self.clear_queue(self.P1_action_queue)
                 self.clear_queue(self.P2_action_queue)
+                self.clear_queue(self.phone1_response_queue)
+                self.clear_queue(self.phone2_response_queue)
 
                 self.game_turns_passed += 1
 

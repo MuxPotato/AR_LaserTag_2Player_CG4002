@@ -673,6 +673,11 @@ class GameEngine(Thread):
                 phone1_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format1,max_retries=2,player_id=1)
                 
                 
+                player1_ai_predicted_action = self.extract_action(phone_action1) 
+                self.P1_ai_predicted_action = player1_ai_predicted_action
+                player1_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone1_response)
+
+
                 
                 viz_format = self.process_phone_action_and_get_viz_format("update_ui:1")
                 self.viz_queue.put(viz_format)
@@ -706,7 +711,9 @@ class GameEngine(Thread):
                 
                 phone2_response = self.send_to_phone_and_wait_for_phone_response_with_retries(self.viz_queue,self.phone_response_queue,viz_format2,max_retries=2,player_id=2)
     
-
+                player2_ai_predicted_action = self.extract_action(phone_action2) 
+                self.P2_ai_predicted_action = player2_ai_predicted_action
+                player2_prev_action_from_phone = self.process_phone_response_and_return_prev_action(phone2_response)
                
 
                 ## End of Player 2 Action Code ##

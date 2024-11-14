@@ -95,7 +95,7 @@ class SenderThread(threading.Thread):
         self.data_threshold: float = 1.5
         self.imu_packet_window: list = []
         self.SLIDING_WINDOW_SIZE: int = 5
-        self.accel_sliding_threshold: float = 1.0
+        self.accel_sliding_threshold: float = 1.1
         self.gyro_sliding_threshold: float = 165
         self.sender_state: ImuRelayState = ImuRelayState.WAITING_FOR_ACTION
         self.num_action_packets_sent: int = 0

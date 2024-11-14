@@ -11,7 +11,7 @@ from internal_utils import BEETLE_MAC_ADDR, bcolors
 GUN_BEETLE = BEETLE_MAC_ADDR.P2_GUN.value
 
 def dump_gun_data_to_csv(gun_queue):
-    filename = input("Enter the filename to dump IMU data to: ")
+    filename = input("Enter the filename to dump gun data to: ")
     target_file_path = f"""gun_data/{filename}.csv"""
     os.makedirs(os.path.dirname(target_file_path), exist_ok=True)
     with open(target_file_path, 'w') as output_csv:

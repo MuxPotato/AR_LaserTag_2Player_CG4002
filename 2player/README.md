@@ -3,10 +3,13 @@
 Receives data from gun, vest, ankle, and glove beetles through RelayClient. Sends the data to both AI threads through respective P1 and P2 IMU queues. Also sends whether the player is shot to the game engine thread. Sends hp and bullets back to RelayClient to update beetles.
 
 ## AIOne.py
-Predicts action for player 1 and sends `action:player_id` through `P1_action_queue` to the game engine. Sends field of view query to MQTT client through `viz_queue`.
+Sends IMU data for prediction for player 1 and sends `action:player_id` through `P1_action_queue` to the game engine once received. Sends field of view query to MQTT client through `viz_queue`.
 
 ## AITwo.py
-Predicts action for player 2 and sends `action:player_id` through `P2_action_queue` to the game engine. Sends field of view query to MQTT client through `viz_queue`.
+Sends IMU data for prediction for player 2 and sends `action:player_id` through `P2_action_queue` to the game engine once received. Sends field of view query to MQTT client through `viz_queue`.
+
+## AIPredictor.py 
+Predicts the action based on the IMU data 
 
 ## GameEngine.py
 Receives action from AI. Receives field of view from phone through MQTT. Calculates game state. Sends it to the eval client through the `eval_queue`. Receives updated game state. Updates phones through MQTT and beetles through RelayServer thread.

@@ -17,6 +17,8 @@ Gets data from `viz_queue` and publishes it in the `gamestate` topic. Receives r
 ## EvalClient.py
 Sends the eval server the encrypted JSON game state. Receives the correct game state from the eval server and sends it to the game engine through `from_eval_queue`.
 
+## Color.py 
+Makes the printed output of each thread a different color for easy distinguishing 
 # Setup
 
 1. **Run the eval server first**:

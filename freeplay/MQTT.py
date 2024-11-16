@@ -9,10 +9,11 @@ import time
 
 class MQTT(Thread):
 
-    def __init__(self,viz_queue, phone_response_queue):
+    def __init__(self,viz_queue, phone1_response_queue,phone2_response_queue):
         Thread.__init__(self)
         self.viz_queue = viz_queue  
-        self.phone_response_queue = phone_response_queue
+        self.phone1_response_queue = phone1_response_queue
+        self.phone2_response_queue = phone2_response_queue
         self.gamestate_topic = "tovisualizer/gamestate"  # Topic for sending updates to Unity about gamestate 
         self.viz_response = "fromvisualizer/response" # topic to get response 
 
@@ -27,7 +28,7 @@ class MQTT(Thread):
 
         # Connect to the HiveMQ broker running on the Ultra96
         self.client.connect("localhost", 1883, 60)  # Adjust IP if HiveMQ is running elsewhere
-        
+        #self.client.connect("192.168.1.6", 1883, 60)  # Adjust IP if HiveMQ is running elsewhere
         # Start the MQTT client loop
         self.client.loop_start()
 
@@ -65,14 +66,30 @@ class MQTT(Thread):
 
 
 
-    
-    # Function to process commands from Unity
-    def process_command(self,command):   
-        print_message('MQTT',"Received phone response")
-        print_message('MQTT', f"Putting response '{command}' into phone_response_queue")
-        self.phone_response_queue.put(command)  # Put the command into the phone_response_queue for the Game Engine to process
+    # OLD
+    # # Function to process commands from Unity
+    # def process_command(self,command):   
+    #     print_message('MQTT',"Received phone response")
+    #     print_message('MQTT', f"Putting response '{command}' into phone_response_queue")
+    #     self.phone_response_queue.put(command)  # Put the command into the phone_response_queue for the Game Engine to process
 
 
+    def process_command(self, command):
+        print_message('MQTT', "Received phone response")
+        print_message('MQTT', f"Putting response '{command}' into the appropriate response queue")
+
+        # Extract the player_id from the command (assuming it's always the first element before the first colon)
+        player_id = command.split(':')[0]
+
+        # Place the command in the appropriate queue based on player_id
+        if player_id == '1':
+            self.phone1_response_queue.put(command)
+            print_message('MQTT', f"Response '{command}' added to phone1_response_queue")
+        elif player_id == '2':
+            self.phone2_response_queue.put(command)
+            print_message('MQTT', f"Response '{command}' added to phone2_response_queue")
+        else:
+            print_message('MQTT', f"Invalid player_id '{player_id}' in response '{command}'")
 
 
     def parse_message(self,message):

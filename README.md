@@ -35,7 +35,15 @@
 - NOTE: Update the `IS_DEBUG_PRINTING` constant depending on whether you want to see additional information on the communication with the relay server code
     - `IS_DEBUG_PRINTING = True` causes relay_client to print every message sent/received from the server, including packets that were forwarded from internal communications to the relay server
 
+## `internal_tests`:
+- Component test code for testing Bluetooth(any Beetle), gun Beetle, or vest Beetle
+
 # Quick start
 - Run `python3 external_main.py` without any arguments to start all the necessary threads and run the comms protocols
 - To end transmission and quit, press `CTRL+C` and wait for all threads to terminate
 
+# List of libraries required
+- `anycrc`
+- `bluepy`
+- `pandas`: For `internal_tests/imu_data_visualiser.py`
+- `NumPy`: For `internal_tests/imu_data_visualiser.py`
